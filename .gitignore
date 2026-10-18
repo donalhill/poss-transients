@@ -1,0 +1,27 @@
+# third-party repositories (links to local clones)
+VASCO-ML
+VASCO-challenge
+# STScI DSS material may not be redistributed: headers, cutouts and scan strips are re-downloaded on demand
+data/dss_headers
+data/cutouts
+data/plate_edges
+data/labels
+data/headers
+data/xe_headers_extra.csv
+data/xe_scan_centres.csv
+# plate scans and catalogue extracts (large; kept out of iCloud in scans.nosync, deleted after processing)
+data/scans
+data/scans.nosync/
+# regenerated intermediates
+data/*.parquet
+data/*.npz
+data/*.npy
+__pycache__/
+.venv/
+.DS_Store
+report/*.aux
+report/*.log
+logs/
+site/notes.json
+site/notes.md
+*.tmpcopy
