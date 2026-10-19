@@ -611,10 +611,7 @@ function drawCrowd(D) {
     .call(sel => hov(sel, d => `${Math.max(0, d.b - half)}° to ${d.b + half}° from the Milky Way: ${d.n} plates<br>Median ${Math.round(d.q50)} transients; middle half ${Math.round(d.q25)} to ${Math.round(d.q75)}`));
 }
 
-
-
-
-/* ---------- nuclear: VASCO's random-night test, before and after allowing for where the telescope pointed ---------- */
+/* ---------- nuclear: VASCO's random-night test, the nights near tests against random sets of nights ---------- */
 function drawPerm(D, id, key, lab) {
   const q = D.perm[key], s = svg(id), W = 760, H = 250, m = { l: 52, r: 16, t: 34, b: 44 }, bw = 0.05;
   const x = d3.scaleLinear().domain([0, 3]).range([m.l, W - m.r]);
@@ -637,133 +634,10 @@ function drawPerm(D, id, key, lab) {
   s.append("text").attr("transform", `translate(12,${(top + bot) / 2}) rotate(-90)`).attr("text-anchor", "middle").text("Share of random sets");
 }
 
-/* ---------- nuclear: each observing run on its own, plates near tests against the run's other plates, each against its
-   expected count from its properties, with a range from the scatter between plates; and the runs pooled ---------- */
-function drawNucRuns(D, id) {
-  const N = D.nuc, s = svg(id); if (!N) return;
-  const rows = N.runs, W = 760, rowH = 34, m = { l: 190, r: 170, t: 30, b: 50 };
-  const H = m.t + (rows.length + 1.6) * rowH + m.b; s.attr("viewBox", `0 0 ${W} ${H}`);
-  const x = d3.scaleLog().domain([0.1, 10]).range([m.l, W - m.r]).clamp(true), y = i => m.t + (i + 0.5) * rowH, yC = m.t + (rows.length + 1.0) * rowH;
-  s.append("g").attr("transform", `translate(0,${H - m.b})`).call(d3.axisBottom(x).tickValues([0.25, 0.5, 1, 2, 4, 8]).tickFormat(d => d + "×").tickSizeOuter(0)).call(axisStyle);
-  s.append("text").attr("x", (m.l + W - m.r) / 2).attr("y", H - 12).attr("text-anchor", "middle").text("Plates near tests against the other plates of the same run");
-  s.append("line").attr("x1", x(1)).attr("x2", x(1)).attr("y1", m.t - 8).attr("y2", H - m.b).attr("stroke", V("--ink")).attr("stroke-width", 1.2);
-  s.append("text").attr("class", "ann").attr("x", x(1)).attr("y", m.t - 14).attr("text-anchor", "middle").style("fill", V("--ink-2")).text("No difference");
-  const pd_ = d3.timeParse("%Y-%m-%d"), fd = d => d3.timeFormat("%-d %b")(pd_(d)), fy = d => d3.timeFormat("%Y")(pd_(d));
-  rows.forEach((r, i) => {
-    s.append("text").attr("x", m.l - 12).attr("y", y(i) + 4).attr("text-anchor", "end").style("fill", V("--ink-2"))
-      .text(`${fd(r.from)} to ${fd(r.to)} ${fy(r.to)}`);
-    s.append("line").attr("x1", x(r.lo)).attr("x2", x(r.hi)).attr("y1", y(i)).attr("y2", y(i)).attr("stroke", V("--ink-3")).attr("stroke-width", 1.8);
-    s.append("circle").attr("class", "hov").attr("cx", x(r.contrast)).attr("cy", y(i)).attr("r", 5).attr("fill", V("--emulsion"))
-      .call(sel => hov(sel, () => `<b>Run of ${fd(r.from)} to ${fd(r.to)} ${fy(r.to)}</b><br>${r.near} plates near tests, ${fmt(r.n_near)} transients, ${r.near_ratio.toFixed(2)}× expected<br>` +
-        `${r.others} other plates, ${fmt(r.n_others)} transients, ${r.others_ratio.toFixed(2)}× expected<br>ratio ${r.contrast.toFixed(2)} (${r.lo.toFixed(2)} to ${r.hi.toFixed(2)})`));
-    s.append("text").attr("class", "ann").attr("x", W - m.r + 14).attr("y", y(i) + 4).style("fill", V("--ink-3")).style("font-size", "11px")
-      .text(`${r.near} plate${r.near > 1 ? "s" : ""} near tests, ${r.others} other${r.others > 1 ? "s" : ""}`);
-  });
-  s.append("line").attr("x1", 10).attr("x2", W - 10).attr("y1", yC - rowH * 0.7).attr("y2", yC - rowH * 0.7).attr("stroke", V("--rule"));
-  s.append("text").attr("x", m.l - 12).attr("y", yC + 4).attr("text-anchor", "end").style("font-weight", 600).style("fill", V("--emulsion")).text("All runs together");
-  s.append("circle").attr("cx", x(N.r)).attr("cy", yC).attr("r", 6).attr("fill", V("--emulsion"));
-  s.append("text").attr("class", "ann").attr("x", W - m.r + 14).attr("y", yC + 4).style("fill", V("--emulsion")).style("font-weight", 600).text(`${N.r.toFixed(2)}×`);
-}
-
-/* ---------- nuclear: the two plates near tests that carry most of the excess, each beside a typical plate of its own
-   run; every catalogue transient at its place on the plate ---------- */
-function drawNucPlates(D, id) {
-  const Q = D.nuc_plates, s = svg(id); if (!Q) return;
-  const W = 760, cols = 4, colW = W / cols, S = 168, top = 4, half = 3.2, H = top + S + 58;
-  s.attr("viewBox", `0 0 ${W} ${H}`);
-  const px = v => (half - v) / (2 * half) * S, py = v => (half - v) / (2 * half) * S;
-  const pd_ = d3.timeParse("%Y-%m-%d"), fd = d => d3.timeFormat("%-d %b %Y")(pd_(d));
-  Q.forEach((p, k) => {
-    const x0 = k * colW + (colW - S) / 2, c = p.near ? V("--emulsion") : V("--ours");
-    const g = s.append("g").attr("transform", `translate(${x0},${top})`);
-    g.append("clipPath").attr("id", `nuc-plate-clip-${k}`).append("rect").attr("width", S).attr("height", S);
-    g.append("rect").attr("width", S).attr("height", S).attr("fill", V("--paper"));
-    g.append("g").attr("clip-path", `url(#nuc-plate-clip-${k})`).selectAll("circle").data(p.xi.map((v, i) => [px(v), py(p.eta[i])])).join("circle")
-      .attr("cx", d => d[0]).attr("cy", d => d[1]).attr("r", 1.1).attr("fill", c).attr("fill-opacity", 0.85);
-    g.append("rect").attr("width", S).attr("height", S).attr("fill", "none").attr("stroke", V("--ink-3"));
-    g.append("text").attr("x", S / 2).attr("y", S + 18).attr("text-anchor", "middle").style("font-weight", 600).style("font-size", "13px").style("fill", c)
-      .text(`${p.plate}, ${fd(p.date)}`);
-    g.append("text").attr("class", "ann").attr("x", S / 2).attr("y", S + 35).attr("text-anchor", "middle").style("fill", V("--ink-2")).style("font-size", "12px")
-      .text(`${fmt(p.n)} transients, ${fmt(Math.round(p.expected))} expected`);
-    g.append("text").attr("class", "ann").attr("x", S / 2).attr("y", S + 51).attr("text-anchor", "middle").style("fill", V("--ink-3")).style("font-size", "12px")
-      .text(p.near ? "within a day of a test" : "same run, typical plate");
-  });
-}
-
-/* ---------- nuclear: the ratio with VASCO's window given to random nights of the same observing runs, against the data ---------- */
-function drawNucNull(D, id) {
-  const N = D.nuc, s = svg(id); if (!N) return;
-  const R = N.null, W = 760, H = 300, m = { l: 20, r: 20, t: 40, b: 46 }, bw = 3 / R.hist.length, n = d3.sum(R.hist);
-  const bins = R.hist.map((c, i) => ({ x0: i * bw, x1: (i + 1) * bw, p: c / n }));
-  const x = d3.scaleLinear().domain([0.2, 2.6]).range([m.l, W - m.r]);
-  const y = d3.scaleLinear().domain([0, d3.max(bins, d => d.p) * 1.1]).range([H - m.b, m.t]);
-  s.append("g").attr("transform", `translate(0,${H - m.b})`).call(d3.axisBottom(x).ticks(12).tickFormat(d => d + "×").tickSizeOuter(0)).call(axisStyle);
-  s.append("text").attr("x", (m.l + W - m.r) / 2).attr("y", H - 8).attr("text-anchor", "middle").text("Ratio, plates in the window against the other plates of their runs");
-  s.append("g").selectAll("rect").data(bins.filter(d => d.x0 >= 0.2 && d.x1 <= 2.6)).join("rect")
-    .attr("x", d => x(d.x0) + 0.5).attr("width", d => Math.max(0, x(d.x1) - x(d.x0) - 1)).attr("y", d => y(d.p)).attr("height", d => y(0) - y(d.p)).attr("rx", 1.5)
-    .attr("fill", V("--ink-3")).attr("fill-opacity", 0.55);
-  const halo = sel => sel.attr("class", "ann").style("paint-order", "stroke").style("stroke", V("--surface")).style("stroke-width", "4px");
-  s.append("line").attr("x1", x(R.r)).attr("x2", x(R.r)).attr("y1", m.t - 6).attr("y2", H - m.b).attr("stroke", V("--emulsion")).attr("stroke-width", 2.4);
-  s.append("text").attr("x", x(R.r) + 8).attr("y", m.t + 4).call(halo).style("fill", V("--emulsion")).text(`VASCO’s window: ${R.r.toFixed(2)}×`);
-  s.append("text").attr("x", x(R.r) + 8).attr("y", m.t + 20).call(halo).style("fill", V("--emulsion"))
-    .text(`Random nights reach it 1 time in ${Math.round(1 / R.p)}`);
-}
-
-/* ---------- nuclear: every window of days around the tests, each cell one window [first day, last day], coloured by how
-   rarely random calendars match it; VASCO's window outlined ---------- */
-function drawNucMap(D, id) {
-  const N = D.nuc, s = svg(id); if (!N) return;
-  const G = N.grid, W = 760, H = 470, m = { l: 70, r: 120, t: 16, b: 56 }, n = 29;
-  const c = Math.min((W - m.l - m.r) / n, (H - m.t - m.b) / n);
-  const x = a => m.l + (a + 14) * c, y = b => m.t + (14 - b) * c;
-  const col = d3.scaleSequential(d3.interpolateYlOrRd).domain([0, 3]).clamp(true);
-  s.append("g").selectAll("rect").data(G).join("rect").attr("class", "hov").attr("x", d => x(d.a)).attr("y", d => y(d.b)).attr("width", c - 0.6).attr("height", c - 0.6)
-    .attr("fill", d => col(Math.max(d.z, 0)))
-    .call(sel => hov(sel, d => `Days ${d.a} to ${d.b} from a test<br>ratio ${d.r.toFixed(2)}×<br>random calendars match it ${Math.round(d.p * 1000) / 10}% of the time`));
-  const v = G.find(d => d.a === -1 && d.b === 1);
-  if (v) s.append("rect").attr("x", x(-1) - 1.5).attr("y", y(1) - 1.5).attr("width", c + 2.4).attr("height", c + 2.4).attr("fill", "none").attr("stroke", V("--ours")).attr("stroke-width", 2.5);
-  const ax = d3.scaleLinear().domain([-14.5, 14.5]).range([m.l, m.l + n * c]), ay = d3.scaleLinear().domain([14.5, -14.5]).range([m.t, m.t + n * c]);
-  s.append("g").attr("transform", `translate(0,${m.t + n * c + 4})`).call(d3.axisBottom(ax).tickValues([-14, -7, 0, 7, 14]).tickSize(3)).call(axisStyle);
-  s.append("g").attr("transform", `translate(${m.l - 4},0)`).call(d3.axisLeft(ay).tickValues([-14, -7, 0, 7, 14]).tickSize(3)).call(axisStyle);
-  s.append("text").attr("x", m.l + n * c / 2).attr("y", H - 10).attr("text-anchor", "middle").text("First day of the window (days from the test)");
-  s.append("text").attr("transform", `translate(16,${m.t + n * c / 2}) rotate(-90)`).attr("text-anchor", "middle").text("Last day of the window");
-  s.append("text").attr("class", "ann").attr("x", x(-1) + c + 8).attr("y", y(1) + c / 2 + 4).style("fill", V("--ours")).style("font-weight", 600).text("VASCO’s window");
-  const bx = m.l + n * c + 40, bh = n * c * 0.6, ly = d3.scaleLinear().domain([0, 3]).range([m.t + bh, m.t]), gid = `${id}-grad`;
-  s.append("defs").append("linearGradient").attr("id", gid).attr("x1", 0).attr("x2", 0).attr("y1", 1).attr("y2", 0)
-    .selectAll("stop").data(d3.range(0, 1.001, 0.1)).join("stop").attr("offset", t => t).attr("stop-color", t => col(t * 3));
-  s.append("rect").attr("x", bx).attr("y", m.t).attr("width", 12).attr("height", bh).attr("fill", `url(#${gid})`);
-  s.append("g").attr("transform", `translate(${bx + 12},0)`).call(d3.axisRight(ly).tickValues([0, 1, 2, 3]).tickFormat(d => `${d}σ`).tickSize(3)).call(axisStyle);
-  s.append("text").attr("x", bx - 4).attr("y", m.t + bh + 22).style("fill", V("--ink-2")).style("font-size", "12px").text("Local significance");
-}
-
-/* ---------- nuclear: the fitted ratio under each measure; VASCO's catalogue, our scans of the same plates, and track
-   candidates ---------- */
-function drawNucMeasures(D, id) {
-  const N = D.nuc, s = svg(id); if (!N) return;
-  const rows = N.measures, W = 760, rowH = 28, m = { l: 260, r: 70, t: 30, b: 48 }, gap = 16;
-  const groups = { catalogue: "VASCO’s transients", choices: "Other choices, in the analysis fixed in advance", which: "Which transients", scans: "Our scans, same plates", tracks: "Straight track candidates" };
-  let yy = m.t; const pos = [];
-  rows.forEach((r, i) => { if (i === 0 || rows[i - 1].group !== r.group) { yy += i ? gap : 0; pos.push({ head: groups[r.group], y: yy }); yy += 20; } pos.push({ row: r, y: yy }); yy += rowH; });
-  const H = yy + m.b; s.attr("viewBox", `0 0 ${W} ${H}`);
-  const x = d3.scaleLog().domain([0.2, 3]).range([m.l, W - m.r]).clamp(true);
-  s.append("g").attr("transform", `translate(0,${H - m.b + 8})`).call(d3.axisBottom(x).tickValues([0.25, 0.5, 1, 1.5, 2, 3]).tickFormat(d => d + "×").tickSizeOuter(0)).call(axisStyle);
-  s.append("text").attr("x", (m.l + W - m.r) / 2).attr("y", H - 6).attr("text-anchor", "middle").text("Plates near tests against the rest of their observing runs");
-  s.append("line").attr("x1", x(1)).attr("x2", x(1)).attr("y1", m.t - 8).attr("y2", H - m.b + 8).attr("stroke", V("--ink")).attr("stroke-width", 1.2);
-  s.append("text").attr("class", "ann").attr("x", x(1)).attr("y", m.t - 14).attr("text-anchor", "middle").style("fill", V("--ink-2")).text("No difference");
-  pos.forEach(p_ => {
-    if (p_.head) { s.append("text").attr("x", 10).attr("y", p_.y + 6).style("font-weight", 600).text(p_.head); return; }
-    const r = p_.row, c = r.group === "catalogue" || r.group === "choices" ? V("--emulsion") : V("--ours");
-    s.append("text").attr("x", m.l - 12).attr("y", p_.y + 4).attr("text-anchor", "end").style("fill", V("--ink-2")).text(r.label);
-    if (r.lo != null) s.append("line").attr("x1", x(r.lo)).attr("x2", x(r.hi)).attr("y1", p_.y).attr("y2", p_.y).attr("stroke", c).attr("stroke-width", 1.8).attr("stroke-opacity", 0.7);
-    s.append("circle").attr("cx", x(r.r)).attr("cy", p_.y).attr("r", 5).attr("fill", c);
-    s.append("text").attr("class", "ann").attr("x", W - m.r + 10).attr("y", p_.y + 4).style("fill", c).text(`${r.r.toFixed(2)}×`);
-  });
-}
-
 let DATA = null;
 function render() {
   if (!DATA) return;
-  drawSky(DATA, "c-sky0", false); drawSpread(DATA); drawSky(DATA, "c-sky", true); drawChance(DATA); drawPerm(DATA, "c-perm-any", "raw", "VASCO’s test"); drawNucRuns(DATA, "c-nuc-runs"); drawNucPlates(DATA, "c-nuc-plates"); drawNucNull(DATA, "c-nuc-null"); drawNucMap(DATA, "c-nuc-map"); drawNucMeasures(DATA, "c-nuc-measures");
+  drawSky(DATA, "c-sky0", false); drawSpread(DATA); drawSky(DATA, "c-sky", true); drawChance(DATA); drawPerm(DATA, "c-perm-any", "raw", "VASCO’s test");
   drawFan(DATA); drawTracks(DATA); drawCompare(DATA, "c-compare"); drawTail(DATA, "tail-gallery"); drawWidths(DATA, "c-widths"); drawTrail(DATA, "c-trail"); fillDates(DATA); drawRadialMap(DATA); drawRadial(DATA); drawCrowd(DATA);
   drawPlates(DATA, "c-plates"); drawForest(DATA, "c-ratio-vasco"); drawRatioNull(DATA, "c-ratio-null");
 }

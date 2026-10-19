@@ -241,7 +241,7 @@ Do transients cluster around nuclear tests?
 ### nuclear-intro
 During the sky survey, the United States tested nuclear weapons in Nevada and the Pacific. VASCO’s two papers (Scientific Reports, 2025 and 2026) report that observing nights within a day of a US test held more transients than other nights, at a chance of about one in forty (p = 0.024) in the 2026 paper. The authors fixed this window before looking at the data, and read the sharpness of the association in time as a sign that it is genuine.
 
-We find the excess too. It survives a comparison of each photograph with others from the same observing run, in an analysis we fixed before running it, at about two standard deviations. Within a week of the tests, VASCO’s window is the most striking. The two richest photographs carry much of the excess, but do not explain it.
+We repeated their measurement, first on their own construction and then on the full catalogue with corrected plate dates. Both show the same excess.
 
 ### nuc-vasco-title
 VASCO’s test, as they ran it
@@ -253,88 +253,6 @@ On VASCO’s own construction, with the archive dates and their list of nights, 
 
 ### nuc-vasco-caption
 The excess of transients on the {n:nuc.nights} nights within a day of a US test (red line), against the same number of nights drawn at random from the survey, 20,000 times (grey). Every catalogue plate, on corrected dates.
-
-### nuc-fair-title
-Comparing like with like
-
-### nuc-fair-text
-VASCO’s test compares nights. A night’s transients depend on how many photographs were taken that night, and the nights near tests averaged {n:nuc.plates_window} plates, against {n:nuc.plates_other} on other nights. Counted per photograph, plates within a day of a test hold {n:nb.raw} times as many transients as other plates.
-
-Palomar observed in runs of consecutive dark nights, separated by moonlit gaps. Within a run the emulsion batch, the processing, and the season barely change, so each plate near a test is best compared with the other plates of its own run. That gives {n:nb.within} times. Each plate’s count also depends on its properties: how deep it goes (the share of faint Gaia stars it records), how sharp its stars are, where it pointed, dust, exposure time, height above the horizon, the Moon, VASCO’s plate-quality flag, and ecliptic latitude. Measured against what those predict, and with the runs combined by the Mantel–Haenszel method, plates near tests hold {n:nb.r} times as many transients.
-
-The analysis we fixed in advance does the same in one statistical model, with a level for each run and every plate property fitted together. It gives {n:nf.r} times, with a 68% range of {n:nf.i68_lo} to {n:nf.i68_hi} and a 90% range of {n:nf.i90_lo} to {n:nf.i90_hi}. To measure how often chance does as well, VASCO’s window was moved to random nights within the same runs and the model refitted, 2,000 times. Chance matches the real window {n:nf.p}% of the time, about one time in {n:nf.odds} ({n:nf.sig} standard deviations). Sliding the real test calendar by 1 to 5 years and up to 20 days, so each test keeps its season, chance matches it {n:nf.p_cal}% of the time. Our design set any gap of more than a factor of two between these two checks as a finding: random nights within runs are the stricter of the two, and we quote them.
-
-A true excess of {n:nf.vasco_r} times, the size of VASCO’s per-night figure, would give a value as low as ours {n:nf.power}% of the time.
-
-### nuc-fair-caption
-The ratio in the analysis fixed in advance, with VASCO’s window moved to random nights of the same observing runs (grey), against the real window (red).
-
-### nuc-window-title
-One window or many
-
-### nuc-window-text
-VASCO fixed their window, a test’s date and a day either side, before looking at the data. For that one question, the chance figure needs no allowance for other windows.
-
-The papers also read the association as sharp in time. That claim compares windows, so our design tested it against all of them: every window of consecutive days within two weeks of a test, scored the same way. Only {n:nf.rank_others} of the {n:nf.windows} windows score higher than VASCO’s, and random calendars place VASCO’s window that high {n:nf.rank_p}% of the time. Within 3 days and within 7 days of the tests, VASCO’s window is the best; chance produces a best window as striking {n:nf.g3}% and {n:nf.g7}% of the time. Within 14 days, windows starting two weeks before the tests score higher, the best running from {n:nf.g14_best} days at {n:nf.g14_best_r} times, and chance produces one as striking {n:nf.g14}% of the time. Those windows draw on the same two nights as VASCO’s, {n:nr.top1} and {n:nr.top2}: each lies within a day of one shot and two weeks before another shot of the same series.
-
-Measured in hours from each detonation, plates exposed in the 24 hours after a shot hold {n:nf.after_r} times as many transients as the rest of their runs (chance {n:nf.after_p}%), plates exposed in the 24 hours before a shot {n:nf.before_r} times (chance {n:nf.before_p}%), and plates 24 to 48 hours after a shot {n:nf.after2_r} times.
-
-### nuc-window-caption
-Every window of consecutive days within two weeks of a US test that holds at least 5 plates, by its first and last day, coloured by its local significance in the analysis fixed in advance, against the test calendar slid by 1 to 5 years. VASCO’s window is outlined.
-
-### nuc-where-title
-Where the excess comes from
-
-### nuc-where-text
-Of the {n:nb.plates} plates near tests, {n:nb.plates_inf} fall in {n:nb.runs} observing runs that also hold other plates. In {n:nb.runs_above} of these runs, plates near tests hold more transients than the rest of their run, against what their properties predict. Two runs stand out: early November 1951 ({n:nb.nov51} times) and late March 1955 ({n:nb.mar55} times).
-
-Each is led by one photograph. Plate {n:nb.p2}, taken on {n:nb.p2_date}, holds {n:nb.p2_n} transients where the rest of its run predicts {n:nb.p2_e}. Plate {n:nb.p1}, taken on {n:nb.p1_date}, holds {n:nb.p1_n} where its run predicts {n:nb.p1_e}; several other plates in that run are also rich. Without both plates, the step-by-step ratio falls from {n:nb.r} to {n:nb.drop2_r}. Leaving out the two richest plates lowers any ratio, so the same was done to VASCO’s window moved to random nights: there, the ratio falls to a typical {n:nb.drop2_median}, and matches {n:nb.drop2_r} only {n:nb.drop2_p}% of the time. The excess is not confined to these two plates.
-
-Rich nights point the same way. Of the {n:nr.rich} nights in the survey that hold {n:nr.threshold} times their expected number of transients or more (a threshold we chose after seeing the data), {n:nr.rich_near} fall within a day of a test. Chance would place that many near tests {n:nr.p_chance}% of the time.
-
-### nuc-where-caption
-Each observing run that holds plates within a day of a US test and other plates too: the transients on the plates near tests against those on the run’s other plates, each against what the plates’ properties predict, with a range from the scatter between plates. Bottom: all runs combined.
-
-### nuc-plates-title
-The two plates
-
-### nuc-plates-text
-On {n:nb.p2}, {n:nb.p2_edge}% of the transients lie in the outer half-degree of the plate, about a third of its area; on {n:nb.p2_mate}, a typical plate from the same run, {n:nb.p2_mate_edge}%. Half of them have another transient within {n:nb.p2_nn} arcminutes, against {n:nb.p2_mate_nn} on {n:nb.p2_mate}. Most fill one corner, where the scan also shows scratches and dark fibres.
-
-On {n:nb.p1}, the transients spread across the whole plate. Its stars are {n:nb.p1_fwhm} arcseconds across, broader than on {n:nb.p1_fwhm_pct}% of the survey’s plates, and {n:nb.p1_narrower}% of its measured transients are narrower than those stars, against {n:nb.p1_mate_narrower}% on {n:nb.p1_mate}. This is common to plates with broad stars: across the plates measured, the share of transients narrower than the stars rises with the width of the stars (correlation {n:nb.narrow_corr}). Light focused by the telescope cannot be sharper than the stars on the same plate.
-
-### nuc-plates-caption
-Every catalogue transient on the two plates near tests that carry most of the excess (red), each beside the plate with the median count in its own run (blue), with the expected count for each from the rest of its run.
-
-### nuc-crop-caption
-The 20-arcminute section of {n:nb.crop} where its transients are densest, with every catalogue transient circled. The white streaks and dark threads are marks on the plate or its scan.
-
-### nuc-what-title
-What does not move it
-
-### nuc-what-text
-In the analysis fixed in advance, other reasonable choices leave the excess in place. Splitting runs after 3, 6, or 10 empty nights rather than 4 gives {n:nf.gap_lo} to {n:nf.gap_hi} times, with chance at most {n:nf.gap_pmax}%. Counting 2-arcminute cells holding a transient gives {n:nf.cells_r} times, and keeping only the central 5 × 5 degrees of each plate {n:nf.inner_r}. Leaving out each test series in turn gives {n:nf.series_lo} to {n:nf.series_hi}, and leaving out each observing run {n:nf.run_lo} to {n:nf.run_hi}.
-
-The window also helps predict nights the model has not seen. With each observing night held out in turn and its plates predicted from the rest of its run, adding VASCO’s window improves the predictions; the same window on random nights does as well {n:nc.pred_p}% of the time. The day after a test does best on its own ({n:nc.pred_after_p}%), while the test’s date and the day before do no better than random nights ({n:nc.pred_day_p}% and {n:nc.pred_before_p}%). These are the same plates, so this is not an independent test.
-
-If the extra transients were glints from objects in orbit, the explanation VASCO’s alignment search looks for, they should be points of light anywhere on the plate, on their own or in straight lines, and as sharp as the stars. On each plate, the transients in the central part of the plate and those near the edges, where defects collect, were counted separately, and likewise those with and without another transient within 5 arcminutes. Comparing these within a plate cancels anything that affects the whole plate. Near tests, the odds that a transient lies in the central part are unchanged ({n:nb.central} times those on other plates), and the odds that it stands on its own are lower ({n:nb.isolated} times; chance gives a shift this large {n:nb.isolated_p}% of the time).
-
-Glints from a tumbling object fall in lines. Allowing for how many transients each plate holds, transients near tests form straight track candidates less often than elsewhere: {n:nc.tracks10_r} times as often for tracks scoring 1 in 10 or better ({n:nc.tracks10_near} tracks near tests; chance gives a shortfall this large {n:nc.tracks10_p}% of the time), and {n:nc.tracks100_r} times for 1 in 100 or better, from only {n:nc.tracks100_near} tracks.
-
-Glints focused by the telescope would be as sharp as the stars around them; flaws in the emulsion often are not. For {n:nb.shapes} transients, up to 60 picked at random from each plate of the runs that hold plates near tests, we fitted the transient and the stars of similar brightness on the same scan: {n:nb.starlike}% are as sharp as those stars and {n:nb.wider}% are wider. Near tests, the odds that a transient is shaped like the stars are {n:nb.shape_r} times those on the other plates of their runs, where chance gives between {n:nb.shape_q05} and {n:nb.shape_q95} nine times in ten. Had the whole excess been shaped like stars, the figure would be about {n:nb.shape_if_star}; had none of it been, about {n:nb.shape_if_none}. The extra transients are shaped like stars as often as the rest.
-
-Something acting on whole plates near tests, such as contamination or handling, would add specks across them. On our own scans of the same {n:nc.plates} fields, red plates near tests hold {n:nc.red_r} times as many sources with no star behind them as the rest of their runs, and the blue plates taken the same nights {n:nc.blue_r} times. This check is too coarse to see VASCO’s transients themselves, but it rules out a general excess of specks.
-
-### nuc-what-caption
-Plates near tests against the other plates of their observing runs, under each measure, with ranges where shown. Red: VASCO’s transients, in the analysis fixed in advance, step by step, and under other choices. Blue: the odds of each kind of transient, sources with no star behind them on our scans of the same plates, and straight track candidates.
-
-### nuclear-verdict-title
-A modest excess that our checks do not remove
-
-### nuclear-verdict
-Compared with photographs from the same observing runs, and allowing for everything we can measure about each plate, plates taken within a day of a US nuclear test hold about {n:nf.r} times as many transients in the analysis we fixed in advance. Chance does as well about one time in {n:nf.odds}. Within a week of the tests, VASCO’s window is the most striking, and the excess survives every variation we tried. Two rich photographs carry much of it, but it is not confined to them.
-
-The excess is modest, about two standard deviations, and the windows that rival it two weeks before the tests draw on the same rich nights. The extra transients show no sign of behaving like objects in orbit: they are no more often shaped like stars, no more often in straight lines, and if anything more often in close groups. An independent test needs plates the analysis has not yet touched, such as the survey’s southern plates.
 
 ### align-h2
 Do transients form geometric patterns?
@@ -506,7 +424,7 @@ Plates differ so much that the shortfall happens by chance about one time in {n:
 Do transients cluster around nuclear tests?
 
 ### card-2-ours
-Plates near tests hold about {n:nb.r} times as many transients as other plates of the same observing run, which chance matches about one time in {n:nb.odds}. Almost all of it comes from two runs, windows with no reason to matter are as striking, and the extra transients do not line up the way glints would.
+Run VASCO’s way, we measure the same excess. On their construction, nights near tests hold {n:nuc.vasco_ratio} times the usual number of transients, which random nights match about one time in {n:nuc.vasco_odds}; with every plate on its corrected date, {n:nuc.ratio} times, about one time in {n:nuc.odds}.
 
 ### card-3-question
 Do transients form linear patterns?
