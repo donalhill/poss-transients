@@ -78,3 +78,6 @@ day after) was fixed by the authors before they looked at the data. They read th
   after as three). The gain is calibrated against the same feature assigned to random nights within runs.
 - The blue-plate measurement (plate_blue.py) was taken while the frozen run was going; its comparison of exposed and
   unexposed nights is run only after the frozen results.
+- Fix, after the first frozen run stopped on a numerical failure and before any of its results were read: a trial
+  whose window holds no plate sharing a run with an unexposed plate leaves r undetermined; such trials are dropped
+  and the number kept is reported. Nothing else changed.

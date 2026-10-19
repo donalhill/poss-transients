@@ -77,15 +77,21 @@ class Model:
     """Plate counts against the plate properties and a level for each run; r for a window S."""
     def __init__(self, y, run, keep=None):
         self.k = np.ones(len(y), bool) if keep is None else keep
-        self.y, self.X = y[self.k], design(run)[self.k]
+        self.y, self.X, self.run = y[self.k], design(run)[self.k], run[self.k]
         self.X = self.X[:, np.abs(self.X).sum(0) > 0]                 # a run left out leaves an empty column
         self.alpha = 0.5
 
     def fit(self, S, alpha=None, iters=3):
-        """r and its counting error; the scatter (alpha) re-estimated from the fit's residuals unless given."""
+        """r and its counting error; the scatter (alpha) re-estimated from the fit's residuals unless given. A window
+        that holds no plate sharing a run with an unexposed plate leaves r undetermined: NaN."""
         S = S[self.k]; X = np.c_[self.X, S]; a = self.alpha if alpha is None else alpha
+        if not any(((self.run == r_) & (S == 0)).any() for r_ in np.unique(self.run[S == 1])):
+            return np.nan, np.nan, a, None
         for _ in range(1 if alpha is not None else iters):
-            m = sm.GLM(self.y, X, family=sm.families.NegativeBinomial(alpha=a)).fit()
+            try:
+                m = sm.GLM(self.y, X, family=sm.families.NegativeBinomial(alpha=a)).fit()
+            except ValueError:
+                return np.nan, np.nan, a, None
             mu = m.fittedvalues
             if alpha is None:
                 a = max(1e-4, float(np.sum(((self.y - mu) ** 2 - mu) / mu ** 2) / (len(self.y) - X.shape[1])))
@@ -121,8 +127,9 @@ def reassign(S, run):
 
 # null (b): the calendar slid by whole years and up to 20 days
 SLIDES = [s for s in SHIFTS if window(shift=s).sum() >= 5 and (window(shift=s) * S0).sum() < 0.2 * window(shift=s).sum()]
-pk = lambda d, x: float((np.sum(np.asarray(d) >= x) + 1) / (len(d) + 1))
-q5 = lambda d: {k: r3(v) for k, v in zip(("q05", "q16", "median", "q84", "q95"), np.quantile(d, [0.05, 0.16, 0.5, 0.84, 0.95]))}
+fin = lambda d: np.asarray(d, float)[np.isfinite(np.asarray(d, float))]   # trials whose r could be determined
+pk = lambda d, x: float((np.sum(fin(d) >= x) + 1) / (len(fin(d)) + 1))
+q5 = lambda d: {k: r3(v) for k, v in zip(("q05", "q16", "median", "q84", "q95"), np.quantile(fin(d), [0.05, 0.16, 0.5, 0.84, 0.95]))}
 
 
 def calibrate(model, S, run, n_rep=NREP):
@@ -133,8 +140,8 @@ def calibrate(model, S, run, n_rep=NREP):
 
 
 r_hat, A, B = calibrate(M, S0, run0)
-out["null_runs"] = {**q5(A), "n": len(A), "p_as_high": r3(pk(A, r_hat)), "hist": np.histogram(A, np.linspace(0, 3, 61))[0].tolist()}
-out["null_calendar"] = {**q5(B), "n": len(B), "p_as_high": r3(pk(B, r_hat)), "hist": np.histogram(B, np.linspace(0, 3, 61))[0].tolist()}
+out["null_runs"] = {**q5(A), "n": len(fin(A)), "p_as_high": r3(pk(A, r_hat)), "hist": np.histogram(fin(A), np.linspace(0, 3, 61))[0].tolist()}
+out["null_calendar"] = {**q5(B), "n": len(fin(B)), "p_as_high": r3(pk(B, r_hat)), "hist": np.histogram(fin(B), np.linspace(0, 3, 61))[0].tolist()}
 out["fit"]["sigma"] = r3(norm.isf(pk(A, r_hat)))
 
 
@@ -153,11 +160,11 @@ def injected(rt, n_rep):
     return np.array(vals)
 
 
-belt = np.array([[rt, *np.quantile(injected(rt, NINJ), [0.05, 0.16, 0.5, 0.84, 0.95])] for rt in RTRUE])
+belt = np.array([[rt, *np.quantile(fin(injected(rt, NINJ)), [0.05, 0.16, 0.5, 0.84, 0.95])] for rt in RTRUE])
 i68 = belt[(belt[:, 2] <= r_hat) & (belt[:, 4] >= r_hat), 0]; i90 = belt[(belt[:, 1] <= r_hat) & (belt[:, 5] >= r_hat), 0]
 out["interval68"] = [r3(i68.min()), r3(i68.max())] if len(i68) else None
 out["interval90"] = [r3(i90.min()), r3(i90.max())] if len(i90) else None
-out["power_vasco"] = {"r_true": VASCO, "p_as_low": r3(np.mean(injected(VASCO, NREP) <= r_hat))}
+out["power_vasco"] = {"r_true": VASCO, "p_as_low": r3(np.mean(fin(injected(VASCO, NREP)) <= r_hat))}
 
 # robustness: each informative run left out; each test series left out; run definitions; outcomes; the inner plate
 loo_run = []
