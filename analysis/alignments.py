@@ -34,18 +34,17 @@ The real catalogue, every copy and every injected catalogue go through the same 
 
 Null: copies with every real line broken but the clustering kept: transients within 20" of one another (friends of
 friends) move together as a rigid clump, rotated about its centre and shifted by up to 20", and lone transients are
-shifted by up to 20" (alignments_vasco_null.py compares this with moving every transient independently). Signal: 100
+shifted by up to 20". Signal: 100
 artificial glint tracks (4-6 hits at least 8" apart, 2-10' long, with 1", 0.5" or 2" scatter, starting anywhere on a
 plate) added to the real catalogue.
 
-python analysis/alignments.py [ncopies] [independent]
+python analysis/alignments.py [ncopies]
     -> data/alignments.npz    histograms per catalogue and size, after arbitration: log10(chi2/ndof) (track fit) and
                               log10(mu) (VASCO's score), for the real catalogue, the catalogue with tracks added, and
                               the copies; and log10(mu) against log10(chi2/ndof) before arbitration
        data/alignments.json   VASCO's score: track candidates (all; arbitrated; arbitrated and straight, chi2/ndof <= 2)
                               scoring 1e-4 and 1e-3 or better, real catalogue against the copies; the real catalogue's
-                              arbitrated candidates scoring 1e-3 or better
-    with "independent", copies with every transient moved independently, to data/alignments_independent.npz."""
+                              arbitrated candidates scoring 1e-3 or better"""
 import json
 import sys
 from math import factorial
@@ -79,7 +78,6 @@ SIGNALS = ([f"signal:1.0:{7 + k}:any" for k in range(10)] + ["signal:0.5:7:any",
            + [f"signal:1.0:{7 + k}:{a}" for a in ANGLES for k in range(3)])
 NSIG = len(SIGNALS)
 NSHUF = int(sys.argv[1]) if len(sys.argv) > 1 and sys.argv[1].isdigit() else 1000
-INDEPENDENT = "independent" in sys.argv
 
 cat = pd.read_parquet(ROOT / "data/transients_with_plates.parquet")
 cat = cat[cat.plate != ""][["plate", "xi", "eta"]].assign(x=lambda d: d.xi * 3600, y=lambda d: d.eta * 3600)
@@ -367,13 +365,6 @@ def clump_copy(df, seed, link=LINK, shift=SHIFT):
     return df.assign(x=cx[lab] + c * dx - s * dy + (rr * np.cos(a))[lab], y=cy[lab] + s * dx + c * dy + (rr * np.sin(a))[lab])
 
 
-def independent_copy(df, seed, shift=SHIFT):
-    """A copy with every transient moved independently by up to shift."""
-    rng = np.random.default_rng(seed)
-    rr = shift * np.sqrt(rng.uniform(0, 1, len(df))); a = rng.uniform(0, 2 * np.pi, len(df))
-    return df.assign(x=df.x.values + rr * np.cos(a), y=df.y.values + rr * np.sin(a))
-
-
 def with_tracks(n=100, seed=7, scatter=1.0, angle=None):
     """The real catalogue with n artificial glint tracks added (4-6 hits, 2-10' long, given scatter; any direction, or at
     a given angle in degrees from east-west, 0 being the track a geostationary object would leave). Tracks start anywhere
@@ -401,7 +392,7 @@ def run(job):
         sc, sd, d_ = kind.split(":")[1:]
         df = with_tracks(seed=int(sd), scatter=float(sc), angle=None if d_ == "any" else float(d_))
     else:
-        df = independent_copy(cat, seed) if INDEPENDENT else clump_copy(cat, seed)
+        df = clump_copy(cat, seed)
     Ht, Hv, H2, Hi, Hl, keep, keep_t, *det = score(df, detail=kind == "real")
     return (Ht, Hv, H2, tally(keep), (keep if kind == "real" else None), Hi, Hl, (det[0] if det else None),
             tally_t(keep_t), (keep_t if kind == "real" else None))
@@ -415,7 +406,7 @@ if __name__ == "__main__":
     Ht = np.array([r_[0] for r_ in R]); Hv = np.array([r_[1] for r_ in R]); T = np.array([r_[3] for r_ in R[NSIG + 1:]])
     Hi = np.array([r_[5] for r_ in R]); Hl = np.array([r_[6] for r_ in R]); c0 = NSIG + 1
     Tt = np.array([r_[8] for r_ in R[c0:]]); tt_real, keep_t = R[0][8], R[0][9]
-    out = ROOT / ("data/alignments_independent.npz" if INDEPENDENT else "data/alignments.npz")
+    out = ROOT / "data/alignments.npz"
     np.savez(out, edges=EDGES, bins=BINS, iso=ISO, signals=np.array(SIGNALS),
              real_t=Ht[0], signal_t=Ht[1:c0], null_t=Ht[c0:], real_v=Hv[0], signal_v=Hv[1:c0], null_v=Hv[c0:],
              real_l=Hl[0], signal_l=Hl[1:c0], null_l=Hl[c0:], real_i=Hi[0], signal_i=Hi[1:c0], null_i=Hi[c0:],
@@ -435,9 +426,8 @@ if __name__ == "__main__":
                             for a in arbitrated(keep_t, 10 ** LEVELS_T[0])]}
     for j, lv in enumerate(LEVELS_T):
         print(f"track score, strongest tracks (across sizes) at 10^{lv} or better: real {tt_real[j]}, copies {Tt[:, j].mean():.2f}; share of copies with as many {np.mean(Tt[:, j] >= tt_real[j]):.3f}")
-    if not INDEPENDENT:
-        rows = [{"plate": a["plate"], "r": a["r"], "mu": a["mu"], "p_arcsec": round(a["p_arcsec"], 1), "d_arcmin": round(a["d_arcmin"], 2),
-                 "chi2ndof": round(a["chi2ndof"], 2), "xi": round(float(np.mean(a["x"]) / 3600), 4), "eta": round(float(np.mean(a["y"]) / 3600), 4),
-                 "x": [round(v, 2) for v in a["x"]], "y": [round(v, 2) for v in a["y"]]} for a in arbitrated(keep, KEEP)]
-        (ROOT / "data/alignments.json").write_text(json.dumps({"counts": counts, "candidates": rows, "track": track, "ncopies": NSHUF,
-                                                               "shift_arcsec": SHIFT, "link_arcsec": LINK, "hmax_vasco_arcsec": HMAX_V}))
+    rows = [{"plate": a["plate"], "r": a["r"], "mu": a["mu"], "p_arcsec": round(a["p_arcsec"], 1), "d_arcmin": round(a["d_arcmin"], 2),
+             "chi2ndof": round(a["chi2ndof"], 2), "xi": round(float(np.mean(a["x"]) / 3600), 4), "eta": round(float(np.mean(a["y"]) / 3600), 4),
+             "x": [round(v, 2) for v in a["x"]], "y": [round(v, 2) for v in a["y"]]} for a in arbitrated(keep, KEEP)]
+    (ROOT / "data/alignments.json").write_text(json.dumps({"counts": counts, "candidates": rows, "track": track, "ncopies": NSHUF,
+                                                           "shift_arcsec": SHIFT, "link_arcsec": LINK, "hmax_vasco_arcsec": HMAX_V}))

@@ -2,7 +2,10 @@
 
 copy.md format: blocks starting '### slot-id', followed by text (paragraphs separated by blank lines, bullets as '- ').
 Template placeholders: {{slot}} (block: paragraphs and lists), {{slot|inline}} (one run of text),
-{{slot|headline}} (first line as the big figure, the rest as a gloss)."""
+{{slot|headline}} (first line as the big figure, the rest as a gloss).
+Numbers in the copy are written as {n:key} and filled from the "numbers" table in docs/data/site.json, which the
+pipeline writes; a key with no value stops the build."""
+import json
 import re
 import sys
 from pathlib import Path
@@ -63,9 +66,22 @@ def headline(s):
     return f'<div class="big">{big}</div>' + (f'<div class="gloss">{gloss}</div>' if gloss else "")
 
 
+def numbers():
+    return json.loads((ROOT / "docs/data/site.json").read_text()).get("numbers", {})
+
+
 def render(copy_path, edit=False):
-    """Fill the template. With edit=True every slot is wrapped in an element tagged with its id, for site/edit.py."""
+    """Fill the template. With edit=True every slot is wrapped in an element tagged with its id, and every number in a
+    locked span tagged with its key, for site/edit.py."""
     slots = {k: esc(v) for k, v in parse(Path(copy_path).read_text()).items()}
+    nums, unknown = numbers(), []
+
+    def num(m):
+        if m.group(1) not in nums:
+            unknown.append(m.group(1))
+            return f"[[{m.group(1)}]]"
+        v = esc(str(nums[m.group(1)]))
+        return f'<span class="num" data-num="{m.group(1)}" title="From the pipeline: {m.group(1)}" contenteditable="false">{v}</span>' if edit else v
     tpl = (ROOT / "site/template.html").read_text()
     missing = []
 
@@ -77,13 +93,17 @@ def render(copy_path, edit=False):
         out = {"inline": inline, "headline": headline, "block": block}[mode](slots[key])
         # {2_circle_symbol} in the copy becomes an inline copy of the numbered step marker
         out = re.sub(r"\{(\d+)_circle_symbol\}", r'<span class="step-ref" data-step="\1" contenteditable="false">\1</span>', out)
+        out = re.sub(r"\{n:([\w.-]+)\}", num, out)
         if edit:
             tag = "span" if mode == "inline" else "div"
             out = f'<{tag} class="slot" data-slot="{key}" data-mode="{mode}">{out}</{tag}>'
         return out
 
     html = re.sub(r"\{\{([\w-]+)(?:\|(inline|headline))?\}\}", sub, tpl)
+    html = re.sub(r"\{n:([\w.-]+)\}", lambda m: re.sub(r"<[^>]+>", "", num(m)), html)   # numbers in the template itself, always plain
     unused = sorted(set(slots) - set(re.findall(r"\{\{([\w-]+)", tpl)))
+    if unknown:
+        raise SystemExit(f"numbers with no value in docs/data/site.json: {sorted(set(unknown))}")
     return html, missing, unused
 
 

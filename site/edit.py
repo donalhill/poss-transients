@@ -7,7 +7,6 @@ page docs/index.html is rebuilt. Comments go to site/notes.json, mirrored as sit
 import json
 import re
 import sys
-import time
 from datetime import datetime
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -119,6 +118,7 @@ EDITOR = r"""
   body.ed-text .slot:hover { outline-color: #2462a8; cursor: text; }
   body.ed-text .slot[contenteditable="true"]:focus { outline: 2px solid #2462a8; background: rgba(36,98,168,.04); }
   .slot.dirty { outline: 2px solid #e0a020 !important; }
+  body.ed-text .num { background: rgba(16,128,107,.12); border-radius: 2px; cursor: help; }
   body.ed-note, body.ed-note * { cursor: crosshair !important; }
   body.ed-note .ed-hover { outline: 2px solid #b8501a !important; outline-offset: 2px; }
   #ed-bar { position: fixed; right: 16px; bottom: 16px; z-index: 1000; display: flex; gap: 6px; align-items: center;
@@ -161,7 +161,7 @@ EDITOR = r"""
   let mode = "text", notes = [];
 
   // ---------- text editing ----------
-  const clean = html => html.replace(/<span[^>]*data-step="(\d+)"[^>]*>.*?<\/span>/g, "{$1_circle_symbol}").replace(/<(?!\/?em>)[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&")
+  const clean = html => html.replace(/<span[^>]*data-step="(\d+)"[^>]*>.*?<\/span>/g, "{$1_circle_symbol}").replace(/<span[^>]*data-num="([\w.-]+)"[^>]*>.*?<\/span>/g, "{n:$1}").replace(/<(?!\/?em>)[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/\s+/g, " ").trim();
   function slotText(el) {
     const m = el.dataset.mode;

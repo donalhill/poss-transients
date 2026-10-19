@@ -214,7 +214,7 @@ footer li { margin-bottom: 0.45rem; }
   </div>
   <div class="step">
     <div class="chart disc">
-      <div class="legend"><span><i class="sw" style="background:var(--ink-3);opacity:0.35"></i>Plate left out of the published tests</span><span><i class="sw" style="height:0.5rem;width:1.4rem;background:#c9cfd4;border-top:1.5px dashed #111418"></i>Plane of the Milky Way</span></div>
+      <div class="legend"><span><i class="sw" style="background:#21918c;border:1.3px dashed #111418"></i>Plate left out of VASCO’s published tests</span><span><i class="sw" style="height:0.5rem;width:1.4rem;background:#c9cfd4;border-top:1.5px dashed #111418"></i>Plane of the Milky Way</span></div>
       <svg id="c-sky0" viewBox="0 0 760 760" role="img" aria-label="Map of the northern sky with every survey plate coloured by its number of transients"></svg>
       <div class="cap">{{survey-map-caption|inline}}</div>
     </div>
@@ -318,7 +318,7 @@ footer li { margin-bottom: 0.45rem; }
     <div class="step-copy"><div class="step-h"><span class="step-n">1</span><h3>{{shadow-step1-title|inline}}</h3></div><div class="step-text">{{shadow-step1-text}}</div></div>
     <div class="chart disc">
       <div class="legend"><span><i class="sw" style="border:2px solid #111418;box-shadow:0 0 0 2px #fff;background:#21918c"></i>Plate crossed by Earth’s shadow</span><span><i class="sw" style="border:2px solid #ff4a2e;background:transparent;border-radius:50%"></i>Earth’s shadow on the night that plate was taken</span></div>
-      <svg id="c-sky" viewBox="0 0 760 760" role="img" aria-label="The sky map again, with the nine plates crossed by Earth’s shadow picked out"></svg>
+      <svg id="c-sky" viewBox="0 0 760 760" role="img" aria-label="The sky map again, with the {n:sh.plates} plates crossed by Earth’s shadow picked out"></svg>
       <div class="cap">{{shadow-step1-caption|inline}}</div>
     </div>
   </div>
@@ -338,7 +338,7 @@ footer li { margin-bottom: 0.45rem; }
       <div class="legend"><span><i class="sw" style="background:var(--ours);border-radius:50%;width:0.45rem;height:0.45rem"></i>Transient in sunlight</span>
         <span><i class="sw" style="background:#ff4a2e;border-radius:50%;width:0.45rem;height:0.45rem"></i>Transient in Earth’s shadow</span>
         <span><i class="sw" style="border:2px solid #ff4a2e;background:rgba(255,74,46,0.12)"></i>Part of the plate in shadow</span></div>
-      <svg id="c-plates" viewBox="0 0 760 440" role="img" aria-label="The eight plates partly crossed by Earth's shadow, each showing its transients as dots coloured by whether they lie in shadow or sunlight, with the edge of the shadow and the plate's numbers"></svg>
+      <svg id="c-plates" viewBox="0 0 760 440" role="img" aria-label="The {n:sh.partial} plates partly crossed by Earth's shadow, each showing its transients as dots coloured by whether they lie in shadow or sunlight, with the edge of the shadow and the plate's numbers"></svg>
       <div class="cap">{{shadow-plates-caption|inline}}</div>
     </div>
   </div>
@@ -346,8 +346,8 @@ footer li { margin-bottom: 0.45rem; }
     <div class="step-copy"><div class="step-h"><span class="step-n">4</span><h3>{{shadow-fit-title|inline}}</h3></div><div class="step-text">{{shadow-fit-text}}</div></div>
     <div class="chart">
       <div class="legend"><span><i class="sw" style="background:var(--ink-2);border-radius:50%"></i>Ratio for each plate, with its counting error</span>
-        <span><i class="sw" style="background:var(--ours);border-radius:50%"></i>Best-fit ratio across all eight plates</span></div>
-      <svg id="c-ratio-vasco" viewBox="0 0 760 360" role="img" aria-label="Density of transients in shadow divided by density in sunlight, plate by plate with counting ranges, and the ratio fitted to all eight plates"></svg>
+        <span><i class="sw" style="background:var(--ours);border-radius:50%"></i>Best-fit ratio across all {n:sh.partial} plates</span></div>
+      <svg id="c-ratio-vasco" viewBox="0 0 760 360" role="img" aria-label="Density of transients in shadow divided by density in sunlight, plate by plate with counting ranges, and the ratio fitted to all {n:sh.partial} plates"></svg>
       <div class="cap">{{shadow-fit-caption|inline}}</div>
     </div>
   </div>

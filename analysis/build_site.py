@@ -1,7 +1,5 @@
 """Build docs/data/site.json and docs/img/* for the walkthrough page from the analysis outputs.
 Run from the repo root after the analysis scripts: python analysis/build_site.py"""
-import contextlib
-import io
 import json
 import sys
 from pathlib import Path
@@ -21,109 +19,61 @@ from astropy.wcs import WCS
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "analysis"))
+from geometry import deproject, tangent                                      # noqa: E402
 OUT = ROOT / "docs"
 (OUT / "data").mkdir(parents=True, exist_ok=True)
 (OUT / "img").mkdir(parents=True, exist_ok=True)
 site = {}
 
 
-def quiet_exec(path, stop=None):
-    g = {"__file__": str(path), "__name__": "build"}
-    src = Path(path).read_text()
-    if stop:
-        src = src.split(stop)[0]
-    with contextlib.redirect_stdout(io.StringIO()):
-        exec(src, g)
-    return g
-
-
-def deproject(xi, eta, ra0, dec0):
-    xi, eta, ra0, dec0 = map(np.radians, (xi, eta, ra0, dec0))
-    rho = np.hypot(xi, eta); c = np.arctan(rho)
-    dec = np.arcsin(np.cos(c) * np.sin(dec0) + np.where(rho > 0, eta * np.sin(c) * np.cos(dec0) / np.where(rho > 0, rho, 1), 0))
-    ra = ra0 + np.arctan2(xi * np.sin(c), rho * np.cos(dec0) * np.cos(c) - eta * np.sin(dec0) * np.sin(c))
-    return np.degrees(ra) % 360, np.degrees(dec)
-
-
-def tangent(ra, dec, ra0, dec0):
-    ra, dec, ra0, dec0 = map(np.radians, (ra, dec, ra0, dec0))
-    c = np.sin(dec0) * np.sin(dec) + np.cos(dec0) * np.cos(dec) * np.cos(ra - ra0)
-    return (np.degrees(np.cos(dec) * np.sin(ra - ra0) / c),
-            np.degrees((np.cos(dec0) * np.sin(dec) - np.sin(dec0) * np.cos(dec) * np.cos(ra - ra0)) / c))
-
-
 r1 = lambda x: round(float(x), 1)
 r3 = lambda x: round(float(x), 3)
 
 # ------------------------------------------------------------------ sky map + shadow plates
-cat = pd.read_parquet(ROOT / "data/transients_with_plates.parquet")
-strict = set(pd.read_csv(ROOT / "data/external/poss_i_observing_dates_strict.csv").obs_date.astype(str).str[:10])
-cs = cat[cat.obs_date.astype(str).str[:10].isin(strict)]
-pl = pd.read_parquet(ROOT / "data/plates_corrected.parquet")
-pl = pl[pl.index.isin(cs.plate.unique())].copy()
-pl["N"] = cs.groupby("plate").size().reindex(pl.index).fillna(0).astype(int)
-pt = pd.read_parquet(ROOT / "data/plate_shadow_geo_corr.parquet")
-avg = pt.N.sum() / len(pt)
-edge = np.linspace(-3.0, 3.0, 5)
-sq = np.r_[np.c_[edge, np.full(5, -3.0)], np.c_[np.full(5, 3.0), edge][1:], np.c_[edge[::-1], np.full(5, 3.0)][1:], np.c_[np.full(5, -3.0), edge[::-1]][1:-1]]
+import sample                                                                # noqa: E402
+import shadow as SH                                                          # noqa: E402
+cat, pl = sample.ours()
+pl["N"] = cat.groupby("plate").size().reindex(pl.index).fillna(0).astype(int)
+vasco_plates = set(sample.vasco()[1].index)
+SP = json.loads((ROOT / "data/shadow_pooled.json").read_text())
+pt = pd.read_parquet(ROOT / "data/shadow_plates.parquet")
+avg = SP["ours_geo"]["avg_per_plate"]
+edge = np.linspace(-SH.HALF, SH.HALF, 5)
+sq = np.r_[np.c_[edge, np.full(5, -SH.HALF)], np.c_[np.full(5, SH.HALF), edge][1:], np.c_[edge[::-1], np.full(5, SH.HALF)][1:],
+           np.c_[np.full(5, -SH.HALF), edge[::-1]][1:-1]]
 plates = []
 for name, p in pl.iterrows():
     ra, dec = deproject(sq[:, 0], sq[:, 1], p.ra_c, p.dec_c)
     rec = {"id": name, "N": int(p.N), "ra": r1(p.ra_c), "dec": r1(p.dec_c), "date": p.ut.strftime("%Y-%m-%d"),
-           "poly": [[r1(a), r1(b)] for a, b in zip(ra, dec)]}
-    if name in pt.index and pt.loc[name, "f_area"] > 0:
+           "poly": [[r1(a), r1(b)] for a, b in zip(ra, dec)], "vasco": name in vasco_plates}
+    if pt.loc[name, "f_area"] > 0:
         s = get_sun(Time(p.ut))
         ara, adec = (s.ra.deg + 180) % 360, -s.dec.deg
-        th = np.radians(np.arange(0, 361, 6))
         # small circle of radius 8.5 deg about the anti-sun
-        c0 = SkyCoord(ara * u.deg, adec * u.deg)
-        circ = c0.directional_offset_by(th * u.rad, 8.5 * u.deg)
-        rec.update({"frac": r3(pt.loc[name, "f_area"]), "obs": int(pt.loc[name, "n_in"]),
-                    "exp": r1(pt.loc[name, "f_area"] * avg), "anti": [r1(ara), r1(adec)],
+        circ = SkyCoord(ara * u.deg, adec * u.deg).directional_offset_by(np.radians(np.arange(0, 361, 6)) * u.rad, SH.SHADOW_DEG * u.deg)
+        rec.update({"frac": r3(pt.loc[name, "f_area"]), "obs": int(pt.loc[name, "n_in"]), "exp": r1(pt.loc[name, "f_area"] * avg),
                     "circle": [[r1(a), r1(b)] for a, b in zip(circ.ra.deg, circ.dec.deg)]})
     plates.append(rec)
 site["plates"] = plates
-# plates in the catalogue that the published tests leave out (no transients on a night in the team's list)
-allp = pd.read_parquet(ROOT / "data/plates_corrected.parquet")
-allp = allp[allp.index.isin(cat.plate.unique()) & ~allp.index.isin(pl.index)]
-n_all = cat.groupby("plate").size()
-site["plates_out"] = []
-for name, p in allp.iterrows():
-    ra, dec = deproject(sq[:, 0], sq[:, 1], p.ra_c, p.dec_c)
-    site["plates_out"].append({"id": name, "N": int(n_all.get(name, 0)), "date": p.ut.strftime("%Y-%m-%d"),
-                               "poly": [[r1(a), r1(b)] for a, b in zip(ra, dec)]})
-site["avg_per_plate"] = r1(avg)
 
 # ------------------------------------------------------------------ the plate-level measurement (shadow_fit.py): per-plate
-# counts and ratios, the common fit, its calibration on toys from real plates, and the cross-checks; and, for each of the
-# eight plates partly in shadow, every transient within 3 deg (xi east, eta north, deg), which side of the shadow's
-# edge it lies, and the edge itself
-import shadow as SH                                                          # noqa: E402
+# counts and ratios, the common fit, its calibration on toys from real plates, and the cross-checks; and, for each plate
+# partly in shadow, every transient in its central 6 x 6 deg (xi east, eta north, deg), which side of the shadow's edge
+# it lies, and the edge itself
 F_ = json.loads((ROOT / "data/shadow_fit.json").read_text())
 site["shadow"] = {k: F_[k] for k in ("fit", "closure", "whole")}
 site["shadow"]["toys"] = {k: F_["toys"][k] for k in ("null", "p_as_high", "hist_null", "interval68", "interval90")}
 site["shadow"]["checks"] = F_["checks"]
 plc = {p_["plate"]: p_ for p_ in F_["plates"]}
 up_close = []
-
-
-def project(ra, dec, ra0, dec0):
-    """RA, Dec (deg) -> plate-frame offsets xi (east), eta (north) in deg, gnomonic about (ra0, dec0)."""
-    ra, dec, ra0, dec0 = map(np.radians, (ra, dec, ra0, dec0))
-    cosc = np.sin(dec0) * np.sin(dec) + np.cos(dec0) * np.cos(dec) * np.cos(ra - ra0)
-    xi = np.cos(dec) * np.sin(ra - ra0) / cosc
-    eta = (np.cos(dec0) * np.sin(dec) - np.sin(dec0) * np.cos(dec) * np.cos(ra - ra0)) / cosc
-    return np.degrees(xi), np.degrees(eta)
-
-
 for q in sorted(plc, key=lambda q: -plc[q]["shadow"]):
     p_ = pl.loc[q]; t_ = Time(pd.Timestamp(p_.ut).to_datetime64())
-    c_ = cs[(cs.plate == q) & (cs.xi.abs() < SH.HALF) & (cs.eta.abs() < SH.HALF)]
+    c_ = cat[(cat.plate == q) & (cat.xi.abs() < SH.HALF) & (cat.eta.abs() < SH.HALF)]
     # the shadow's edge: the 8.5 deg circle about the anti-sun point at mid-exposure, on the plate's tangent plane
     ax = np.asarray(SH.antisun_axis(t_)).reshape(3)
     c0 = SkyCoord(np.degrees(np.arctan2(ax[1], ax[0])) * u.deg, np.degrees(np.arcsin(ax[2])) * u.deg)
     ring_ = c0.directional_offset_by(np.radians(np.arange(0, 360.5, 1.5)) * u.rad, SH.SHADOW_DEG * u.deg)
-    ex, ey = project(ring_.ra.deg, ring_.dec.deg, p_.ra_c, p_.dec_c)
+    ex, ey = tangent(ring_.ra.deg, ring_.dec.deg, p_.ra_c, p_.dec_c)
     dark = SH.antisun_geocentric(c_.ra.values, c_.dec.values, Time(np.full(len(c_), pd.Timestamp(p_.ut).to_datetime64()))) < SH.SHADOW_DEG
     up_close.append({**plc[q], "sunlit": plc[q]["n"] - plc[q]["O"], "xi": [round(float(v_), 3) for v_ in c_.xi],
                      "eta": [round(float(v_), 3) for v_ in c_.eta], "dark": "".join("1" if d_ else "0" for d_ in dark),
@@ -131,142 +81,16 @@ for q in sorted(plc, key=lambda q: -plc[q]["shadow"]):
 site["shadow"]["plates"] = up_close
 site["shadow"]["half"] = SH.HALF
 
-# ------------------------------------------------------------------ two ideas of chance
-pf = ROOT / "data/paste_sums_geo.npy"
-sums = np.load(pf if pf.exists() else ROOT / "data/paste_sums_geo_all.npy")
-# observed: transients in the shadowed parts, each tested against the shadow's edge (plate_shadow_geo_corr.parquet, from
-# shadow_test.py); expected: the shadowed plates' worth of sky times the average plate
-psh = pd.read_parquet(ROOT / "data/plate_shadow_geo_corr.parquet")
-n_strict, area_exp, observed = int(((cs.xi.abs() < SH.HALF) & (cs.eta.abs() < SH.HALF)).sum()), round(float(psh.f_area.sum() * psh.N.mean()), 1), int(psh[psh.f_area > 0].n_in.sum())
-pfrac = area_exp / n_strict
+# ------------------------------------------------------------------ two ideas of chance (shadow_pooled.py)
+sums = np.load(ROOT / "data/shadow_paste_sums.npy")
 bins = np.arange(0, 2001, 25)
-h, _ = np.histogram(sums, bins)
-site["paste"] = {"bins": bins.tolist(), "counts": h.tolist(), "n": int(len(sums)), "observed": observed,
-                 "area_expected": area_exp, "p": r3(np.mean(sums <= observed)),
-                 "binom_sd": r1(np.sqrt(n_strict * pfrac * (1 - pfrac))), "n_transients": n_strict}
+site["paste"] = {"bins": bins.tolist(), "counts": np.histogram(sums, bins)[0].tolist(), "n": int(len(sums)),
+                 "observed": SP["ours_geo"]["observed"], "area_expected": SP["ours_geo"]["expected"],
+                 "p": SP["ours_geo"]["p_random"], "binom_sd": SP["ours_geo"]["binom_sd"]}
 
-# ------------------------------------------------------------------ nuclear: nights, shots, lags, season
-lee = quiet_exec(ROOT / "analysis/nuclear_lee.py", stop="# breadth statistic")
-nights, values, sets, windows, members = lee["nights"], lee["values"], lee["sets"], lee["windows"], lee["members"]
-ratios, local_p, shifts, ens = lee["ratios"], lee["local_p"], lee["shifts"], lee["ens"]
-real = lee["real"]
-site["nights"] = [{"d": d.strftime("%Y-%m-%d"), "n": int(v)} for d, v in zip(nights, values)]
-shots = pd.read_csv(ROOT / "data/us_shot_times.csv")
-shots["t"] = pd.to_datetime(shots.ut_datetime.str.replace("Z", ""), format="ISO8601")
-shots = shots[(shots.t >= "1949-11-01") & (shots.t <= "1957-05-31")]
-shots["op"] = shots.source_url.str.extract(r"Operation_([A-Za-z–\-]+)")[0].str.replace("_", " ")
-site["shots"] = [{"t": t.strftime("%Y-%m-%dT%H:%M"), "name": n, "site": "Nevada" if str(s).startswith("NTS") else "Pacific",
-                  "op": (o if isinstance(o, str) else "")} for t, n, s, o in zip(shots.t, shots.Shot_Name, shots.Site, shots.op)]
-wl = list(windows)
-lagrows = []
-for si, sname in enumerate(sets):
-    for k in range(-7, 8):
-        m = si * len(wl) + wl.index(f"lag {k:+d}")
-        col = ens[:, m][np.isfinite(ens[:, m])]
-        lagrows.append({"set": sname, "lag": k, "ratio": r3(real[m]), "p": r3(local_p(real[m], ens[:, m])),
-                        "q05": r3(np.percentile(col, 5)), "q50": r3(np.percentile(col, 50)), "q95": r3(np.percentile(col, 95))})
-site["lags"] = lagrows
-
-
-def nsig_dist(shift_list):
-    rr = np.concatenate([ratios(sets[s], 0) for s in sets])
-    e = np.array([np.concatenate([ratios(sets[s], sh) for s in sets]) for sh in shift_list])
-    p_real = np.array([local_p(rr[m], e[:, m]) for m in range(len(members))])
-    rk = np.empty_like(e)
-    for m in range(e.shape[1]):
-        col = np.nan_to_num(e[:, m], nan=-np.inf)
-        rk[:, m] = (np.argsort(np.argsort(-col)) + 1) / (len(col) + 1)
-    return int(np.sum(p_real < 0.05)), np.sum(rk < 0.05, axis=1)
-
-
-year_shift = np.array([365 * k + d for k in (-5, -4, -3, -2, -1, 1, 2, 3, 4, 5) for d in range(-20, 21)])
-n_any, d_any = nsig_dist(shifts)
-n_yr, d_yr = nsig_dist(year_shift)
-m1 = wl.index("+/-1")   # VASCO's window, all US tests
-r_any = ens[:, m1][np.isfinite(ens[:, m1])]
-r_yr = np.array([ratios(sets["all US"], sh)[m1] for sh in year_shift]); r_yr = r_yr[np.isfinite(r_yr)]
-site["pm1"] = {"real": r3(real[m1]), "any": [r3(v) for v in r_any], "season": [r3(v) for v in r_yr],
-               "p_any": r3(np.mean(r_any >= real[m1])), "p_season": r3(np.mean(r_yr >= real[m1]))}
-site["lee"] = {"any": {"real": n_any, "dist": np.bincount(d_any, minlength=31)[:31].tolist(), "p": r3(np.mean(d_any >= n_any))},
-               "season": {"real": n_yr, "dist": np.bincount(d_yr, minlength=31)[:31].tolist(), "p": r3(np.mean(d_yr >= n_yr))}}
-pc = pd.read_parquet(ROOT / "data/plates_corrected.parquet")
-pc["b"] = np.abs(SkyCoord(pc.ra_c.values * u.deg, pc.dec_c.values * u.deg).galactic.b.deg)
-nb = pc.groupby(pc.ut.dt.normalize()).b.mean().reindex(nights)
-mm = pd.DataFrame({"m": nights.month, "n": values, "b": nb.values}).groupby("m").agg(n=("n", "mean"), b=("b", "mean"))
-nv = shots[shots.Site.str.startswith("NTS")].t.dt.month.value_counts()
-day0 = pd.Timestamp("1949-01-01")
-in_win = np.isin(((nights - day0).days).values, (sets["all US"][:, None] + np.array([-1, 0, 1])).ravel())
-win = pd.Series(nights[in_win].month).value_counts()
-# expected transients for each plate from its distance to the Milky Way (one smooth curve fitted to all plates, rising to a
-# plateau); a night's expected number is the sum over its plates. VASCO's window is then tested on count / expected.
-from scipy.optimize import curve_fit
-nuc = lee["g"]
-pln = nuc["pl"][nuc["pl"].cor_date.isin(nights)].copy()
-pln["n"] = nuc["cat"].groupby("plate").size().reindex(pln.index).fillna(0)
-pln["b"] = np.abs(SkyCoord(pln.ra_c.values * u.deg, pln.dec_c.values * u.deg).galactic.b.deg)
-sat = lambda x, A, b0, C: C + A * (1 - np.exp(-x / b0))
-psat, _ = curve_fit(sat, pln.b, pln.n, p0=[200, 20, 30], maxfev=20000)
-exp_night = pln.assign(e=sat(pln.b, *psat)).groupby("cor_date").e.sum().reindex(nights).values
-adj = values / exp_night
-day0 = pd.Timestamp("1949-01-01"); Nd = ((nights - day0).days).values
-
-
-def win_ratio(v, shift):
-    lab = np.isin(Nd, (sets["all US"][:, None] + shift + np.array([-1, 0, 1])).ravel()) & np.isfinite(v)
-    rest = ~np.isin(Nd, (sets["all US"][:, None] + shift + np.array([-1, 0, 1])).ravel()) & np.isfinite(v)
-    return v[lab].mean() / v[rest].mean() if 2 <= lab.sum() else np.nan
-
-
-r_adj = win_ratio(adj, 0)
-e_any = np.array([win_ratio(adj, sh) for sh in shifts]); e_yr = np.array([win_ratio(adj, sh) for sh in year_shift])
-in_win0 = np.isin(Nd, (sets["all US"][:, None] + np.array([-1, 0, 1])).ravel())
-win_dates = set(nights[in_win0])
-site["skyadj"] = {"params": [r3(v_) for v_ in psat], "ratio": r3(r_adj),
-                  "p_any": r3(np.nanmean(e_any[np.isfinite(e_any)] >= r_adj)), "p_season": r3(np.nanmean(e_yr[np.isfinite(e_yr)] >= r_adj)),
-                  "plates": [{"b": r1(b_), "n": int(n_), "w": int(d_ in win_dates), "id": i_, "d": d_.strftime("%Y-%m-%d")}
-                             for i_, b_, n_, d_ in zip(pln.index, pln.b, pln.n, pln.cor_date)]}
-# VASCO's own test (window nights against the same number of observing nights picked at random), before and after
-# allowing for the distance of each night's plates from the Milky Way
-rngp = np.random.default_rng(42)
-
-
-def random_nights(e, n=20000):
-    """VASCO's test: transients on the nights near tests over their expected number, divided by the same for all other
-    nights, against random sets of nights of the same size drawn from the whole survey. With e = 1 for every night this
-    is VASCO's ratio of transients per night; nights with no plates count as zero on both sides."""
-    lab = np.isin(Nd, (sets["all US"][:, None] + np.array([-1, 0, 1])).ravel()); k = int(lab.sum())
-    V_, E_ = values.sum(), e.sum()
-    stat = lambda m: (values[m].sum() / e[m].sum()) / ((V_ - values[m].sum()) / (E_ - e[m].sum()))
-    obs = stat(lab); R = np.empty(n)
-    for i in range(n):
-        m = np.zeros(len(values), bool); m[rngp.choice(len(values), k, replace=False)] = True; R[i] = stat(m)
-    from scipy.stats import norm
-    pv = np.mean(R >= obs)
-    return {"real": r3(obs), "nights": k, "p": r3(pv), "sigma": r1(norm.isf(pv)), "hist": np.histogram(R, np.arange(0, 3.01, 0.05))[0].tolist()}
-
-
-site["perm"] = {"raw": random_nights(np.ones(len(values))), "adj": random_nights(np.nan_to_num(exp_night))}
-
-# VASCO's unit is the night, and a night's transients count its photographs: transients per plate by month, and VASCO's
-# excess split into its parts. Per night = (plates per night) x (transients per plate); per plate = (expected per plate,
-# from where the plates pointed) x (transients per plate over expected). "Plates" are the catalogue's plates (those with
-# at least one transient on VASCO's nights).
-npl = pln.groupby("cor_date").size().reindex(nights).fillna(0).values
-lab0 = np.isin(Nd, (sets["all US"][:, None] + np.array([-1, 0, 1])).ravel())
-mt = pd.DataFrame({"m": nights.month, "n": values, "p": npl}).groupby("m").sum()
-site["months"] = [{"m": "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split()[i - 1], "n": r1(mm.n[i]), "b": r1(mm.b[i]),
-                   "pp": r1(mt.n[i] / mt.p[i]), "ppn": round(float(mt.p[i] / (nights.month == i).sum()), 2),
-                   "shots": int(nv.get(i, 0)), "win": int(win.get(i, 0))} for i in range(1, 13)]
-en = np.nan_to_num(exp_night); w_, o_ = lab0, ~lab0
-ym = nights.to_period("M"); same = o_ & np.isin(ym, ym[w_].unique())
-site["nuc_steps"] = {"nights_with_plates": int((npl > 0).sum()), "nights_listed": len(npl), "max_plates": int(npl.max()),
-                     "per_night": r3(values[w_].mean() / values[o_].mean()),
-                     "per_plate": r3((values[w_].sum() / npl[w_].sum()) / (values[o_].sum() / npl[o_].sum())),
-                     "per_expected": r3((values[w_].sum() / en[w_].sum()) / (values[o_].sum() / en[o_].sum())),
-                     "pointing": r3((en[w_].sum() / npl[w_].sum()) / (en[o_].sum() / npl[o_].sum())),
-                     "plates_window": round(float(npl[w_].mean()), 2), "plates_other": round(float(npl[o_].mean()), 2),
-                     "plates_same_months": round(float(npl[same].mean()), 2), "nights_window": int(w_.sum()),
-                     "empty_window": int((npl[w_] == 0).sum()), "empty_other": int((npl[o_] == 0).sum()), "nights_other": int(o_.sum())}
+# ------------------------------------------------------------------ nuclear tests (nuclear.py)
+NU = json.loads((ROOT / "data/nuclear.json").read_text())
+site["perm"], site["months"], site["nuc_steps"] = NU["perm"], NU["months"], NU["steps"]
 
 # ------------------------------------------------------------------ alignments
 rb = lambda a: a.reshape(*a.shape[:-1], -1, 2).sum(-1)                 # 0.2-dex bins
@@ -444,13 +268,6 @@ site["tail_tracks"] = {"tracks": tail, "levels": TT["levels"], "real": TT["real"
 
 # ------------------------------------------------------------------ dates
 t = pd.read_csv(ROOT / "data/plate_date_corrections.csv", index_col=0, parse_dates=["header_date", "corrected_date"])
-ev = []
-for name, r in t.dropna(subset=["label"]).iterrows():
-    for src, col in (("plate log", "log_offset"), ("asteroids", "asteroid_offset"), ("label", "label_offset")):
-        v = r[col]
-        if v is not None and not (isinstance(v, float) and np.isnan(v)) and v in (0, 1):
-            ev.append({"plate": name, "e": int(r.label), "src": src, "off": int(v)})
-site["date_evidence"] = ev
 used = t.index.isin(pl.index) | t.index.isin(pd.read_parquet(ROOT / "data/plates.parquet").index)
 an = t[t.index.isin(pd.read_parquet(ROOT / "data/plates.parquet").index)]
 exc = []
@@ -489,8 +306,8 @@ du = pd.read_csv(ROOT / "data/plate_dust.csv").set_index("plate")
 du["b"] = np.abs(SkyCoord(pl.loc[du.index].ra_c.values * u.deg, pl.loc[du.index].dec_c.values * u.deg).galactic.b.deg)
 du = du[du.b > 20]; dusty, clear = du[du.ebv >= 0.15], du[du.ebv < 0.05]
 site["dust"] = {"n_dusty": len(dusty), "median_dusty": int(dusty.n.median()), "n_clear": len(clear), "median_clear": int(clear.n.median())}
-# share of the 561 plates (VASCO's nights) whose band 2.0-2.75 deg from the centre is denser than their inner 1.5 deg
-cs_ = cs[cs.plate != ""]; rs_ = np.maximum(cs_.xi.abs(), cs_.eta.abs())
+# share of plates whose band 2.0-2.75 deg from the centre is denser than their inner 1.5 deg
+cs_ = cat; rs_ = np.maximum(cs_.xi.abs(), cs_.eta.abs())
 share_edge = float(np.mean([((g < 2.75) & (g >= 2.0)).sum() / (5.5 ** 2 - 4.0 ** 2) > (g < 1.5).sum() / 3.0 ** 2 for _, g in rs_.groupby(cs_.plate)]))
 site["radial"] = {"share_edge": r3(share_edge), "r": (ann[:-1] + 0.125).round(3).tolist(), "transients": (dt / dt[ref].mean()).round(3).tolist(),
                   "lo": np.percentile(boot, 5, 0).round(3).tolist(), "hi": np.percentile(boot, 95, 0).round(3).tolist(),
@@ -513,6 +330,115 @@ gal = SkyCoord(pa.ra_c.values * u.deg, pa.dec_c.values * u.deg).galactic
 pa["absb"], pa["l"] = np.abs(gal.b.deg), gal.l.deg
 pa = pa[pa.N > 0]
 site["crowding"] = [{"id": i, "b": r1(r.absb), "l": r1(r.l), "dec": r1(r.dec_c), "N": int(r.N)} for i, r in pa.iterrows()]
+
+# ------------------------------------------------------------------ numbers quoted in the text ({n:key} in site/copy.md)
+WORDS = "zero one two three four five six seven eight nine ten eleven twelve".split()
+word = lambda n: WORDS[int(n)] if 0 <= int(n) < len(WORDS) else f"{int(n):,}"
+odds = lambda p_: word(round(1 / p_)) if round(1 / p_) <= 10 else f"{round(1 / p_):,}"    # "one in {odds}"
+num = lambda v, d=0: f"{v:,.{d}f}"
+from scipy.stats import norm                                                 # noqa: E402
+sig = lambda p_: f"{norm.isf(p_):.1f}"
+N_ = pl.N
+avg_all = N_.mean(); sd_all = np.sqrt(avg_all); lo_b, hi_b = avg_all - 2 * sd_all, avg_all + 2 * sd_all
+pa_b = pa.set_index(pa.index).absb
+du_all = pd.read_csv(ROOT / "data/plate_dust.csv").set_index("plate")
+G, T_, Fp = SP["ours_geo"], SP["ours_topo"], {p_["plate"]: p_ for p_ in F_["plates"]}
+V_ = SP["vasco_geo"]
+ST, MO = NU["steps"], {m_["m"]: m_ for m_ in NU["months"]}
+spring = [MO[k] for k in ("Mar", "Apr", "May")]
+numbers = {
+    # the catalogue
+    "cat.transients": num(len(cat)), "cat.plates": num(len(pl)), "cat.vasco_plates": num(len(vasco_plates)),
+    "cat.left_out": num(len(pl) - len(vasco_plates)), "cat.min": num(N_.min()), "cat.max": num(N_.max()),
+    "cat.avg": num(avg_all), "cat.noise": num(sd_all), "cat.band_lo": num(lo_b), "cat.band_hi": num(hi_b),
+    "cat.in_band": num(((N_ >= lo_b) & (N_ <= hi_b)).sum()), "cat.under30": num((N_ < 30).sum()), "cat.over500": num((N_ > 500).sum()),
+    "cat.over1000": word((N_ > 1000).sum()), "cat.edge_share": num(100 * share_edge),
+    "crowd.inner": num(pa[pa.absb < 5].N.median()), "crowd.outer": num(round(pa[pa.absb > 40].N.median(), -1)),
+    "crowd.ratio": word(round(pa[pa.absb > 40].N.median() / pa[pa.absb < 5].N.median())),
+    "dust.n_dusty": num(site["dust"]["n_dusty"]), "dust.median_dusty": num(site["dust"]["median_dusty"]),
+    "dust.n_clear": num(site["dust"]["n_clear"]), "dust.median_clear": num(site["dust"]["median_clear"]),
+    # Earth's shadow, pooled (shadow_pooled.py)
+    "sh.plates": word(G["plates"]), "sh.plates_n": num(G["plates"]), "sh.partial": word(len(F_["plates"])),
+    "sh.never": num(len(pl) - G["plates"]), "sh.observed": num(G["observed"]), "sh.worth": num(G["plates_worth"], 2),
+    "sh.avg": num(G["avg_per_plate"], 1), "sh.expected": num(G["expected"]), "sh.binom_sd": num(G["binom_sd"]),
+    "sh.binom_z": num(abs(G["binom_z"]), 1), "sh.p_random": num(100 * G["p_random"]), "sh.sig_random": sig(G["p_random"]),
+    "sh.odds_random": odds(G["p_random"]), "sh.odds_near": odds(G["p_near"]), "sh.sig_near": sig(G["p_near"]),
+    "sh.centre_obs": num(G["centre"]["observed"]), "sh.centre_exp": num(G["centre"]["expected"]), "sh.odds_centre": odds(G["centre"]["p_random"]),
+    "sh.topo_plates": word(T_["plates"]), "sh.topo_obs": num(T_["observed"]), "sh.topo_exp": num(T_["expected"]),
+    "sh.odds_topo": odds(T_["p_random"]), "sh.sig_topo": sig(T_["p_random"]),
+    "sh.vasco_obs": num(V_["observed"]), "sh.vasco_exp": num(V_["expected"]), "sh.vasco_plates": word(V_["plates"]),
+    "sh.taurus": word(sum(1 for q in pt.index[pt.f_area > 0] if 40 < pl.loc[q].ra_c < 75)),
+    # Earth's shadow, plate by plate (shadow_fit.py)
+    "fit.r": num(F_["fit"]["r"], 2), "fit.count_lo": num(F_["fit"]["count_lo"], 2), "fit.count_hi": num(F_["fit"]["count_hi"], 2),
+    "fit.null_median": num(F_["toys"]["null"]["median"], 2), "fit.null_lo": num(F_["toys"]["null"]["q16"], 2),
+    "fit.null_hi": num(F_["toys"]["null"]["q84"], 2), "fit.ci90_lo": num(F_["toys"]["interval90"][0], 2),
+    "fit.ci90_hi": num(F_["toys"]["interval90"][1], 2), "fit.inj_r": num(F_["injected"]["r_true"], 2),
+    "fit.inj_odds": odds(F_["injected"]["p_as_high"]),
+    "fit.max_plate": max(Fp, key=lambda q: Fp[q]["r"] or 0), "fit.max_r": num(max(p_["r"] or 0 for p_ in F_["plates"])),
+    "fit.ex_plate": "XE358", "fit.ex_area": num(100 * Fp["XE358"]["shadow"], 1), "fit.ex_weighted": num(100 * Fp["XE358"]["weighted"], 1),
+    "fit.ex_share": num(100 * Fp["XE358"]["O"] / Fp["XE358"]["n"]), "fit.ex_O": num(Fp["XE358"]["O"]), "fit.ex_n": num(Fp["XE358"]["n"]),
+    "pl.XE415_n": num(Fp["XE415"]["n"]), "pl.XE355_n": num(Fp["XE355"]["n"]), "pl.XE617_area": num(100 * Fp["XE617"]["shadow"]),
+    "pl.XE617_O": num(Fp["XE617"]["O"]), "pl.XE617_n": num(Fp["XE617"]["n"]), "pl.XE640_area": num(100 * Fp["XE640"]["shadow"]),
+    "pl.XE640_n": num(Fp["XE640"]["n"]),
+    # nuclear tests (nuclear.py)
+    "nuc.vasco_nights": num(NU["vasco"]["nights"]), "nuc.vasco_ratio": num(NU["vasco"]["real"], 2),
+    "nuc.vasco_odds": odds(NU["vasco"]["p"]), "nuc.vasco_sig": num(NU["vasco"]["sigma"], 1),
+    "nuc.nights": num(ST["nights_window"]), "nuc.ratio": num(NU["perm"]["raw"]["real"], 2), "nuc.odds": odds(NU["perm"]["raw"]["p"]),
+    "nuc.sig": num(NU["perm"]["raw"]["sigma"], 1), "nuc.per_plate": num(ST["per_plate"], 2), "nuc.per_expected": num(ST["per_expected"], 2),
+    "nuc.adj_odds": odds(NU["perm"]["adj"]["p"]), "nuc.adj_sig": num(NU["perm"]["adj"]["sigma"], 1),
+    "nuc.remaining": num(100 * (ST["per_expected"] - 1)), "nuc.pointing": num(100 * (ST["pointing"] - 1)),
+    "nuc.without_lo": num(100 * (min(t_["excess_without"] for t_ in NU["top_plates"]) - 1)),
+    "nuc.without_hi": num(100 * (max(t_["excess_without"] for t_ in NU["top_plates"]) - 1)),
+    "nuc.all_nights": num(ST["nights"]), "nuc.nights_with_plates": num(ST["nights_with_plates"]), "nuc.max_plates": word(ST["max_plates"]),
+    "nuc.plates_per_night": num(ST["plates_per_night"], 1), "nuc.plates_window": num(ST["plates_window"], 2),
+    "nuc.plates_other": num(ST["plates_other"], 2), "nuc.plates_same_months": num(ST["plates_same_months"], 2),
+    "nuc.empty_window": num(ST["empty_window"]), "nuc.empty_other": num(ST["empty_other"]), "nuc.nights_other": num(ST["nights_other"]),
+    "nuc.spring_b_lo": num(min(m_["b"] for m_ in spring)), "nuc.spring_b_hi": num(max(m_["b"] for m_ in spring)),
+    "nuc.late_b": num(round(np.mean([MO[k]["b"] for k in ("Jul", "Aug", "Sep", "Oct", "Nov", "Dec")]), -1)),
+    "nuc.spring_pp_lo": num(min(m_["pp"] for m_ in spring)), "nuc.spring_pp_hi": num(max(m_["pp"] for m_ in spring)),
+    "nuc.jul_pp": num(MO["Jul"]["pp"]), "nuc.aug_pp": num(MO["Aug"]["pp"]), "nuc.nov_pp": num(MO["Nov"]["pp"]),
+    "nuc.spring_nights": word(sum(m_["win"] for m_ in spring)), "nuc.nov_nights": word(MO["Nov"]["win"]),
+    "nuc.scan_sig": num(max(r_["sigma"] for r_ in NU["scan"]), 1),
+    "nuc.lag_best": {"-1": "the day before the test", "0": "the day of the test itself", "1": "the day after the test"}[max(NU["lags"], key=NU["lags"].get)],
+}
+south = pd.read_csv(ROOT / "data/shadow_plates_log.csv")
+numbers.update({"sh.taurus_cap": numbers["sh.taurus"].capitalize(), "sh.south": num((~south.in_catalogue).sum()),
+                "sh.south_ratio": word(round(south[~south.in_catalogue].shadow_fraction.sum() / south[south.in_catalogue].shadow_fraction.sum())),
+                "nuc.augnov_b": num(np.mean([MO["Aug"]["b"], MO["Nov"]["b"]]))})
+# the dates (date_corrections.py and its evidence)
+DS, DC = site["date_summary"], pd.read_csv(ROOT / "data/date_check_summary.csv")
+src = t.source.value_counts()
+off_ = t.offset_days.reindex(pl.index); left_ = ~pl.index.isin(vasco_plates)
+numbers.update({
+    "dates.early_pct": num(5 * round(20 * (off_ == 1).mean())), "dates.ast_late_trails": num(DC[DC.best_day_offset == 1].n_at_best.sum()),
+    "dates.ast_late_plates": num((DC.best_day_offset == 1).sum()), "dates.ast_ok_trails": num(DC[DC.best_day_offset == 0].n_at_best.sum()),
+    "dates.ast_ok_plates": num((DC.best_day_offset == 0).sum()), "dates.log_agree": num(DS["log_agree"]), "dates.log_checked": num(DS["log_checked"]),
+    "dates.dated": num(len(t)), "dates.by_log": num(src["Palomar log"]), "dates.by_asteroids": num(src["asteroids"]),
+    "dates.by_label": num(src["label"]), "dates.by_runs": num(src["block rule"]), "dates.unresolved": word(src.get("unresolved", 0)),
+    "dates.exceptions": word(len(DS["exceptions"])).capitalize(), "dates.gross": word(sum(abs(e_["days"]) > 1 for e_ in DS["exceptions"])).capitalize(),
+    "dates.vasco_nights": num(len(sample.vasco_nights())), "dates.dropped": num((left_ & (off_ == 0)).sum()),
+    "dates.shifted": num((~left_ & (off_ == 0)).sum())})
+# the alignments (alignments.py, vasco_candidates.py, tail_shapes.py, xe492_trail.py)
+VC, TK, CM, RC = json.loads((ROOT / "data/vasco_candidates.json").read_text()), AJ["track"], site["compare"], site["recovery"]
+i5, i4 = TK["levels"].index(-5.0), TK["levels"].index(-4.0)
+calls = [w_["call"] for w_ in SHP["tracks"]]
+numbers.update({
+    "align.vasco_transients": num(VC["n_transients"]), "align.vasco_in_cat": word(VC["n_in_catalogue"]),
+    "align.copies": num(AJ["ncopies"]), "align.shift": num(AJ["shift_arcsec"]),
+    "align.n5": word(TK["real"][i5]).capitalize(), "align.exp5": num(TK["copies_mean"][i5], 1), "align.n4": word(TK["real"][i4]),
+    "align.n4_cap": word(TK["real"][i4]).capitalize(), "align.exp4": word(round(TK["copies_mean"][i4])),
+    "align.p_global": num(100 * site["trackdist"]["tail"]["p_global"]),
+    "align.rho": num(CM["rho"], 2), "align.top50": num(CM["top50"]), "align.vasco_strong": num(CM["vasco_strong"][0]),
+    "align.vasco_bent": num(CM["vasco_strong"][1]), "align.both": num(CM["counts"][2]),
+    "align.false_alarms": word(RC["false_alarms"]), "align.vasco_ew": num(RC["vasco"][RC["angles"].index(0.0)]),
+    "align.track_ew": num(RC["track"][RC["angles"].index(0.0)]),
+    "widths.wider": word(calls.count("wider")).capitalize(), "widths.like": word(calls.count("like the stars")),
+    "widths.control_n": num(SHP and site["widths"]["control"]["n"]), "widths.control_pct": num(100 * (site["widths"]["control"]["ratio"] - 1)),
+    "widths.defocus_km": num(5 * round(SHP["defocus_km"] / 5)),
+    "trail.length": num(np.floor(TR["length_arcmin"])), "trail.sag": num(round(TR["sag_arcsec"], -1)), "trail.radius": num(TR["radius_deg"]),
+    "trail.turn_km": num(SHP["defocus_km"] * np.tan(np.radians(TR["radius_deg"]))),
+    "trail.spacing_lo": num(TR["spacing_16_84"][0]), "trail.spacing_hi": num(TR["spacing_16_84"][1])})
+site["numbers"] = numbers
 
 (OUT / "data/site.json").write_text(json.dumps(site, separators=(",", ":")))
 print("site.json", round((OUT / "data/site.json").stat().st_size / 1024), "kB")

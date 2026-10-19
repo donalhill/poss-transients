@@ -3,8 +3,6 @@
   - poss_i_observing_dates_strict.csv: the survey's observing nights (from Palomar's log, VizieR VI/25)
   - nuclear_tests_1949_1957.csv: the US nuclear tests used in VASCO's analysis
   - XE_final_random_sources.csv: random positions on each plate (the control sample)
-  - MLscripts/nuclear_permutation_deciles.py, MLscripts/shadow_deficit_deciles.py: VASCO's own decile analysis code,
-    run unchanged by ml_decile_null.py
 python analysis/fetch_external.py"""
 from pathlib import Path
 
@@ -17,8 +15,6 @@ FILES = {
     "poss_i_observing_dates_strict.csv": f"{GH}/VASCO-ML/main/data/poss_i_observing_dates_strict.csv",
     "nuclear_tests_1949_1957.csv": f"{GH}/VASCO-ML/main/data/nuclear_tests_1949_1957.csv",
     "XE_final_random_sources.csv": f"{GH}/VASCO-challenge/main/data/XE_final_random_sources.csv",
-    "MLscripts/nuclear_permutation_deciles.py": f"{GH}/VASCO-ML/main/MLscripts/nuclear_permutation_deciles.py",
-    "MLscripts/shadow_deficit_deciles.py": f"{GH}/VASCO-ML/main/MLscripts/shadow_deficit_deciles.py",
 }
 
 if __name__ == "__main__":

@@ -24,7 +24,7 @@ import astropy.units as u
 from scipy.ndimage import map_coordinates, median_filter
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import shadow as SH                                                    # noqa: E402
+from geometry import deproject                                                   # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 CUT = ROOT / "data/cutouts/xe492"; CUT.mkdir(parents=True, exist_ok=True)
@@ -42,7 +42,7 @@ s_lo, s_hi = s_all[inside].min(), s_all[inside].max()
 step = PIX / 3600; S = np.arange(s_lo, s_hi, step); O = np.arange(-600, 600.1, PIX) / 3600
 strip = np.full((len(O), len(S)), np.nan); used = np.full(len(S), np.inf)
 for sc in np.arange(s_lo + 0.4, s_hi, 0.75):
-    xi, eta = c0 + sc * d; ra, dec = SH.deproject(np.array([xi]), np.array([eta]), ra_c, dec_c)
+    xi, eta = c0 + sc * d; ra, dec = deproject(np.array([xi]), np.array([eta]), ra_c, dec_c)
     f = CUT / f"s{sc:+.2f}.fits"
     if not f.exists():
         f.write_bytes(requests.get(f"https://archive.stsci.edu/cgi-bin/dss_search?v=poss1_red&r={ra[0]:.5f}&d={dec[0]:.5f}"
@@ -53,7 +53,7 @@ for sc in np.arange(s_lo + 0.4, s_hi, 0.75):
     im = fits.getdata(f).astype(float); im = im - median_filter(im, size=31); w = WCS(h)
     sel = np.abs(S - sc) < used
     SS, OO = np.meshgrid(S[sel], O)
-    rr, dd = SH.deproject((c0[0] + SS * d[0] + OO * n[0]).ravel(), (c0[1] + SS * d[1] + OO * n[1]).ravel(), ra_c, dec_c)
+    rr, dd = deproject((c0[0] + SS * d[0] + OO * n[0]).ravel(), (c0[1] + SS * d[1] + OO * n[1]).ravel(), ra_c, dec_c)
     px, py = w.world_to_pixel(SkyCoord(rr * u.deg, dd * u.deg))
     ok = (px > 0) & (px < im.shape[1] - 1) & (py > 0) & (py < im.shape[0] - 1)
     v = np.full(px.shape, np.nan); v[ok] = map_coordinates(im, [py[ok], px[ok]], order=1); v = v.reshape(SS.shape)

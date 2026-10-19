@@ -26,7 +26,7 @@ import astropy.units as u
 from scipy.ndimage import map_coordinates
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import shadow as SH                                                    # noqa: E402
+from geometry import deproject                                                   # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 CUT = ROOT / "data/cutouts/second_copy"; CUT.mkdir(parents=True, exist_ok=True)
@@ -50,7 +50,7 @@ if __name__ == "__main__":
     out = []
     for a in T:
         q = a["plate"]; x, y = np.array(a["x"]) / 3600, np.array(a["y"]) / 3600
-        ra, dec = SH.deproject(x, y, pl.loc[q].ra_c, pl.loc[q].dec_c); sk = SkyCoord(ra * u.deg, dec * u.deg)
+        ra, dec = deproject(x, y, pl.loc[q].ra_c, pl.loc[q].dec_c); sk = SkyCoord(ra * u.deg, dec * u.deg)
         c = SkyCoord(ra.mean() * u.deg, dec.mean() * u.deg); ut = Time(pd.Timestamp(pl.loc[q].ut).to_pydatetime())
         xml = subprocess.run(["curl", "-s", "-m", "120", f"{SIAP}?POS={c.ra.deg:.5f},{c.dec.deg:.5f}&SIZE=0.25"], capture_output=True).stdout
         rows = [r for r in parse_single_table(io.BytesIO(xml)).to_table() if str(r["bandpassID"]) == "POSSI_E"]

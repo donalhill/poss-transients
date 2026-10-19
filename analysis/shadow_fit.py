@@ -1,7 +1,8 @@
 """Earth's shadow, measured plate by plate on VASCO's catalogue.
 
 Hypothesis: on each plate, transients in the shadowed part are r times as dense as in the sunlit part (r = 1: no effect).
-Fit: given a plate's n transients and the shadowed share f of its area, the count in shadow is binomial,
+Fit: given a plate's n transients and the shadowed share f of its transients with no effect (its shadowed area, each
+part weighted by the average density of transients there on plates the shadow never crosses), the count in shadow is binomial,
 O ~ Bin(n, p), p = r f / (r f + 1 - f). Conditioning on n removes how rich or poor each plate is. One common r is fitted
 over the plates partly in shadow by maximum likelihood; each plate's own r_i is shown with its 68% counting range
 (Clopper-Pearson; an upper bound when none lie in shadow).
@@ -9,14 +10,14 @@ over the plates partly in shadow by maximum likelihood; each plate's own r_i is 
 The binomial treats transients as spread evenly and independently within a plate; they are not (clumps, busy edges,
 holes). So the fit is calibrated with toys:
   - from the fitted model (parametric): checks that the fit returns what went in, with the coverage it claims;
-  - from the data: each real shadow footprint (its exact shape and place on the plate) laid on another VASCO plate the
+  - from the data: each real shadow footprint (its exact shape and place on the plate) laid on another catalogue plate the
     shadow never crosses, with a similar number of transients; the toy's counts are that plate's real transients inside
     and outside the footprint. An effect r < 1 is injected by removing transients inside at random, r > 1 by removing
     sunlit ones. Fitted exactly like the data: the no-effect distribution, and a Neyman interval on r.
 Cross-checks: host plates chosen differently (any plate; the nearest on the sky); the shadow moved at random over its
 own plate with the transients fixed (shadow-sized discs, similar coverage); each plate left out in turn.
-Geocentric shadow (8.5 deg about the anti-sun point at mid-exposure), corrected dates, nights in VASCO's list, transients
-within 2.9 deg of the plate centre.
+Geocentric shadow (8.5 deg about the anti-sun point at mid-exposure); every catalogue plate on its corrected date
+(sample.ours); the central 6 x 6 deg of each plate.
 python analysis/shadow_fit.py -> data/shadow_fit.json"""
 import json
 import sys
@@ -28,7 +29,8 @@ from astropy.time import Time
 from scipy.stats import beta
 
 sys.path.insert(0, str(Path(__file__).parent))
-from shadow import (GX, HALF, ROOT, SHADOW_DEG, SUB, antisun_axis, cell_counts, deproject, shadow_share,   # noqa: E402
+import sample                                                                # noqa: E402
+from shadow import (HALF, ROOT, SHADOW_DEG, SUB, antisun_axis, cell_counts, deproject, shadow_share,   # noqa: E402
                     unit, vasco_plate)
 
 rng = np.random.default_rng(11)
@@ -111,11 +113,9 @@ def placements(P_, want=6000, batch=512):
 
 
 if __name__ == "__main__":
-    pl = pd.read_parquet(ROOT / "data/plates_corrected.parquet")
-    cat = pd.read_parquet(ROOT / "data/transients_with_plates.parquet")
-    strict = set(pd.read_csv(ROOT / "data/external/poss_i_observing_dates_strict.csv").obs_date.astype(str).str[:10])
-    cat = cat[cat.obs_date.astype(str).str[:10].isin(strict) & (cat.plate != "") & (cat.xi.abs() < HALF) & (cat.eta.abs() < HALF)]
-    shadow9 = sorted(pd.read_parquet(ROOT / "data/plate_shadow_geo_corr.parquet").query("f_area > 0").index)
+    cat, pl = sample.ours()
+    cat = cat[(cat.xi.abs() < HALF) & (cat.eta.abs() < HALF)]
+    shadow9 = sorted(pd.read_parquet(ROOT / "data/shadow_plates.parquet").query("f_area > 0").index)
     hosts = {q: gq for q, gq in cat[~cat.plate.isin(shadow9)].groupby("plate")}
     # acceptance: the average density of transients over the face of a plate (each plate other than the shadow plates
     # counted equally); a cell's shadowed share is weighted by it, so edges and corners count for what they hold
@@ -167,6 +167,12 @@ if __name__ == "__main__":
                    "belt": [[round(float(x), 3) for x in row] for row in B]}
     print("toys from the data, no effect:", out["toys"]["null"], "share as high as the data", out["toys"]["p_as_high"])
     print("Neyman interval on r: 68%", i68, "90%", i90)
+    # a shortfall as large as VASCO's (their pooled count over expected, on their construction): how often the fit would
+    # come back as high as it does on the real plates
+    V_ = json.loads((ROOT / "data/shadow_pooled.json").read_text())["vasco_geo"]
+    r_v = round(V_["observed"] / V_["expected"], 2)
+    out["injected"] = {"r_true": r_v, "p_as_high": round(float(np.mean(fit(*toys_from_hosts(P, pick, r_v, T)) >= r_hat)), 3)}
+    print("injected", out["injected"])
 
     # 3. cross-checks: other host choices; the shadow moved over its own plate; each plate left out
     out["checks"] = {}

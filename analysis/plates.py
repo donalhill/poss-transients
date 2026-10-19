@@ -9,7 +9,9 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent))
-from shadow import ROOT, unit
+from geometry import tangent, unit
+
+ROOT = Path(__file__).resolve().parents[1]
 
 OUT = ROOT / "data"
 OUT.mkdir(exist_ok=True)
@@ -28,13 +30,6 @@ plates["ut"] = pd.to_datetime(plates.ut)
 plates["ut_date"] = plates.ut.dt.strftime("%Y-%m-%d")
 
 # footprint half-width from the control scatter in a tangent plane, per plate
-def tangent(ra, dec, ra0, dec0):
-    ra, dec, ra0, dec0 = map(np.radians, (ra, dec, ra0, dec0))
-    c = np.sin(dec0) * np.sin(dec) + np.cos(dec0) * np.cos(dec) * np.cos(ra - ra0)
-    xi = np.cos(dec) * np.sin(ra - ra0) / c
-    eta = (np.cos(dec0) * np.sin(dec) - np.sin(dec0) * np.cos(dec) * np.cos(ra - ra0)) / c
-    return np.degrees(xi), np.degrees(eta)
-
 c = ctrl.join(plates[["ra_c", "dec_c"]], on="Name")
 xi, eta = tangent(c.RA, c.Dec, c.ra_c, c.dec_c)
 print(f"control footprint |xi| max {np.abs(xi).max():.2f}, |eta| max {np.abs(eta).max():.2f} deg "

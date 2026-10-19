@@ -1,0 +1,47 @@
+{
+ "vasco_geo": {
+  "plates": 9,
+  "whole": [
+   "XE422"
+  ],
+  "plates_worth": 3.66,
+  "avg_per_plate": 166.0,
+  "observed": 431,
+  "expected": 607.2,
+  "binom_sd": 24.6,
+  "binom_z": -7.2
+ },
+ "ours_geo": {
+  "plates": 10,
+  "whole": [
+   "XE422"
+  ],
+  "plates_worth": 3.34,
+  "avg_per_plate": 158.5,
+  "observed": 335,
+  "expected": 529.5,
+  "binom_sd": 22.9,
+  "binom_z": -8.5,
+  "p_random": 0.173,
+  "p_near": 0.118,
+  "centre": {
+   "observed": 63,
+   "expected": 115.6,
+   "p_random": 0.133
+  }
+ },
+ "ours_topo": {
+  "plates": 7,
+  "whole": [
+   "XE422"
+  ],
+  "plates_worth": 3.17,
+  "avg_per_plate": 158.5,
+  "observed": 283,
+  "expected": 502.9,
+  "binom_sd": 22.4,
+  "binom_z": -9.8,
+  "p_random": 0.14,
+  "p_near": null
+ }
+}

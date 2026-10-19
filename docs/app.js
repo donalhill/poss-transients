@@ -26,7 +26,7 @@ function ring(pts) {   // close a ring and wind it so d3 fills the small side
   if (d3.geoArea(g) > 2 * Math.PI) g = { type: "Polygon", coordinates: [c.slice().reverse()] };
   return g;
 }
-function drawSky(D, id, shadow) {   // shadow: pick out the nine plates the shadow crossed
+function drawSky(D, id, shadow) {   // shadow: pick out the plates the shadow crossed
   const s = svg(id), W = 760, H = 760, cx = W / 2, cy = H / 2, Rd = W / 2 - 44;
   s.attr("viewBox", `0 0 ${W} ${H}`);
   const plates = D.plates.map(p => Object.assign({}, p, { g: ring(p.poly) }));
@@ -40,18 +40,18 @@ function drawSky(D, id, shadow) {   // shadow: pick out the nine plates the shad
   s.append("path").datum({ type: "Sphere" }).attr("d", path).attr("fill", V("--paper")).attr("stroke", V("--rule"));
   s.append("path").datum(d3.geoGraticule().step([30, 30]).extentMajor([[-180, -80], [180, 80.01]])()).attr("d", path)
     .attr("fill", "none").attr("stroke", V("--rule")).attr("stroke-width", 0.7);
-  s.append("g").selectAll("path").data(D.plates_out.map(p => Object.assign({}, p, { g: ring(p.poly) }))).join("path").attr("class", "hov").attr("d", p => path(p.g))
-    .attr("fill", V("--ink-3")).attr("fill-opacity", shadow ? 0.15 : 0.35).attr("stroke", V("--surface")).attr("stroke-width", 0.5)
-    .call(sel => hov(sel, p => `<b>Plate ${p.id}</b> · ${p.date}<br>${fmt(p.N)} transients in the catalogue<br>Left out of VASCO’s published tests: its archive date is not on VASCO’s list of observing nights`));
   s.append("g").selectAll("path").data(plates.filter(p => !(shadow && p.circle))).join("path").attr("class", "hov").attr("d", p => path(p.g))
     .attr("fill", p => p.N > 0 ? col(Math.max(p.N, 5)) : V("--surface")).attr("fill-opacity", shadow ? 0.3 : 1).attr("stroke", V("--surface")).attr("stroke-width", 0.5)
-    .call(sel => hov(sel, p => `<b>Plate ${p.id}</b> · ${p.date}<br>${fmt(p.N)} transients`));
+    .call(sel => hov(sel, p => `<b>Plate ${p.id}</b> · ${p.date}<br>${fmt(p.N)} transients` + (p.vasco ? "" : "<br>Left out of VASCO’s published tests: its archive date is not on VASCO’s list of observing nights")));
+  // plates VASCO's published tests leave out, outlined
+  if (!shadow) s.append("g").attr("pointer-events", "none").selectAll("path").data(plates.filter(p => !p.vasco)).join("path").attr("d", p => path(p.g))
+    .attr("fill", "none").attr("stroke", "#111418").attr("stroke-width", 1.3).attr("stroke-dasharray", "2.5 2");
   // plane of the Milky Way, drawn over the tiles: a soft band with a dashed centre line
   const mw = s.append("g").attr("pointer-events", "none");
   mw.append("path").datum(plane).attr("d", path).attr("fill", "none").attr("stroke", "#ffffff").attr("stroke-opacity", 0.38).attr("stroke-width", 16).attr("stroke-linecap", "round");
   mw.append("path").datum(plane).attr("d", path).attr("fill", "none").attr("stroke", "#111418").attr("stroke-opacity", 0.85).attr("stroke-width", 1.5).attr("stroke-dasharray", "5 4");
   const sh = shadow ? plates.filter(p => p.circle) : [];
-  // the nine shadow plates outlined in black on a white halo; the shadow itself as a ring in a hue viridis never uses
+  // the shadow plates outlined in black on a white halo; the shadow itself as a ring in a hue viridis never uses
   s.append("g").selectAll("path").data(sh).join("path").attr("pointer-events", "none").attr("d", p => path(p.g)).attr("fill", "none").attr("stroke", "#ffffff").attr("stroke-width", 5);
   s.append("g").selectAll("path").data(sh).join("path").attr("class", "hov").attr("d", p => path(p.g))
     .attr("fill", p => p.N !== undefined ? col(Math.max(p.N, 5)) : V("--surface")).attr("stroke", "#111418").attr("stroke-width", 1.8)
@@ -136,17 +136,17 @@ function drawChance(D) {
 
 
 
-/* ---------- the eight plates partly crossed by Earth's shadow, up close: transients as dots over their density (north
+/* ---------- the plates partly crossed by Earth's shadow, up close: transients as dots over their density (north
    up, east left), coloured by the side of the shadow's edge they lie on, with each plate's numbers ---------- */
 function drawPlates(D, id) {
   const Z = D.shadow, s = svg(id);
   if (!Z || !Z.plates) return;
-  const half = Z.half, W = 760, S = 156, colW = 190, rowH = S + 64, top = 4;
-  const H = top + 2 * rowH;
+  const cols = Z.plates.length === 9 ? 3 : 4, W = 760, colW = W / cols, S = cols === 3 ? 196 : 156, rowH = S + 64, top = 4, half = Z.half;
+  const H = top + Math.ceil(Z.plates.length / cols) * rowH;
   s.attr("viewBox", `0 0 ${W} ${H}`);
   const px = v => (half - v) / (2 * half) * S, py = v => (half - v) / (2 * half) * S;
   Z.plates.forEach((p, k) => {
-    const x0 = (k % 4) * colW + (colW - S) / 2, y0 = top + Math.floor(k / 4) * rowH;
+    const x0 = (k % cols) * colW + (colW - S) / 2, y0 = top + Math.floor(k / cols) * rowH;
     const g = s.append("g").attr("transform", `translate(${x0},${y0})`);
     g.append("clipPath").attr("id", `plate-clip-${k}`).append("rect").attr("width", S).attr("height", S);
     const inner = g.append("g").attr("clip-path", `url(#plate-clip-${k})`);
@@ -172,7 +172,7 @@ function drawPlates(D, id) {
 }
 
 /* ---------- the ratio plate by plate (shadow_fit.py): each plate's ratio with its counting range, and the best fit across
-   all eight with its counting range (one standard deviation) ---------- */
+   all of them with its counting range (one standard deviation) ---------- */
 function drawForest(D, id) {
   const Z = D.shadow, s = svg(id);
   if (!Z || !Z.fit) return;
@@ -216,7 +216,7 @@ function drawForest(D, id) {
     .text(`${F.r.toFixed(2)} (${F.count_lo.toFixed(2)} to ${F.count_hi.toFixed(2)})`);
 }
 
-/* ---------- the fitted ratio on toys with no shadow effect: the eight real shadow outlines laid on other VASCO plates,
+/* ---------- the fitted ratio on toys with no shadow effect: the real shadow outlines laid on other plates,
    against the ratio fitted on the real plates ---------- */
 function drawRatioNull(D, id) {
   const Z = D.shadow, s = svg(id);
@@ -664,8 +664,12 @@ function drawPerm(D, id, key, lab) {
   const top = m.t, bot = H - m.b, tot = d3.sum(q.hist);
   const y = d3.scaleLinear().domain([0, 0.12]).range([bot, top + 8]);
   s.append("g").attr("transform", `translate(${m.l},0)`).call(d3.axisLeft(y).tickValues([0, 0.05, 0.1]).tickFormat(d3.format(".0%")).tickSize(3)).call(axisStyle);
-  s.append("g").selectAll("rect").data(q.hist).join("rect").attr("x", (c, j) => x(j * bw) + 0.75).attr("width", x(bw) - x(0) - 1.5)
-    .attr("y", c => y(c / tot)).attr("height", c => bot - y(c / tot)).attr("fill", V("--ink-3")).attr("fill-opacity", (c, j) => j * bw >= q.real - 1e-9 ? 0.9 : 0.45);
+  // the bars, and the part of them at or beyond the real value drawn darker, split exactly at the red line
+  const bars = (g, op) => g.selectAll("rect").data(q.hist).join("rect").attr("x", (c, j) => x(j * bw) + 0.75).attr("width", x(bw) - x(0) - 1.5)
+    .attr("y", c => y(c / tot)).attr("height", c => bot - y(c / tot)).attr("fill", V("--ink-3")).attr("fill-opacity", op);
+  bars(s.append("g"), 0.45);
+  s.append("clipPath").attr("id", `${id}-tail`).append("rect").attr("x", x(q.real)).attr("width", W - x(q.real)).attr("y", 0).attr("height", H);
+  bars(s.append("g").attr("clip-path", `url(#${id}-tail)`), 0.9);
   s.append("line").attr("x1", x(q.real)).attr("x2", x(q.real)).attr("y1", top).attr("y2", bot).attr("stroke", V("--emulsion")).attr("stroke-width", 2.5);
   s.append("text").attr("class", "ann").attr("x", m.l).attr("y", 16).style("font-weight", 600).text(lab);
   const sd = `${q.sigma.toFixed(1)} standard deviation${q.sigma.toFixed(1) === "1.0" ? "" : "s"}`;

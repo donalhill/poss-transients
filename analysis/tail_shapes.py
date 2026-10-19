@@ -37,14 +37,13 @@ from astropy.wcs import WCS
 import astropy.units as u
 from photutils.detection import DAOStarFinder
 from scipy.ndimage import median_filter, shift as subshift
-from scipy.optimize import curve_fit
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import shadow as SH                                                    # noqa: E402
+from geometry import deproject                                                   # noqa: E402
+from stars import STAMP, fit                                                     # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 CUT = ROOT / "data/cutouts/tracks"; (CUT / "control").mkdir(exist_ok=True)
-STAMP = 6                                                              # pixels each side of the fitted source
 NCONTROL = 300                                                         # catalogue transients picked at random as a control
 RG = np.arange(0, 2.31, 0.1)                                           # distances from the centre for the fade-out, pixels
 H = 0.5                                                                # kernel width, pixels
@@ -67,28 +66,6 @@ def dss(c, size, q, name=None):
     return h, fits.getdata(f).astype(float)
 
 
-def gauss(xy, a, x0, y0, sx, sy, th, c):
-    x, y = xy; ct, st = np.cos(th), np.sin(th)
-    xr, yr = (x - x0) * ct + (y - y0) * st, -(x - x0) * st + (y - y0) * ct
-    return a * np.exp(-0.5 * ((xr / sx) ** 2 + (yr / sy) ** 2)) + c
-
-
-def fit(im, x, y):
-    """Elliptical Gaussian on a stamp around (x, y): peak, FWHM (geometric mean, pixels), elongation 1 - b/a, angle."""
-    i, j = int(round(y)), int(round(x))
-    if i < STAMP or j < STAMP or i >= im.shape[0] - STAMP or j >= im.shape[1] - STAMP:
-        return None
-    s = im[i - STAMP:i + STAMP + 1, j - STAMP:j + STAMP + 1]; yy, xx = np.mgrid[-STAMP:STAMP + 1, -STAMP:STAMP + 1]
-    try:
-        p, _ = curve_fit(gauss, (xx.ravel(), yy.ravel()), s.ravel(), p0=[s.max() - np.median(s), x - j, y - i, 1.2, 1.2, 0, np.median(s)],
-                         bounds=([0, -2, -2, 0.4, 0.4, -np.pi, -np.inf], [np.inf, 2, 2, 6, 6, np.pi, np.inf]), maxfev=4000)
-    except (RuntimeError, ValueError):
-        return None
-    a_, b_ = max(p[3], p[4]), min(p[3], p[4]); th = (p[5] + (np.pi / 2 if p[4] > p[3] else 0)) % np.pi
-    return {"peak": float(p[0]), "fwhm": float(2.3548 * np.sqrt(p[3] * p[4])), "elong": float(1 - b_ / a_), "angle": float(np.degrees(th)),
-            "xc": float(j + p[1]), "yc": float(i + p[2])}
-
-
 def field(q, c, size, targets_sky, name=None):
     """Fit the targets and the stars in one cutout; return the targets' fits, the stars' fits, the image, and the positions
     of every source found and every catalogue transient (to keep neighbours out of a transient's stamp)."""
@@ -98,7 +75,7 @@ def field(q, c, size, targets_sky, name=None):
     found = DAOStarFinder(fwhm=2.5, threshold=5 * sd, sharplo=0.0, sharphi=3.0, roundlo=-3.0, roundhi=3.0)(im - med)   # no shape cuts on the stars
     tx, ty = w.world_to_pixel(targets_sky)
     # every catalogue transient in the cutout is left out of the stars
-    g = cat[cat.plate == q]; ra_, dec_ = SH.deproject(g.xi.values, g.eta.values, pl.loc[q].ra_c, pl.loc[q].dec_c)
+    g = cat[cat.plate == q]; ra_, dec_ = deproject(g.xi.values, g.eta.values, pl.loc[q].ra_c, pl.loc[q].dec_c)
     ax, ay = w.world_to_pixel(SkyCoord(ra_ * u.deg, dec_ * u.deg))
     sat = 0.8 * R.max() - np.median(R)
     stars = []
@@ -226,7 +203,7 @@ if __name__ == "__main__":
     tracks = []; rp = np.random.default_rng(7)
     for a in T:
         q = a["plate"]; x, y = np.array(a["x"]) / 3600, np.array(a["y"]) / 3600
-        ra_, dec_ = SH.deproject(x, y, pl.loc[q].ra_c, pl.loc[q].dec_c); sk = SkyCoord(ra_ * u.deg, dec_ * u.deg)
+        ra_, dec_ = deproject(x, y, pl.loc[q].ra_c, pl.loc[q].dec_c); sk = SkyCoord(ra_ * u.deg, dec_ * u.deg)
         size = float(max(10, np.ceil(1.6 * a["d_arcmin"])))
         fits_, stars, im, others = field(q, SkyCoord(ra_.mean() * u.deg, dec_.mean() * u.deg), size, sk)
         rows = [compare(f, stars) if f else None for f in fits_]
@@ -243,7 +220,7 @@ if __name__ == "__main__":
     rng = np.random.default_rng(11); ctrl = []; cv = []
     for k in rng.choice(len(cat), NCONTROL, replace=False):
         r = cat.iloc[k]; q = r.plate
-        ra_, dec_ = SH.deproject(np.array([r.xi]), np.array([r.eta]), pl.loc[q].ra_c, pl.loc[q].dec_c); sk = SkyCoord(ra_ * u.deg, dec_ * u.deg)
+        ra_, dec_ = deproject(np.array([r.xi]), np.array([r.eta]), pl.loc[q].ra_c, pl.loc[q].dec_c); sk = SkyCoord(ra_ * u.deg, dec_ * u.deg)
         try:
             fits_, stars, im, others = field(q, sk[0], 10.0, sk, f"control/{q}_{k}")
         except (AssertionError, OSError, ValueError):

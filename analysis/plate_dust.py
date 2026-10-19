@@ -1,6 +1,7 @@
 """Interstellar dust towards each plate: E(B-V) at the plate centre from the Schlegel, Finkbeiner & Davis (1998) map,
-queried from IRSA's dust service, with the plate's number of transients (VASCO's nights).
+queried from IRSA's dust service, with the plate's number of transients (every catalogue plate).
 python analysis/plate_dust.py -> data/plate_dust.csv"""
+import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -9,13 +10,16 @@ import pandas as pd
 from astropy.coordinates import SkyCoord
 from astroquery.ipac.irsa.irsa_dust import IrsaDust
 
+sys.path.insert(0, str(Path(__file__).parent))
+import sample                                                                  # noqa: E402
+
 ROOT = Path(__file__).resolve().parents[1]
 
 if __name__ == "__main__":
-    pl = pd.read_parquet(ROOT / "data/plates_corrected.parquet")
-    cat = pd.read_parquet(ROOT / "data/transients_with_plates.parquet")
-    strict = set(pd.read_csv(ROOT / "data/external/poss_i_observing_dates_strict.csv").obs_date.astype(str).str[:10])
-    n = cat[cat.obs_date.astype(str).str[:10].isin(strict) & (cat.plate != "")].groupby("plate").size()
+    cat, pl = sample.ours()
+    n = cat.groupby("plate").size()
+    out = ROOT / "data/plate_dust.csv"
+    known = pd.read_csv(out).set_index("plate").ebv if out.exists() else pd.Series(dtype=float)   # the service is slow; keep what we have
     def ebv(q):
         p = pl.loc[q]
         for attempt in range(3):
@@ -25,7 +29,8 @@ if __name__ == "__main__":
                 pass
         return float("nan")
     with ThreadPoolExecutor(8) as ex:
-        d = pd.DataFrame({"plate": list(n.index), "ebv": list(ex.map(ebv, n.index))}).set_index("plate")
+        todo = [q for q in n.index if q not in known.index or pd.isna(known.get(q))]
+        d = pd.concat([known[known.index.isin(n.index)], pd.Series(dict(zip(todo, ex.map(ebv, todo))), dtype=float)]).rename("ebv").rename_axis("plate").to_frame()
     d["n"] = n
     d.to_csv(ROOT / "data/plate_dust.csv")
     print(d.describe())
