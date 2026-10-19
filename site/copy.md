@@ -286,10 +286,23 @@ Is VASCO’s window special?
 ### nuc-window-text
 VASCO fixed their window, a test’s date and a day either side, before looking at the data, so its chance needs no allowance for other windows. The 2026 paper also reads the sharpness of the association in time as a sign that it is genuine. That claim compares windows, so we scored every window of consecutive days within two weeks of a test in the same way: per photograph, against pointing, and against the same slid calendars.
 
-VASCO’s window ranks {n:nc4.rank} of {n:nc4.windows}, so about half of all windows are more striking. The most striking are single days a week or two from a test, led by {n:nc4.best} at {n:nc4.best_r} times, which slid calendars match {n:nc4.best_p}% of the time. Of that window’s transients, {n:nc4.plate_share}% are on one plate, {n:nc4.plate}, taken on {n:nc4.plate_date}, which holds {n:nc4.plate_n} transients where its pointing predicts about {n:nc4.plate_e}. Allowing for all {n:nc4.windows} windows, slid calendars produce a best window at least that striking {n:nc4.g14}% of the time.
+VASCO’s window ranks {n:nc4.rank} of {n:nc4.windows}, so about half of all windows are more striking. The most striking are single days a week or two from a test, led by {n:nc4.best} at {n:nc4.best_r} times, which slid calendars match {n:nc4.best_p}% of the time. Of that window’s transients, {n:nc4.plate_share}% are on one plate, {n:nc4.plate}, taken on {n:nc4.plate_date}, which holds {n:nc4.plate_n} transients where its pointing predicts about {n:nc4.plate_e}.
 
 ### nuc-window-caption
 Every window of consecutive days within two weeks of a US test that holds at least 5 plates, ranked by how rarely slid test calendars match it (grey), with VASCO’s window in red.
+
+### nuc-global-title
+From one window to many
+
+### nuc-global-text
+A window’s local significance says how often chance does as well as that one window. VASCO chose their window in advance, so its local figure is the one that counts: {n:nc5.vasco_sigma} standard deviations, about one time in {n:nc2.odds}.
+
+The most striking of all {n:nc4.windows} windows, {n:nc4.best}, reaches {n:nc5.best_sigma} standard deviations on its own: chance does as well {n:nc5.best_p}% of the time. But it was picked as the best of many, after looking. Running the same search on every slid calendar shows what picking the best does: the typical best window reaches {n:nc5.median_best} standard deviations by chance alone, and one at least as striking as ours turns up {n:nc5.global_p}% of the time. That is its global significance, {n:nc5.global_sigma} standard deviations.
+
+A window this striking is what a search of this many windows usually finds. It is not evidence that anything happened {n:nc4.best}.
+
+### nuc-global-caption
+How often chance reaches a given local significance: for one window chosen in advance (dashed), and for the best of all {n:nc4.windows} windows, from the same search run on every slid test calendar (solid).
 
 ### align-h2
 Do transients form geometric patterns?

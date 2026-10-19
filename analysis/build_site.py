@@ -95,6 +95,7 @@ NF = json.loads((ROOT / "data/nuclear_fit.json").read_text())
 NC = json.loads((ROOT / "data/nuclear_checks.json").read_text())
 site["perm"] = NU["perm"]
 site["perm"]["corrected"] = NU["corrected"]
+site["nuc_global"] = NU["global"]
 site["nuc_scan"] = {"grid": NU["scan"]["grid"], "rank": NU["scan"]["vasco_rank"]}
 site["nuc_checks"] = {"base": NU["corrected"]["real"], "rows": [x for x in NU["checks"] if x["label"] != "All of them together"]}
 NB_ = json.loads((ROOT / "data/nuclear_basic.json").read_text())
@@ -488,6 +489,9 @@ numbers.update({
     "nc4.plate": NU["scan"]["best_plate"]["plate"], "nc4.plate_date": longdate(NU["scan"]["best_plate"]["date"]),
     "nc4.plate_n": num(NU["scan"]["best_plate"]["n"]), "nc4.plate_e": num(round(NU["scan"]["best_plate"]["expected"], -1)),
     "nc4.plate_share": pc(NU["scan"]["best_plate"]["share_of_window"]),
+    "nc5.best_sigma": num(NU["global"]["best_local_sigma"], 1), "nc5.best_p": num(100 * NU["global"]["best_local_p"], 1),
+    "nc5.vasco_sigma": num(NU["global"]["vasco_local_sigma"], 1), "nc5.median_best": num(NU["global"]["median_best_sigma"], 1),
+    "nc5.global_p": pc(NU["global"]["p_global"]), "nc5.global_sigma": num(NU["global"]["global_sigma"], 1),
     "nc4.rank": num(NU["scan"]["vasco_rank"]), "nc4.windows": num(NU["scan"]["windows"]),
     "nc4.rank_share": pc(NU["scan"]["share_slides_rank_as_high"]),
     "nc4.best": days_from(NU["scan"]["by_size"][2]["best"]), "nc4.best_r": num(NU["scan"]["by_size"][2]["best_r"], 1),

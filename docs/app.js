@@ -686,12 +686,42 @@ function drawNucRanked(D, id) {
   s.append("text").attr("transform", `translate(14,${(m.t + H - m.b) / 2}) rotate(-90)`).attr("text-anchor", "middle").text("Local significance");
 }
 
+/* ---------- nuclear: from local to global significance; the chance of reaching a local significance with one window
+   chosen in advance, and with the best of every window (from the slid calendars) ---------- */
+function drawNucGlobal(D, id) {
+  const G = D.nuc_global, s = svg(id); if (!G) return;
+  const W = 760, H = 330, m = { l: 70, r: 24, t: 24, b: 50 };
+  const x = d3.scaleLinear().domain([0, 3.3]).range([m.l, W - m.r]), y = d3.scaleLog().domain([0.001, 1]).range([H - m.b, m.t]).clamp(true);
+  const sf = z => 0.5 * (1 - erf(z / Math.SQRT2));
+  s.append("g").attr("transform", `translate(0,${H - m.b})`).call(d3.axisBottom(x).tickValues([0, 1, 2, 3]).tickFormat(d => `${d}σ`).tickSizeOuter(0)).call(axisStyle);
+  s.append("g").attr("transform", `translate(${m.l},0)`).call(d3.axisLeft(y).tickValues([1, 0.1, 0.01, 0.001]).tickFormat(d => d === 1 ? "Always" : `1 in ${Math.round(1 / d).toLocaleString("en-GB")}`).tickSize(3)).call(axisStyle);
+  s.append("text").attr("x", (m.l + W - m.r) / 2).attr("y", H - 10).attr("text-anchor", "middle").text("Local significance of a window");
+  s.append("text").attr("transform", `translate(14,${(m.t + H - m.b) / 2}) rotate(-90)`).attr("text-anchor", "middle").text("How often chance does as well");
+  const one = d3.range(0, 3.06, 0.05).map(z => [z, sf(z)]);
+  const line = d3.line().x(d => x(d[0])).y(d => y(Math.max(d[1], 0.001)));
+  s.append("path").attr("d", line(one)).attr("fill", "none").attr("stroke", V("--ink-3")).attr("stroke-width", 2).attr("stroke-dasharray", "5 4");
+  s.append("path").attr("d", line(G.curve.map(c => [c.sigma, c.p_best]))).attr("fill", "none").attr("stroke", V("--ink-2")).attr("stroke-width", 2.2);
+  const lab = (z, p_, t, anchor, dy) => s.append("text").attr("class", "ann").attr("x", x(z)).attr("y", y(p_) + dy).attr("text-anchor", anchor).style("fill", V("--ink-2")).text(t);
+  lab(1.6, sf(1.6), "One window, chosen in advance", "end", 26);
+  lab(1.05, G.curve.find(c => c.sigma >= 1.05).p_best, "Best of every window, after looking", "start", -10);
+  // VASCO's window on the first curve; the best window on both, with the drop between them
+  const pt = (z, p_, c) => s.append("circle").attr("cx", x(z)).attr("cy", y(p_)).attr("r", 6).attr("fill", c);
+  pt(G.vasco_local_sigma, G.vasco_local_p, V("--emulsion"));
+  s.append("text").attr("class", "ann").attr("x", x(G.vasco_local_sigma) - 10).attr("y", y(G.vasco_local_p) + 20).attr("text-anchor", "end").style("fill", V("--emulsion")).style("font-weight", 600)
+    .text(`VASCO’s window: 1 in ${Math.round(1 / G.vasco_local_p)}`);
+  const zb = G.best_local_sigma;
+  s.append("line").attr("x1", x(zb)).attr("x2", x(zb)).attr("y1", y(G.best_local_p)).attr("y2", y(G.p_global)).attr("stroke", V("--ink"));
+  pt(zb, G.best_local_p, V("--ink-3")); pt(zb, G.p_global, V("--ink"));
+  s.append("text").attr("class", "ann").attr("x", x(zb) - 12).attr("y", y(G.best_local_p) + 5).attr("text-anchor", "end").style("fill", V("--ink-2")).text(`Best window on its own: 1 in ${Math.round(1 / G.best_local_p)}`);
+  s.append("text").attr("class", "ann").attr("x", x(zb) + 12).attr("y", y(G.p_global) - 12).style("fill", V("--ink")).style("font-weight", 600).text(`Allowing for the search: 1 in ${Math.round(1 / G.p_global)}`);
+}
+
 let DATA = null;
 function render() {
   if (!DATA) return;
   drawSky(DATA, "c-sky0", false); drawSpread(DATA); drawSky(DATA, "c-sky", true); drawChance(DATA); drawPerm(DATA, "c-perm-any", "raw", "VASCO’s test");
   drawPerm(DATA, "c-nuc-corr", "corrected", "Per photograph, allowing for pointing", { line: "Plates near tests", trials: "Slid calendars",
-    xlab: "Transients per photograph near the chosen dates, against pointing, relative to the rest", ylab: "Share of slid calendars" }); drawNucChecks(DATA, "c-nuc-checks"); drawNucRanked(DATA, "c-nuc-rank");
+    xlab: "Transients per photograph near the chosen dates, against pointing, relative to the rest", ylab: "Share of slid calendars" }); drawNucChecks(DATA, "c-nuc-checks"); drawNucRanked(DATA, "c-nuc-rank"); drawNucGlobal(DATA, "c-nuc-global");
   drawFan(DATA); drawTracks(DATA); drawCompare(DATA, "c-compare"); drawTail(DATA, "tail-gallery"); drawWidths(DATA, "c-widths"); drawTrail(DATA, "c-trail"); fillDates(DATA); drawRadialMap(DATA); drawRadial(DATA); drawCrowd(DATA);
   drawPlates(DATA, "c-plates"); drawForest(DATA, "c-ratio-vasco"); drawRatioNull(DATA, "c-ratio-null");
 }

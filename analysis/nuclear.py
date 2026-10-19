@@ -197,6 +197,13 @@ for d_ in (3, 7, 14):
     out["scan"]["by_size"].append({"days": d_, "windows": len(c_), "best": [int(WIN[best][0]), int(WIN[best][1])], "best_r": r3(real_w[best]),
                                    "best_p_local": r3(loc[best]), "p_global": r3(pg)})
 
+# local to global: each slid calendar's best window over the whole scan, as a local significance
+best_slide = norm.isf(rank[:, use].min(1)); jb = np.flatnonzero(use)[np.nanargmin(loc[use])]
+pg = out["scan"]["by_size"][2]["p_global"]
+out["global"] = {"best_local_sigma": r3(norm.isf(loc[jb])), "vasco_local_sigma": r3(norm.isf(loc[iV])), "p_global": pg, "global_sigma": r3(norm.isf(pg)),
+                 "median_best_sigma": r3(np.median(best_slide)), "best_local_p": r3(loc[jb]), "vasco_local_p": r3(loc[iV]),
+                 "curve": [{"sigma": r3(z_), "p_best": r3((np.sum(best_slide >= z_) + 1) / (len(best_slide) + 1))}
+                           for z_ in np.arange(0, norm.isf(5 / (len(keep) + 1)), 0.05)]}            # while the slides resolve it
 bw = out["scan"]["by_size"][2]["best"]; inb = np.isin(day, (TESTS[:, None] + np.arange(bw[0], bw[1] + 1)[None, :]).ravel())
 top = np.argmax(np.where(inb, y_raw - E * (Y - y_raw[inb].sum()) / (Et - E[inb].sum()), -np.inf))
 out["scan"]["best_plate"] = {"plate": P.index[top], "date": str(P.date.iloc[top].date()), "n": int(y_raw[top]), "expected": round(float(E[top])),
