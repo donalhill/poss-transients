@@ -109,14 +109,17 @@ def label(x):
     return c[0].upper() + c[1:]
 
 
-site["nuc"] = {"r": NB_["within_runs_expected"], "runs": NB_["runs"], "null": NB_["null_runs"], "grid": NB_["scan"]["grid"],
+site["nuc"] = {"r": NB_["within_runs_expected"], "runs": NB_["runs"], "grid": NF["scan"]["grid"],
+               "null": {"r": NF["fit"]["r"], "p": NF["null_runs"]["p_as_high"], "hist": NF["null_runs"]["hist"]},
                "measures": [
-    {"label": "VASCO’s transients", "r": NB_["within_runs_expected"], "group": "catalogue"},
-    *[{"label": label(x), "r": x["r"], "group": "catalogue"} for x in NB_["robust"] if x["check"].startswith("without XE")],
-    {"label": "Full model fit (cross-check)", "r": NF["fit"]["r"], "lo": NF["fit"]["count_lo"], "hi": NF["fit"]["count_hi"], "group": "catalogue"},
-    *[{"label": label(x), "r": x["r"], "group": "choices"} for x in NB_["robust"]
-      if not x["check"].startswith("without XE") and x.get("plates_dropped", 2) >= 2],
-    {"label": "In the central plate", "r": abcd["edge against central"]["odds_ratio"], "group": "which"},
+    {"label": "Analysis fixed in advance", "r": NF["fit"]["r"], "lo": NF["fit"]["count_lo"], "hi": NF["fit"]["count_hi"], "group": "catalogue"},
+    {"label": "Step-by-step ratio", "r": NB_["within_runs_expected"], "group": "catalogue"},
+    *[{"label": f"Step by step, {label(x)[0].lower()}{label(x)[1:]}", "r": x["r"], "group": "catalogue"} for x in NB_["robust"] if x["check"].startswith("without XE")],
+    *[{"label": f"Runs split after {x['gap']} empty nights", "r": x["r"], "group": "choices"} for x in NF["robust"]["run_gap"] if x["gap"] != 4],
+    {"label": "Counting 2′ cells holding a transient", "r": NF["robust"]["outcomes"][1]["r"], "group": "choices"},
+    {"label": "Central 5 × 5° of each plate only", "r": NF["robust"]["outcomes"][2]["r"], "group": "choices"},
+    *[{"label": f"Without Operation {x['series']}", "r": x["r"], "group": "choices"} for x in NF["robust"]["leave_series_out"] if x["plates_dropped"] >= 2],
+    {"label": "In the central part of the plate", "r": abcd["edge against central"]["odds_ratio"], "group": "which"},
     {"label": "No neighbour within 5′", "r": abcd["crowded against isolated"]["odds_ratio"], "group": "which"},
     {"label": "Shaped like the stars", "r": abcd["shaped like stars or not"]["odds_ratio"], "group": "which"},
     {"label": "Red-plate specks", "r": NC["blue"]["red"]["r"], "lo": NC["blue"]["red"]["count_lo"], "hi": NC["blue"]["red"]["count_hi"], "group": "scans"},
@@ -457,13 +460,14 @@ bysize = {x["days"]: x for x in NB_["scan"]["by_size"]}
 phys = {x["window"]: x for x in NB_["physical"]}
 pred = {x["feature"]: x for x in NC["prediction"]}
 rob = {x["check"]: x for x in NB_["robust"]}
+fs = {x["days"]: x for x in NF["scan"]["by_size"]}; nfp = {x["window"]: x for x in NF["physical"]}
 tp = NB_["plates"][:2]; wo = [rob[f"without {x['plate']}"]["r"] for x in tp]; both = rob[f"without {tp[0]['plate']} and {tp[1]['plate']}"]
 choice = [x["r"] for x in NB_["robust"] if not x["check"].startswith("without XE") and x.get("plates_dropped", 2) >= 2]
 RS = NB_["runs_summary"]; RN = NC["rich_nights"]
 longdate = lambda d: pd.Timestamp(d).strftime("%-d %B %Y")
 numbers.update({
     "nuc.nights": num(ST["nights_window"]), "nuc.ratio": num(NU["perm"]["raw"]["real"], 2), "nuc.odds": odds(NU["perm"]["raw"]["p"]),
-    "nuc.sig": num(NU["perm"]["raw"]["sigma"], 1), "nuc.plates_window": num(ST["plates_window"], 2), "nuc.plates_other": num(ST["plates_other"], 2),
+    "nuc.sig": num(NU["perm"]["raw"]["sigma"], 1), "nuc.plates_window": num(ST["plates_window"], 1), "nuc.plates_other": num(ST["plates_other"], 1),
     "nuc.per_plate": num(ST["per_plate"], 2),
     "nb.plates": num(NB_["plates_near"]), "nb.nights": num(NB_["nights_near"]), "nb.runs": word(len(NB_["runs"])),
     "nb.raw": num(NB_["raw"], 2), "nb.within": num(NB_["within_runs"], 2), "nb.r": num(NB_["within_runs_expected"], 2),
@@ -483,6 +487,24 @@ numbers.update({
     "nb.crop": max(tp, key=lambda x: x["ratio"])["plate"], "nb.narrow_corr": num(NB_["shapes"]["narrower_star_width_corr"], 2),
     "nb.without_both": num(both["r"], 2), "nb.without_both_p": pc(both["p"]),
     "nb.choice_lo": num(min(choice), 2), "nb.choice_hi": num(max(choice), 2),
+    "nf.r": num(NF["fit"]["r"], 2), "nf.p": num(100 * NF["null_runs"]["p_as_high"], 1), "nf.odds": odds(NF["null_runs"]["p_as_high"]),
+    "nf.sig": num(NF["fit"]["sigma"], 1), "nf.p_cal": num(100 * NF["null_calendar"]["p_as_high"], 1),
+    "nf.i68_lo": num(NF["interval68"][0], 2), "nf.i68_hi": num(NF["interval68"][1], 2), "nf.i90_lo": num(NF["interval90"][0], 1), "nf.i90_hi": num(NF["interval90"][1], 1),
+    "nf.power": pc(NF["power_vasco"]["p_as_low"]), "nf.vasco_r": num(NF["power_vasco"]["r_true"], 2),
+    "nf.rank_others": word(NF["scan"]["primary_rank"] - 1), "nf.windows": num(NF["scan"]["windows"]), "nf.rank_p": num(100 * NF["scan"]["share_trials_rank_as_high"], 1),
+    **{f"nf.g{x['days']}": num(100 * x["p_global"], 0 if x["p_global"] >= 0.1 else 1) for x in NF["scan"]["by_size"]},
+    "nf.g14_best": f"{fs[14]['best'][0]} to {fs[14]['best'][1]}".replace("-", "−"), "nf.g14_best_r": num(fs[14]["best_r"], 1),
+    "nf.after_r": num(nfp["0 to 24 hours after a shot"]["r"], 2), "nf.after_p": num(100 * nfp["0 to 24 hours after a shot"]["p_runs"], 1),
+    "nf.before_r": num(nfp["24 hours before a shot"]["r"], 2), "nf.before_p": num(100 * nfp["24 hours before a shot"]["p_runs"], 1),
+    "nf.after2_r": num(nfp["24 to 48 hours after"]["r"], 2),
+    "nf.gap_lo": num(min(x["r"] for x in NF["robust"]["run_gap"]), 2), "nf.gap_hi": num(max(x["r"] for x in NF["robust"]["run_gap"]), 2),
+    "nf.gap_pmax": num(100 * max(x["p_runs"] for x in NF["robust"]["run_gap"]), 1),
+    "nf.cells_r": num(NF["robust"]["outcomes"][1]["r"], 2), "nf.inner_r": num(NF["robust"]["outcomes"][2]["r"], 2),
+    "nf.series_lo": num(min(x["r"] for x in NF["robust"]["leave_series_out"]), 2), "nf.series_hi": num(max(x["r"] for x in NF["robust"]["leave_series_out"]), 2),
+    "nf.run_lo": num(min(x["r"] for x in NF["robust"]["leave_run_out"]), 2), "nf.run_hi": num(max(x["r"] for x in NF["robust"]["leave_run_out"]), 2),
+    "nb.drop2_r": num(NB_["drop_two"]["r"], 2), "nb.drop2_median": num(NB_["drop_two"]["trials_median"], 2), "nb.drop2_p": num(100 * NB_["drop_two"]["p"], 1),
+    "nb.plates_inf": num(sum(x["near"] for x in NB_["runs"])), "nb.runs_above": word(RS["above"]),
+    "nc.tracks10_p": pc(1 - NC["tracks"][0]["p_runs"]),
     "nb.fit_r": num(NF["fit"]["r"], 2), "nb.fit_p": num(100 * NF["null_runs"]["p_as_high"], 1),
     "nb.rank": num(NB_["scan"]["primary_rank"]), "nb.windows": num(NB_["scan"]["windows"]),
     "nb.g3": pc(bysize[3]["p_global"]), "nb.g7": pc(bysize[7]["p_global"]), "nb.g14": pc(bysize[14]["p_global"]),

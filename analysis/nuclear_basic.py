@@ -20,8 +20,9 @@ Each run is also shown on its own, with a range from the scatter between plates 
    the other plates of their runs. Anything that acts on a whole plate cancels; a sky signal would favour central,
    isolated, star-like objects, plate damage the edges, crowds, and shapes unlike stars.
 
-8. The plates near tests that carry the excess, and the ratio without them; and the ratio under other choices: runs
-   defined by other gaps, other outcomes, each test series left out.
+8. The plates near tests that carry the excess, and the ratio without the two richest, against the same done to every
+   within-run reassignment; and the ratio under other choices: runs defined by other gaps, other outcomes, each test
+   series left out.
 
 python analysis/nuclear_basic.py -> data/nuclear_basic.json"""
 import json
@@ -182,9 +183,14 @@ for lab, ns, nb in splits:
     out["abcd"].append({"split": lab, "transients": int(ns.sum() + nb.sum()), "share_signal_like": r3(ns.sum() / (ns.sum() + nb.sum())),
                         "odds_ratio": r3(rv), "p_more_signal_like": r3(pk(Av, rv)), "p_less_signal_like": r3(pk(-Av, -rv)),
                         "trials_median": r3(np.nanmedian(Av)), "trials_q05": r3(np.nanquantile(Av, 0.05)), "trials_q95": r3(np.nanquantile(Av, 0.95))})
-f_star = star.sum() / (star.sum() + other.sum()); extra = 1 - 1 / r_hat               # share of transients near tests that are extra
-odds = lambda f: f / (1 - f)
-out["shapes_if_excess"] = {"all_star_like": r3(odds((1 - extra) * f_star + extra) / odds(f_star)), "none_star_like": r3(odds((1 - extra) * f_star) / odds(f_star))}
+# what the odds would be if every plate's excess over its run were all star-like, or none of it: each plate in the window
+# gets its own excess share, applied to its own sampled transients
+f_star = star.sum() / (star.sum() + other.sum()); m_ = star + other
+lev_ = (G.T @ (G @ (y_raw * (1 - S0)))) / np.maximum(G.T @ (G @ (e_props * (1 - S0))), 1e-9)
+xs = np.where(S0 == 1, np.clip(1 - lev_ * e_props / np.maximum(y_raw, 1), 0, 1), 0)
+out["shapes_if_excess"] = {"all_star_like": r3(share_ratio(m_ * (xs + (1 - xs) * f_star), m_ * (1 - xs) * (1 - f_star), S0)[0]),
+                           "none_star_like": r3(share_ratio(m_ * (1 - xs) * f_star, m_ * (1 - (1 - xs) * f_star), S0)[0]),
+                           "excess_share_sampled": r3(np.sum(m_ * xs * S0) / np.sum(m_ * S0))}
 nar = sh.assign(n=sh["class"] == "narrower").groupby("plate").n.mean()
 out["shapes"] = {"narrower_star_width_corr": r3(np.corrcoef(nar.values, P.fwhm[nar.index].values)[0, 1]), "measured": int(len(sh)), "plates": int(sh.plate.nunique()), "near": int(sh.plate.isin(P.index[S0 == 1]).sum()),
                  **{c.replace("-", "_"): int((sh["class"] == c).sum()) for c in ("star-like", "wider", "narrower")}}
@@ -230,7 +236,17 @@ def expected(y):
     return np.asarray(sm.GLM(y, X, family=sm.families.NegativeBinomial(alpha=a)).fit().fittedvalues)
 
 
+def drop_top(S, k=2):
+    """The within-run ratio with the k plates in the window that most exceed their run's level left out."""
+    o = (G.T @ (G @ (y_raw * (1 - S)))) / np.maximum(G.T @ (G @ (e_props * (1 - S))), 1e-9)     # each plate's run level
+    x = np.where((S == 1) & (G.T @ (G @ (1 - S)) > 0), y_raw - o * e_props, -np.inf)
+    keep = np.ones(len(S)); keep[np.argsort(x)[::-1][:k]] = 0
+    return float(mh(S * keep, e_props * keep, y_raw * keep)[0])
+
+
 top = [x["plate"] for x in rich[:2]]
+D2 = np.array([drop_top(T[:, t]) for t in range(2000)])
+out["drop_two"] = {"r": r3(drop_top(S0)), "p": r3(pk(D2, drop_top(S0))), "trials_median": r3(np.nanmedian(D2))}
 out["robust"] = [check(f"without {top[0]}", **without(top[:1])), check(f"without {top[1]}", **without(top[1:2])),
                  check(f"without {top[0]} and {top[1]}", **without(top))]
 out["robust"] += [check(f"runs split after {g} empty nights", run=runs(g), seed=72 + g) for g in (2, 6, 10)]

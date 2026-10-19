@@ -121,3 +121,10 @@ day after) was fixed by the authors before they looked at the data. They read th
   two other outcomes of the frozen design (2' cells, the central 5 x 5 deg), and each test series left out, each with
   its own within-run reassignment null. The two plates were picked by looking, so the ratio without them is a
   description of where the excess sits, not a test.
+- Corrections after an independent review of the page (19 October 2026): (i) the ratio without the two richest plates
+  is calibrated by doing the same to every within-run reassignment (each trial drops its own two plates that most
+  exceed their run's level), since dropping the largest values lowers any ratio; (ii) the shape test's reference odds
+  ("all star-like", "none star-like") use each plate's own excess share and its own sampled transients, since sampling
+  60 per plate caps the richest plates; (iii) the page leads with this frozen analysis (nuclear_fit.py) and its
+  pre-specified rank test of VASCO's window, with nuclear_basic.py as the step-by-step account; the gap between the
+  two nulls of the frozen analysis (2.2% within runs, 0.3% by calendar slides) is reported, as specified above.

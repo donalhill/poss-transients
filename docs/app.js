@@ -703,9 +703,9 @@ function drawNucNull(D, id) {
     .attr("x", d => x(d.x0) + 0.5).attr("width", d => Math.max(0, x(d.x1) - x(d.x0) - 1)).attr("y", d => y(d.p)).attr("height", d => y(0) - y(d.p)).attr("rx", 1.5)
     .attr("fill", V("--ink-3")).attr("fill-opacity", 0.55);
   const halo = sel => sel.attr("class", "ann").style("paint-order", "stroke").style("stroke", V("--surface")).style("stroke-width", "4px");
-  s.append("line").attr("x1", x(N.r)).attr("x2", x(N.r)).attr("y1", m.t - 6).attr("y2", H - m.b).attr("stroke", V("--emulsion")).attr("stroke-width", 2.4);
-  s.append("text").attr("x", x(N.r) + 8).attr("y", m.t + 4).call(halo).style("fill", V("--emulsion")).text(`VASCO’s window: ${N.r.toFixed(2)}×`);
-  s.append("text").attr("x", x(N.r) + 8).attr("y", m.t + 20).call(halo).style("fill", V("--emulsion"))
+  s.append("line").attr("x1", x(R.r)).attr("x2", x(R.r)).attr("y1", m.t - 6).attr("y2", H - m.b).attr("stroke", V("--emulsion")).attr("stroke-width", 2.4);
+  s.append("text").attr("x", x(R.r) + 8).attr("y", m.t + 4).call(halo).style("fill", V("--emulsion")).text(`VASCO’s window: ${R.r.toFixed(2)}×`);
+  s.append("text").attr("x", x(R.r) + 8).attr("y", m.t + 20).call(halo).style("fill", V("--emulsion"))
     .text(`Random nights reach it 1 time in ${Math.round(1 / R.p)}`);
 }
 
@@ -741,7 +741,7 @@ function drawNucMap(D, id) {
 function drawNucMeasures(D, id) {
   const N = D.nuc, s = svg(id); if (!N) return;
   const rows = N.measures, W = 760, rowH = 28, m = { l: 260, r: 70, t: 30, b: 48 }, gap = 16;
-  const groups = { catalogue: "VASCO’s transients", choices: "Other choices of analysis", which: "Which transients", scans: "Our scans, same plates", tracks: "Straight track candidates" };
+  const groups = { catalogue: "VASCO’s transients", choices: "Other choices, in the analysis fixed in advance", which: "Which transients", scans: "Our scans, same plates", tracks: "Straight track candidates" };
   let yy = m.t; const pos = [];
   rows.forEach((r, i) => { if (i === 0 || rows[i - 1].group !== r.group) { yy += i ? gap : 0; pos.push({ head: groups[r.group], y: yy }); yy += 20; } pos.push({ row: r, y: yy }); yy += rowH; });
   const H = yy + m.b; s.attr("viewBox", `0 0 ${W} ${H}`);
