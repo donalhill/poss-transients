@@ -691,7 +691,7 @@ function drawNucMap(D, id) {
   const G = N.grid, W = 760, H = 470, m = { l: 70, r: 120, t: 16, b: 56 }, n = 29;
   const c = Math.min((W - m.l - m.r) / n, (H - m.t - m.b) / n);
   const x = a => m.l + (a + 14) * c, y = b => m.t + (14 - b) * c;
-  const col = d3.scaleSequential(d3.interpolateMagma).domain([3, 0]).clamp(true);
+  const col = d3.scaleSequential(d3.interpolateYlOrRd).domain([0, 3]).clamp(true);
   s.append("g").selectAll("rect").data(G).join("rect").attr("class", "hov").attr("x", d => x(d.a)).attr("y", d => y(d.b)).attr("width", c - 0.6).attr("height", c - 0.6)
     .attr("fill", d => col(Math.max(d.z, 0)))
     .call(sel => hov(sel, d => `Days ${d.a} to ${d.b} from a test<br>ratio ${d.r.toFixed(2)}×<br>random calendars match it ${Math.round(d.p * 1000) / 10}% of the time`));
