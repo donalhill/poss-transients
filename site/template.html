@@ -144,6 +144,7 @@ section { padding-block: clamp(2.8rem, 6vw, 5rem) 1.5rem; border-bottom: 1px sol
 /* plates on a light box */
 .lightbox { background: var(--lightbox); border: 1px solid var(--rule); border-radius: 6px; padding: 0.8rem; }
 .lightbox img { display: block; width: 100%; height: auto; }
+.crop1 { max-width: 520px; margin: 1.2rem auto 0; }
 .lbcap { font-size: 0.82rem; color: #4f5961; margin-top: 0.4rem; line-height: 1.45; }
 .labels2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 2.2rem; }
 .plates2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
@@ -385,30 +386,38 @@ footer li { margin-bottom: 0.45rem; }
     </div>
   </div>
   <div class="step">
-    <div class="step-copy"><div class="step-h"><span class="step-n">2</span><h3>{{nuc-runs-title|inline}}</h3></div><div class="step-text">{{nuc-runs-text}}</div></div>
-    <div class="chart">
-      <svg id="c-nuc-runs" viewBox="0 0 760 420" role="img" aria-label="Each observing run with plates near a test: those plates against the other plates of the same run, and all runs together"></svg>
-      <div class="cap">{{nuc-runs-caption|inline}}</div>
-    </div>
-  </div>
-  <div class="step">
-    <div class="step-copy"><div class="step-h"><span class="step-n">3</span><h3>{{nuc-chance-title|inline}}</h3></div><div class="step-text">{{nuc-chance-text}}</div></div>
+    <div class="step-copy"><div class="step-h"><span class="step-n">2</span><h3>{{nuc-fair-title|inline}}</h3></div><div class="step-text">{{nuc-fair-text}}</div></div>
     <div class="chart">
       <div class="legend"><span><i class="sw" style="background:var(--ink-3);opacity:0.55"></i>VASCO’s window moved to random nights of the same observing runs (20,000 trials)</span>
         <span><i class="sw line" style="background:var(--emulsion)"></i>The real window</span></div>
-      <svg id="c-nuc-null" viewBox="0 0 760 300" role="img" aria-label="The fitted ratio with VASCO's window moved to random nights of the same observing runs, against the real window"></svg>
-      <div class="cap">{{nuc-chance-caption|inline}}</div>
+      <svg id="c-nuc-null" viewBox="0 0 760 300" role="img" aria-label="The ratio with VASCO's window moved to random nights of the same observing runs, against the real window"></svg>
+      <div class="cap">{{nuc-fair-caption|inline}}</div>
     </div>
   </div>
   <div class="step">
-    <div class="step-copy"><div class="step-h"><span class="step-n">4</span><h3>{{nuc-window-title|inline}}</h3></div><div class="step-text">{{nuc-window-text}}</div></div>
+    <div class="step-copy"><div class="step-h"><span class="step-n">3</span><h3>{{nuc-window-title|inline}}</h3></div><div class="step-text">{{nuc-window-text}}</div></div>
     <div class="chart">
       <svg id="c-nuc-map" viewBox="0 0 760 470" role="img" aria-label="Every window of days within two weeks of the tests, coloured by its local significance, with VASCO's window outlined"></svg>
       <div class="cap">{{nuc-window-caption|inline}}</div>
     </div>
   </div>
   <div class="step">
-    <div class="step-copy"><div class="step-h"><span class="step-n">5</span><h3>{{nuc-what-title|inline}}</h3></div><div class="step-text">{{nuc-what-text}}</div></div>
+    <div class="step-copy"><div class="step-h"><span class="step-n">4</span><h3>{{nuc-where-title|inline}}</h3></div><div class="step-text">{{nuc-where-text}}</div></div>
+    <div class="chart">
+      <svg id="c-nuc-runs" viewBox="0 0 760 420" role="img" aria-label="Each observing run with plates near a test: those plates against the other plates of the same run, and all runs together"></svg>
+      <div class="cap">{{nuc-where-caption|inline}}</div>
+    </div>
+  </div>
+  <div class="step full">
+    <div class="step-copy"><div class="step-h"><span class="step-n">5</span><h3>{{nuc-plates-title|inline}}</h3></div><div class="step-text">{{nuc-plates-text}}</div></div>
+    <div class="chart">
+      <svg id="c-nuc-plates" viewBox="0 0 760 230" role="img" aria-label="Every transient on the two plates near tests that carry most of the excess, each beside a typical plate from its own observing run"></svg>
+      <div class="cap">{{nuc-plates-caption|inline}}</div>
+    </div>
+    <div class="lightbox crop1"><img src="img/nuc_densest.png" alt="A 20 arcminute section of the scanned plate with the most transients for its expected count, every catalogue transient circled"><div class="lbcap">{{nuc-crop-caption|inline}}</div></div>
+  </div>
+  <div class="step">
+    <div class="step-copy"><div class="step-h"><span class="step-n">6</span><h3>{{nuc-what-title|inline}}</h3></div><div class="step-text">{{nuc-what-text}}</div></div>
     <div class="chart">
       <svg id="c-nuc-measures" viewBox="0 0 760 420" role="img" aria-label="The ratio of plates near tests to the rest of their runs, under each measure"></svg>
       <div class="cap">{{nuc-what-caption|inline}}</div>

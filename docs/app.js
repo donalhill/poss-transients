@@ -665,6 +665,31 @@ function drawNucRuns(D, id) {
   s.append("text").attr("class", "ann").attr("x", W - m.r + 14).attr("y", yC + 4).style("fill", V("--emulsion")).style("font-weight", 600).text(`${N.r.toFixed(2)}×`);
 }
 
+/* ---------- nuclear: the two plates near tests that carry most of the excess, each beside a typical plate of its own
+   run; every catalogue transient at its place on the plate ---------- */
+function drawNucPlates(D, id) {
+  const Q = D.nuc_plates, s = svg(id); if (!Q) return;
+  const W = 760, cols = 4, colW = W / cols, S = 168, top = 4, half = 3.2, H = top + S + 58;
+  s.attr("viewBox", `0 0 ${W} ${H}`);
+  const px = v => (half - v) / (2 * half) * S, py = v => (half - v) / (2 * half) * S;
+  const pd_ = d3.timeParse("%Y-%m-%d"), fd = d => d3.timeFormat("%-d %b %Y")(pd_(d));
+  Q.forEach((p, k) => {
+    const x0 = k * colW + (colW - S) / 2, c = p.near ? V("--emulsion") : V("--ours");
+    const g = s.append("g").attr("transform", `translate(${x0},${top})`);
+    g.append("clipPath").attr("id", `nuc-plate-clip-${k}`).append("rect").attr("width", S).attr("height", S);
+    g.append("rect").attr("width", S).attr("height", S).attr("fill", V("--paper"));
+    g.append("g").attr("clip-path", `url(#nuc-plate-clip-${k})`).selectAll("circle").data(p.xi.map((v, i) => [px(v), py(p.eta[i])])).join("circle")
+      .attr("cx", d => d[0]).attr("cy", d => d[1]).attr("r", 1.1).attr("fill", c).attr("fill-opacity", 0.85);
+    g.append("rect").attr("width", S).attr("height", S).attr("fill", "none").attr("stroke", V("--ink-3"));
+    g.append("text").attr("x", S / 2).attr("y", S + 18).attr("text-anchor", "middle").style("font-weight", 600).style("font-size", "13px").style("fill", c)
+      .text(`${p.plate}, ${fd(p.date)}`);
+    g.append("text").attr("class", "ann").attr("x", S / 2).attr("y", S + 35).attr("text-anchor", "middle").style("fill", V("--ink-2")).style("font-size", "12px")
+      .text(`${fmt(p.n)} transients, ${fmt(Math.round(p.expected))} expected`);
+    g.append("text").attr("class", "ann").attr("x", S / 2).attr("y", S + 51).attr("text-anchor", "middle").style("fill", V("--ink-3")).style("font-size", "12px")
+      .text(p.near ? "within a day of a test" : "same run, typical plate");
+  });
+}
+
 /* ---------- nuclear: the ratio with VASCO's window given to random nights of the same observing runs, against the data ---------- */
 function drawNucNull(D, id) {
   const N = D.nuc, s = svg(id); if (!N) return;
@@ -716,7 +741,7 @@ function drawNucMap(D, id) {
 function drawNucMeasures(D, id) {
   const N = D.nuc, s = svg(id); if (!N) return;
   const rows = N.measures, W = 760, rowH = 28, m = { l: 260, r: 70, t: 30, b: 48 }, gap = 16;
-  const groups = { catalogue: "VASCO’s transients", which: "Which transients", scans: "Our scans, same plates", tracks: "Straight track candidates" };
+  const groups = { catalogue: "VASCO’s transients", choices: "Other choices of analysis", which: "Which transients", scans: "Our scans, same plates", tracks: "Straight track candidates" };
   let yy = m.t; const pos = [];
   rows.forEach((r, i) => { if (i === 0 || rows[i - 1].group !== r.group) { yy += i ? gap : 0; pos.push({ head: groups[r.group], y: yy }); yy += 20; } pos.push({ row: r, y: yy }); yy += rowH; });
   const H = yy + m.b; s.attr("viewBox", `0 0 ${W} ${H}`);
@@ -727,7 +752,7 @@ function drawNucMeasures(D, id) {
   s.append("text").attr("class", "ann").attr("x", x(1)).attr("y", m.t - 14).attr("text-anchor", "middle").style("fill", V("--ink-2")).text("No difference");
   pos.forEach(p_ => {
     if (p_.head) { s.append("text").attr("x", 10).attr("y", p_.y + 6).style("font-weight", 600).text(p_.head); return; }
-    const r = p_.row, c = r.group === "catalogue" ? V("--emulsion") : V("--ours");
+    const r = p_.row, c = r.group === "catalogue" || r.group === "choices" ? V("--emulsion") : V("--ours");
     s.append("text").attr("x", m.l - 12).attr("y", p_.y + 4).attr("text-anchor", "end").style("fill", V("--ink-2")).text(r.label);
     if (r.lo != null) s.append("line").attr("x1", x(r.lo)).attr("x2", x(r.hi)).attr("y1", p_.y).attr("y2", p_.y).attr("stroke", c).attr("stroke-width", 1.8).attr("stroke-opacity", 0.7);
     s.append("circle").attr("cx", x(r.r)).attr("cy", p_.y).attr("r", 5).attr("fill", c);
@@ -738,7 +763,7 @@ function drawNucMeasures(D, id) {
 let DATA = null;
 function render() {
   if (!DATA) return;
-  drawSky(DATA, "c-sky0", false); drawSpread(DATA); drawSky(DATA, "c-sky", true); drawChance(DATA); drawPerm(DATA, "c-perm-any", "raw", "VASCO’s test"); drawNucRuns(DATA, "c-nuc-runs"); drawNucNull(DATA, "c-nuc-null"); drawNucMap(DATA, "c-nuc-map"); drawNucMeasures(DATA, "c-nuc-measures");
+  drawSky(DATA, "c-sky0", false); drawSpread(DATA); drawSky(DATA, "c-sky", true); drawChance(DATA); drawPerm(DATA, "c-perm-any", "raw", "VASCO’s test"); drawNucRuns(DATA, "c-nuc-runs"); drawNucPlates(DATA, "c-nuc-plates"); drawNucNull(DATA, "c-nuc-null"); drawNucMap(DATA, "c-nuc-map"); drawNucMeasures(DATA, "c-nuc-measures");
   drawFan(DATA); drawTracks(DATA); drawCompare(DATA, "c-compare"); drawTail(DATA, "tail-gallery"); drawWidths(DATA, "c-widths"); drawTrail(DATA, "c-trail"); fillDates(DATA); drawRadialMap(DATA); drawRadial(DATA); drawCrowd(DATA);
   drawPlates(DATA, "c-plates"); drawForest(DATA, "c-ratio-vasco"); drawRatioNull(DATA, "c-ratio-null");
 }

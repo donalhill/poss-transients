@@ -185,7 +185,8 @@ for lab, ns, nb in splits:
 f_star = star.sum() / (star.sum() + other.sum()); extra = 1 - 1 / r_hat               # share of transients near tests that are extra
 odds = lambda f: f / (1 - f)
 out["shapes_if_excess"] = {"all_star_like": r3(odds((1 - extra) * f_star + extra) / odds(f_star)), "none_star_like": r3(odds((1 - extra) * f_star) / odds(f_star))}
-out["shapes"] = {"measured": int(len(sh)), "plates": int(sh.plate.nunique()), "near": int(sh.plate.isin(P.index[S0 == 1]).sum()),
+nar = sh.assign(n=sh["class"] == "narrower").groupby("plate").n.mean()
+out["shapes"] = {"narrower_star_width_corr": r3(np.corrcoef(nar.values, P.fwhm[nar.index].values)[0, 1]), "measured": int(len(sh)), "plates": int(sh.plate.nunique()), "near": int(sh.plate.isin(P.index[S0 == 1]).sum()),
                  **{c.replace("-", "_"): int((sh["class"] == c).sum()) for c in ("star-like", "wider", "narrower")}}
 
 # 8. the plates near tests that carry the excess (a diagnostic, found after the results): each plate near a test against
@@ -198,6 +199,19 @@ for i in np.flatnonzero(S0 == 1):
         rich.append({"plate": P.index[i], "date": date(day[i]), "n": int(y_raw[i]), "expected": round(float(lev * e_props[i]), 1),
                      "ratio": r3(y_raw[i] / (lev * e_props[i]))})
 rich.sort(key=lambda x: x["n"] - x["expected"], reverse=True)
+for x in rich[:2]:                                                       # a typical plate from the same run, for comparison
+    i = P.index.get_loc(x["plate"]); o = np.flatnonzero((run0 == run0[i]) & (S0 == 0))
+    j = o[np.argsort(y_raw[o])[len(o) // 2]]; lev = y_raw[o].sum() / e_props[o].sum()
+    x["mate"] = {"plate": P.index[j], "date": date(day[j]), "n": int(y_raw[j]), "expected": round(float(lev * e_props[j]), 1)}
+# what the transients on these plates and their run-mates look like: share at the plate edge, median distance to the
+# nearest other transient, the width of the plate's stars (plate_depth.py) and its rank, the share narrower than stars
+for x in rich[:2]:
+    for q_ in (x, x["mate"]):
+        g = cat[cat.plate == q_["plate"]]; d_, _ = cKDTree(np.c_[g.xi, g.eta] * 60).query(np.c_[g.xi, g.eta] * 60, k=2)
+        s_ = sh[sh.plate == q_["plate"]]
+        q_.update({"edge": r3(np.mean(np.maximum(g.xi.abs(), g.eta.abs()) > 2.5)), "nn_arcmin": round(float(np.median(d_[:, 1])), 1),
+                   "star_fwhm": round(float(P.fwhm[q_["plate"]]), 1), "star_fwhm_pct": int(round(100 * (P.fwhm < P.fwhm[q_["plate"]]).mean())),
+                   "narrower": r3((s_["class"] == "narrower").mean()) if len(s_) else None})
 out["plates"] = rich
 
 

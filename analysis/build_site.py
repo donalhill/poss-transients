@@ -15,6 +15,7 @@ import astropy.units as u
 from astropy.coordinates import SkyCoord, get_sun
 from astropy.io import fits
 from astropy.time import Time
+from astropy.visualization import ZScaleInterval
 from astropy.wcs import WCS
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -97,12 +98,24 @@ NB_ = json.loads((ROOT / "data/nuclear_basic.json").read_text())
 # the nuclear measurement from the ground up (nuclear_basic.py), with the full model fit (nuclear_fit.py) as a cross-check
 lro = {x["run"]: x["r"] for x in NB_["leave_run_out"]}
 abcd = {x["split"]: x for x in NB_["abcd"]}
+# the two plates near tests that carry most of the excess, each beside a typical plate from its own run
+site["nuc_plates"] = [{**q, "near": near, "xi": cat.xi[cat.plate == q["plate"]].round(3).tolist(), "eta": cat.eta[cat.plate == q["plate"]].round(3).tolist()}
+                      for x in sorted(NB_["plates"][:2], key=lambda x: x["date"]) for q, near in ((x, True), (x["mate"], False))]
+def label(x):
+    """A chart label for one robustness check (nuclear_basic.py)."""
+    c = {"2' cells holding a transient": "Counting 2′ cells holding a transient", "central 5 x 5 deg only": "Central 5 × 5° of each plate only"}.get(x["check"], x["check"])
+    if "plates_dropped" in x:
+        c = c.replace("without ", "without Operation ")
+    return c[0].upper() + c[1:]
+
+
 site["nuc"] = {"r": NB_["within_runs_expected"], "runs": NB_["runs"], "null": NB_["null_runs"], "grid": NB_["scan"]["grid"],
                "measures": [
     {"label": "VASCO’s transients", "r": NB_["within_runs_expected"], "group": "catalogue"},
-    {"label": "Without the November 1951 run", "r": lro["1951-11-03"], "group": "catalogue"},
-    {"label": "Without the late-March 1955 run", "r": lro["1955-03-19"], "group": "catalogue"},
+    *[{"label": label(x), "r": x["r"], "group": "catalogue"} for x in NB_["robust"] if x["check"].startswith("without XE")],
     {"label": "Full model fit (cross-check)", "r": NF["fit"]["r"], "lo": NF["fit"]["count_lo"], "hi": NF["fit"]["count_hi"], "group": "catalogue"},
+    *[{"label": label(x), "r": x["r"], "group": "choices"} for x in NB_["robust"]
+      if not x["check"].startswith("without XE") and x.get("plates_dropped", 2) >= 2],
     {"label": "In the central plate", "r": abcd["edge against central"]["odds_ratio"], "group": "which"},
     {"label": "No neighbour within 5′", "r": abcd["crowded against isolated"]["odds_ratio"], "group": "which"},
     {"label": "Shaped like the stars", "r": abcd["shaped like stars or not"]["odds_ratio"], "group": "which"},
@@ -443,6 +456,9 @@ pc = lambda p_: num(100 * p_)
 bysize = {x["days"]: x for x in NB_["scan"]["by_size"]}
 phys = {x["window"]: x for x in NB_["physical"]}
 pred = {x["feature"]: x for x in NC["prediction"]}
+rob = {x["check"]: x for x in NB_["robust"]}
+tp = NB_["plates"][:2]; wo = [rob[f"without {x['plate']}"]["r"] for x in tp]; both = rob[f"without {tp[0]['plate']} and {tp[1]['plate']}"]
+choice = [x["r"] for x in NB_["robust"] if not x["check"].startswith("without XE") and x.get("plates_dropped", 2) >= 2]
 RS = NB_["runs_summary"]; RN = NC["rich_nights"]
 longdate = lambda d: pd.Timestamp(d).strftime("%-d %B %Y")
 numbers.update({
@@ -458,6 +474,15 @@ numbers.update({
     "nb.run_median": num(RS["median"], 2), "nb.without_nov51": num(lro["1951-11-03"], 2), "nb.without_mar55": num(lro["1955-03-19"], 2),
     "nb.nov51": num(next(x["contrast"] for x in NB_["runs"] if x["from"] == "1951-11-03"), 1),
     "nb.mar55": num(next(x["contrast"] for x in NB_["runs"] if x["from"] == "1955-03-19"), 1),
+    **{f"nb.p{k + 1}{f}": v for k, x in enumerate(tp) for f, v in (("", x["plate"]), ("_date", longdate(x["date"])), ("_n", num(x["n"])),
+       ("_e", num(round(x["expected"]))), ("_ratio", num(x["ratio"], 1)), ("_mate", x["mate"]["plate"]), ("_mate_n", num(x["mate"]["n"])),
+       ("_without", num(wo[k], 2)))},
+    **{f"nb.p{k + 1}{m_}{f}": v for k, x in enumerate(tp) for m_, q_ in (("", x), ("_mate", x["mate"])) for f, v in
+       (("_edge", pc(q_["edge"])), ("_nn", num(q_["nn_arcmin"], 1)), ("_fwhm", num(q_["star_fwhm"], 1)), ("_fwhm_pct", num(q_["star_fwhm_pct"])),
+        ("_narrower", pc(q_["narrower"])))},
+    "nb.crop": max(tp, key=lambda x: x["ratio"])["plate"], "nb.narrow_corr": num(NB_["shapes"]["narrower_star_width_corr"], 2),
+    "nb.without_both": num(both["r"], 2), "nb.without_both_p": pc(both["p"]),
+    "nb.choice_lo": num(min(choice), 2), "nb.choice_hi": num(max(choice), 2),
     "nb.fit_r": num(NF["fit"]["r"], 2), "nb.fit_p": num(100 * NF["null_runs"]["p_as_high"], 1),
     "nb.rank": num(NB_["scan"]["primary_rank"]), "nb.windows": num(NB_["scan"]["windows"]),
     "nb.g3": pc(bysize[3]["p_global"]), "nb.g7": pc(bysize[7]["p_global"]), "nb.g14": pc(bysize[14]["p_global"]),
@@ -476,7 +501,8 @@ numbers.update({
     "nr.top2": longdate(RN["top_near"][1]["date"]), "nr.top2_r": num(RN["top_near"][1]["ratio"], 1),
     "nr.threshold": num(RN["threshold"], 1), "nr.rich": word(RN["rich"]), "nr.rich_near": word(RN["rich_near"]), "nr.p_chance": pc(RN["p_chance"]),
     "nc.plates": num(NC["blue"]["plates"]), "nc.red_r": num(NC["blue"]["red"]["r"], 2), "nc.blue_r": num(NC["blue"]["blue"]["r"], 2),
-    "nc.pred_p": pc(pred["VASCO's window"]["p"]), "nc.pred_nights": num(pred["VASCO's window"]["nights_held_out"]),
+    "nc.pred_p": pc(pred["VASCO's window"]["p"]), "nc.pred_after_p": num(100 * pred["the day after"]["p"], 1),
+    "nc.pred_before_p": pc(pred["the day before"]["p"]), "nc.pred_day_p": pc(pred["the test's date"]["p"]), "nc.pred_nights": num(pred["VASCO's window"]["nights_held_out"]),
     "nc.tracks10_r": num(NC["tracks"][0]["r"], 2), "nc.tracks100_r": num(NC["tracks"][1]["r"], 2),
     "nc.tracks10_near": num(NC["tracks"][0]["tracks_near"]), "nc.tracks100_near": word(NC["tracks"][1]["tracks_near"])})
 site["numbers"] = numbers
@@ -485,7 +511,7 @@ site["numbers"] = numbers
 print("site.json", round((OUT / "data/site.json").stat().st_size / 1024), "kB")
 
 # ------------------------------------------------------------------ images (DSS plate material, figure-sized crops)
-IMGS = ("label_xe356.png", "label_xe617.png", "asteroid_isabella_wide.png", "asteroid_erigone_wide.png")
+IMGS = ("label_xe356.png", "label_xe617.png", "asteroid_isabella_wide.png", "asteroid_erigone_wide.png", "nuc_densest.png")
 if "--images" not in sys.argv and all((OUT / "img" / n).exists() for n in IMGS):
     print("images kept (redraw with --images)"); raise SystemExit
 def save(fig, name):
@@ -543,4 +569,23 @@ for plate, num, nm, label in (("XE356", 210, "isabella", "(210) Isabella"), ("XE
     ax.text(bx + L / 2, by + 0.025 * H_, "2′", ha="center", va="bottom", fontsize=15, color="black",
             path_effects=[pe.withStroke(linewidth=3, foreground="white")])
     save(fig, f"asteroid_{nm}_wide.png")
+# the densest 20' patch of the richer (against expected) of the two plates that carry most of the excess near tests,
+# every catalogue transient circled
+q = max(NB_["plates"][:2], key=lambda x: x["ratio"])["plate"]
+g = cat[cat.plate == q]; H2, xe, ye = np.histogram2d(g.xi, g.eta, bins=18, range=[[-3, 3], [-3, 3]]); i, j = np.unravel_index(H2.argmax(), H2.shape)
+k = (g.xi >= xe[i]) & (g.xi < xe[i + 1]) & (g.eta >= ye[j]) & (g.eta < ye[j + 1])
+f = CUT / f"{q}_densest_20.fits"
+if not f.exists():
+    f.write_bytes(requests.get(f"https://archive.stsci.edu/cgi-bin/dss_search?v=poss1_red&r={g[k].ra.median():.5f}&d={g[k].dec.median():.5f}"
+                               f"&e=J2000&h=20&w=20&f=fits&c=none", timeout=180).content)
+hd = fits.getheader(f); assert hd["REGION"].strip() == q, (q, hd["REGION"])
+img, w = fits.getdata(f).astype(float), WCS(hd)
+fig = plt.figure(figsize=(9, 9)); ax = fig.add_axes([0, 0, 1, 1])
+lo, hi = ZScaleInterval().get_limits(img); ax.imshow(img, origin="lower", cmap="gray_r", vmin=lo, vmax=hi); ax.axis("off")
+x, y = w.world_to_pixel(SkyCoord(g.ra.values * u.deg, g.dec.values * u.deg)); m = (x > 0) & (y > 0) & (x < img.shape[1]) & (y < img.shape[0])
+ax.scatter(x[m], y[m], s=90, facecolors="none", edgecolors="#c0392b", lw=1.1)
+L = 120 / abs(hd["PLTSCALE"] * hd["XPIXELSZ"] / 1000); bx, by = 0.04 * img.shape[1], 0.04 * img.shape[0]
+ax.plot([bx, bx + L], [by, by], color="black", lw=2.5, solid_capstyle="butt")
+ax.text(bx + L / 2, by + 0.02 * img.shape[0], "2′", ha="center", va="bottom", fontsize=15, color="black", path_effects=[pe.withStroke(linewidth=3, foreground="white")])
+save(fig, "nuc_densest.png")
 print("images written")
