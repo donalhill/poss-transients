@@ -267,7 +267,7 @@ A like-for-like comparison is the number of transients each plate should hold, g
 Random nights drawn from across the survey are not a like-for-like comparison either. The tests came in series, so the nights near them bunch into a few seasons, and a bunched set of nights varies more than a scattered one. Sliding the real test calendar by 1 to 5 years and up to two months keeps each test’s time of year and its spacing from the others. Slid calendars do as well as the real one about one time in {n:nc2.odds} ({n:nc2.sig} standard deviations), which is not statistically significant.
 
 ### nuc-corr-caption
-Once the number of photographs and the telescope pointing are accounted for, the plates near nuclear tests sit in the body of {n:nc2.slides} slid test calendars. About one in {n:nc2.odds} does as well.
+Once the number of photographs and the telescope pointing are accounted for, the plates near nuclear tests hold {n:nc2.point_r} times their expected number of transients. Of {n:nc2.slides} slid test calendars, about one in {n:nc2.odds} does as well or better.
 
 ### nuc-checks-title
 Nothing else moves the result
