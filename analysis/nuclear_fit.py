@@ -107,7 +107,7 @@ rank = (len(SLIDES) - np.argsort(np.argsort(null_w, axis=0), axis=0)) / (len(SLI
 span = np.array([max(abs(a), abs(b)) for a, b in WIN]); iP = WIN.index((-1, 1))
 out["scan"] = {"windows": len(WIN), "primary_r": r3(real_w[iP]), "primary_p_local": r3(loc[iP]), "primary_rank": int(np.sum(loc <= loc[iP])),
                "share_trials_rank_as_high": r3(np.mean([np.sum(rank[t] <= rank[t, iP]) <= np.sum(loc <= loc[iP]) for t in range(len(SLIDES))])),
-               "grid": [{"a": a, "b": b, "r": r3(real_w[i]), "p": r3(loc[i]), "z": round(float(norm.isf(loc[i])), 2)} for i, (a, b) in enumerate(WIN)],
+               "grid": [{"a": a, "b": b, "r": r3(real_w[i]), "p": r3(loc[i]), "z": round(float(np.clip(norm.isf(loc[i]), -4, 4)), 2)} for i, (a, b) in enumerate(WIN)],
                "by_size": []}
 for days_ in (3, 7, 14):
     c_ = np.flatnonzero(span <= days_); b_ = c_[np.argmin(loc[c_])]

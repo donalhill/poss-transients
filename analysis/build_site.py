@@ -90,7 +90,22 @@ site["paste"] = {"bins": bins.tolist(), "counts": np.histogram(sums, bins)[0].to
 
 # ------------------------------------------------------------------ nuclear tests (nuclear.py)
 NU = json.loads((ROOT / "data/nuclear.json").read_text())
-site["perm"], site["months"], site["nuc_steps"] = NU["perm"], NU["months"], NU["steps"]
+NF = json.loads((ROOT / "data/nuclear_fit.json").read_text())
+NC = json.loads((ROOT / "data/nuclear_checks.json").read_text())
+site["perm"] = NU["perm"]
+site["nucfit"] = {"fit": NF["fit"], "null": {k: NF["null_runs"][k] for k in ("hist", "median", "q16", "q84", "p_as_high")},
+                  "nights": NF["nights"], "grid": NF["scan"]["grid"], "physical": NF["physical"]}
+# r under each measure, for the chart of what the extra transients are not
+rob = {o["outcome"]: o for o in NF["robust"]["outcomes"]}
+teapot = next(x for x in NF["robust"]["leave_series_out"] if x["series"] == "Teapot")
+site["nucfit"]["measures"] = [
+    {"label": "VASCO’s transients", "r": NF["fit"]["r"], "lo": NF["fit"]["count_lo"], "hi": NF["fit"]["count_hi"], "group": "catalogue"},
+    {"label": "Counting 2′ cells, not transients", "r": rob["2' cells holding a transient"]["r"], "group": "catalogue"},
+    {"label": "Central 5 × 5 degrees only", "r": rob["central 5 x 5 deg only"]["r"], "group": "catalogue"},
+    {"label": "Without the 1955 Teapot tests", "r": teapot["r"], "group": "catalogue"},
+    {"label": "Red-plate specks", "r": NC["blue"]["red"]["r"], "lo": NC["blue"]["red"]["count_lo"], "hi": NC["blue"]["red"]["count_hi"], "group": "scans"},
+    {"label": "Blue-plate specks, same nights", "r": NC["blue"]["blue"]["r"], "lo": NC["blue"]["blue"]["count_lo"], "hi": NC["blue"]["blue"]["count_hi"], "group": "scans"},
+    *[{"label": f"Tracks scoring {t['score']} or better", "r": t["r"], "lo": t["count_lo"], "hi": t["count_hi"], "group": "tracks"} for t in NC["tracks"]]]
 
 # ------------------------------------------------------------------ alignments
 rb = lambda a: a.reshape(*a.shape[:-1], -1, 2).sum(-1)                 # 0.2-dex bins
@@ -344,8 +359,7 @@ pa_b = pa.set_index(pa.index).absb
 du_all = pd.read_csv(ROOT / "data/plate_dust.csv").set_index("plate")
 G, T_, Fp = SP["ours_geo"], SP["ours_topo"], {p_["plate"]: p_ for p_ in F_["plates"]}
 V_ = SP["vasco_geo"]
-ST, MO = NU["steps"], {m_["m"]: m_ for m_ in NU["months"]}
-spring = [MO[k] for k in ("Mar", "Apr", "May")]
+ST = NU["steps"]
 numbers = {
     # the catalogue
     "cat.transients": num(len(cat)), "cat.plates": num(len(pl)), "cat.vasco_plates": num(len(vasco_plates)),
@@ -383,28 +397,11 @@ numbers = {
     # nuclear tests (nuclear.py)
     "nuc.vasco_nights": num(NU["vasco"]["nights"]), "nuc.vasco_ratio": num(NU["vasco"]["real"], 2),
     "nuc.vasco_odds": odds(NU["vasco"]["p"]), "nuc.vasco_sig": num(NU["vasco"]["sigma"], 1),
-    "nuc.nights": num(ST["nights_window"]), "nuc.ratio": num(NU["perm"]["raw"]["real"], 2), "nuc.odds": odds(NU["perm"]["raw"]["p"]),
-    "nuc.sig": num(NU["perm"]["raw"]["sigma"], 1), "nuc.per_plate": num(ST["per_plate"], 2), "nuc.per_expected": num(ST["per_expected"], 2),
-    "nuc.adj_odds": odds(NU["perm"]["adj"]["p"]), "nuc.adj_sig": num(NU["perm"]["adj"]["sigma"], 1),
-    "nuc.remaining": num(100 * (ST["per_expected"] - 1)), "nuc.pointing": num(100 * (ST["pointing"] - 1)),
-    "nuc.without_lo": num(100 * (min(t_["excess_without"] for t_ in NU["top_plates"]) - 1)),
-    "nuc.without_hi": num(100 * (max(t_["excess_without"] for t_ in NU["top_plates"]) - 1)),
-    "nuc.all_nights": num(ST["nights"]), "nuc.nights_with_plates": num(ST["nights_with_plates"]), "nuc.max_plates": word(ST["max_plates"]),
-    "nuc.plates_per_night": num(ST["plates_per_night"], 1), "nuc.plates_window": num(ST["plates_window"], 2),
-    "nuc.plates_other": num(ST["plates_other"], 2), "nuc.plates_same_months": num(ST["plates_same_months"], 2),
-    "nuc.empty_window": num(ST["empty_window"]), "nuc.empty_other": num(ST["empty_other"]), "nuc.nights_other": num(ST["nights_other"]),
-    "nuc.spring_b_lo": num(min(m_["b"] for m_ in spring)), "nuc.spring_b_hi": num(max(m_["b"] for m_ in spring)),
-    "nuc.late_b": num(round(np.mean([MO[k]["b"] for k in ("Jul", "Aug", "Sep", "Oct", "Nov", "Dec")]), -1)),
-    "nuc.spring_pp_lo": num(min(m_["pp"] for m_ in spring)), "nuc.spring_pp_hi": num(max(m_["pp"] for m_ in spring)),
-    "nuc.jul_pp": num(MO["Jul"]["pp"]), "nuc.aug_pp": num(MO["Aug"]["pp"]), "nuc.nov_pp": num(MO["Nov"]["pp"]),
-    "nuc.spring_nights": word(sum(m_["win"] for m_ in spring)), "nuc.nov_nights": word(MO["Nov"]["win"]),
-    "nuc.scan_sig": num(max(r_["sigma"] for r_ in NU["scan"]), 1),
-    "nuc.lag_best": {"-1": "the day before the test", "0": "the day of the test itself", "1": "the day after the test"}[max(NU["lags"], key=NU["lags"].get)],
 }
 south = pd.read_csv(ROOT / "data/shadow_plates_log.csv")
 numbers.update({"sh.taurus_cap": numbers["sh.taurus"].capitalize(), "sh.south": num((~south.in_catalogue).sum()),
                 "sh.south_ratio": word(round(south[~south.in_catalogue].shadow_fraction.sum() / south[south.in_catalogue].shadow_fraction.sum())),
-                "nuc.augnov_b": num(np.mean([MO["Aug"]["b"], MO["Nov"]["b"]]))})
+                })
 # the dates (date_corrections.py and its evidence)
 DS, DC = site["date_summary"], pd.read_csv(ROOT / "data/date_check_summary.csv")
 src = t.source.value_counts()
@@ -438,9 +435,47 @@ numbers.update({
     "trail.length": num(np.floor(TR["length_arcmin"])), "trail.sag": num(round(TR["sag_arcsec"], -1)), "trail.radius": num(TR["radius_deg"]),
     "trail.turn_km": num(SHP["defocus_km"] * np.tan(np.radians(TR["radius_deg"]))),
     "trail.spacing_lo": num(TR["spacing_16_84"][0]), "trail.spacing_hi": num(TR["spacing_16_84"][1])})
+# the nuclear tests (nuclear.py, nuclear_fit.py, nuclear_checks.py)
+F, NR = NF["fit"], NF["null_runs"]
+pc = lambda p_: num(100 * p_)
+phys = {x["window"]: x for x in NF["physical"]}
+bysize = {x["days"]: x for x in NF["scan"]["by_size"]}
+pred = {x["feature"]: x for x in NC["prediction"]}
+loo = [x["r"] for x in NF["robust"]["leave_run_out"]]
+gaps = NF["robust"]["run_gap"]
+numbers.update({
+    "nuc.nights": num(ST["nights_window"]), "nuc.ratio": num(NU["perm"]["raw"]["real"], 2), "nuc.odds": odds(NU["perm"]["raw"]["p"]),
+    "nuc.sig": num(NU["perm"]["raw"]["sigma"], 1), "nuc.plates_window": num(ST["plates_window"], 2), "nuc.plates_other": num(ST["plates_other"], 2),
+    "nuc.per_plate": num(ST["per_plate"], 2), "nuc.empty_window": num(ST["empty_window"]), "nuc.empty_other": num(ST["empty_other"]),
+    "nuc.nights_other": num(ST["nights_other"]),
+    "nf.plates": num(NF["plates_near"]), "nf.nights": num(NF["nights_near"]), "nf.runs": word(NF["runs_near"]),
+    "nf.runs_info": word(sum(x["informative"] for x in NF["runs"])), "nf.r": num(F["r"], 2), "nf.count_lo": num(F["count_lo"], 2),
+    "nf.count_hi": num(F["count_hi"], 2), "nf.p": pc(NR["p_as_high"]), "nf.odds": odds(NR["p_as_high"]), "nf.sig": num(F["sigma"], 1),
+    "nf.null_median": num(NR["median"], 2), "nf.null_lo": num(NR["q16"], 2), "nf.null_hi": num(NR["q84"], 2),
+    "nf.p_cal": num(100 * NF["null_calendar"]["p_as_high"], 1), "nf.ci68_lo": num(NF["interval68"][0], 2), "nf.ci68_hi": num(NF["interval68"][1], 2),
+    "nf.ci90_lo": num(NF["interval90"][0], 2), "nf.ci90_hi": num(NF["interval90"][1], 2), "nf.power": pc(NF["power_vasco"]["p_as_low"]),
+    "nf.vasco_r": num(NF["power_vasco"]["r_true"], 2),
+    "nf.loo_lo": num(min(loo), 2), "nf.loo_hi": num(max(loo), 2), "nf.teapot_r": num(teapot["r"], 2), "nf.teapot_plates": num(teapot["plates_dropped"]),
+    "nf.gap_r_lo": num(min(g_["r"] for g_ in gaps), 2), "nf.gap_r_hi": num(max(g_["r"] for g_ in gaps), 2),
+    "nf.gap_p_hi": pc(max(g_["p_runs"] for g_ in gaps)),
+    "nf.cells_r": num(rob["2' cells holding a transient"]["r"], 2), "nf.inner_r": num(rob["central 5 x 5 deg only"]["r"], 2),
+    "nf.after_r": num(phys["0 to 24 hours after a shot"]["r"], 2), "nf.after_plates": num(phys["0 to 24 hours after a shot"]["plates"]),
+    "nf.after_p": num(100 * phys["0 to 24 hours after a shot"]["p_runs"], 1),
+    "nf.after2_r": num(phys["24 to 48 hours after"]["r"], 2), "nf.before_r": num(phys["24 hours before a shot"]["r"], 2),
+    "nf.before_plates": num(phys["24 hours before a shot"]["plates"]), "nf.before_p": num(100 * phys["24 hours before a shot"]["p_runs"], 1),
+    "nf.rank": num(NF["scan"]["primary_rank"]), "nf.windows": num(NF["scan"]["windows"]), "nf.rank_p": num(100 * NF["scan"]["share_trials_rank_as_high"], 1),
+    "nf.g3": pc(bysize[3]["p_global"]), "nf.g3_sig": num(bysize[3]["sigma"], 1), "nf.g7": pc(bysize[7]["p_global"]), "nf.g7_sig": num(bysize[7]["sigma"], 1),
+    "nf.g14": pc(bysize[14]["p_global"]), "nf.g14_sig": num(bysize[14]["sigma"], 1),
+    "nf.g14_best": f"{bysize[14]['best'][0]} to {bysize[14]['best'][1]}".replace("-", "−"), "nf.g14_best_r": num(bysize[14]["best_r"], 1),
+    "nc.plates": num(NC["blue"]["plates"]), "nc.red_r": num(NC["blue"]["red"]["r"], 2), "nc.blue_r": num(NC["blue"]["blue"]["r"], 2),
+    "nc.cat_r": num(NC["blue"]["catalogue"]["r"], 2), "nc.red_specks": num(NC["blue"]["red"]["specks_per_plate"]),
+    "nc.pred_p": pc(pred["VASCO's window"]["p"]), "nc.pred_after_p": num(100 * pred["the day after"]["p"], 1),
+    "nc.pred_nights": num(pred["VASCO's window"]["nights_held_out"]),
+    "nc.tracks10_r": num(NC["tracks"][0]["r"], 2), "nc.tracks100_r": num(NC["tracks"][1]["r"], 2),
+    "nc.tracks10_near": num(NC["tracks"][0]["tracks_near"]), "nc.tracks100_near": word(NC["tracks"][1]["tracks_near"])})
 site["numbers"] = numbers
 
-(OUT / "data/site.json").write_text(json.dumps(site, separators=(",", ":")))
+(OUT / "data/site.json").write_text(json.dumps(site, separators=(",", ":"), allow_nan=False))
 print("site.json", round((OUT / "data/site.json").stat().st_size / 1024), "kB")
 
 # ------------------------------------------------------------------ images (DSS plate material, figure-sized crops)
