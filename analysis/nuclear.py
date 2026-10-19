@@ -12,8 +12,8 @@ ROOT = Path(__file__).resolve().parents[1]
 NPERM = 10000
 
 cat = pd.read_parquet(ROOT / "data/transients_with_plates.parquet")
-strict = pd.to_datetime(pd.read_csv(ROOT / "VASCO-ML/data/poss_i_observing_dates_strict.csv").obs_date)
-nt = pd.read_csv(ROOT / "VASCO-ML/data/nuclear_tests_1949_1957.csv")
+strict = pd.to_datetime(pd.read_csv(ROOT / "data/external/poss_i_observing_dates_strict.csv").obs_date)
+nt = pd.read_csv(ROOT / "data/external/nuclear_tests_1949_1957.csv")
 tests = pd.to_datetime(nt[nt.Country.str.upper() == "USA"].Date).dt.normalize().drop_duplicates()
 corr = pd.read_csv(ROOT / "data/plate_date_corrections.csv", index_col=0)
 plates = pd.read_parquet(ROOT / "data/plates.parquet")

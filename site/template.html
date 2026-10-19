@@ -52,7 +52,7 @@ em { font-style: italic; }
 header { padding-block: clamp(2.5rem, 6vw, 4.5rem) 2rem; }
 .hero { display: block; }
 @media (max-width: 960px) { .hero { grid-template-columns: 1fr; gap: 1.2rem; } }
-.hero h1 { font-size: clamp(2.4rem, 5.6vw, 4.4rem); line-height: 1.03; letter-spacing: -0.012em; margin: 0 0 1.6rem; }
+.hero h1 { font-size: clamp(2rem, 4.4vw, 3.3rem); line-height: 1.03; letter-spacing: -0.012em; margin: 0 0 1.6rem; }
 .lede { font-size: 1.06rem; color: var(--ink-2); columns: 2 24rem; column-gap: 3.5rem; orphans: 3; widows: 3; }
 .lede p:first-child { margin-top: 0; }
 .byline { font-size: 0.88rem; color: var(--ink-2); display: flex; flex-wrap: wrap; gap: 0.3rem 1.4rem; margin-top: 1.2rem; }
@@ -86,14 +86,6 @@ section { padding-block: clamp(2.8rem, 6vw, 5rem) 1.5rem; border-bottom: 1px sol
 .quote cite { display: block; font-style: normal; font-family: var(--sans); font-size: 0.82rem; margin-top: 0.35rem; color: var(--ink-3); }
 .ledger { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
 @media (max-width: 640px) { .ledger { grid-template-columns: 1fr; } }
-.side { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 1.15rem 1.25rem 1.25rem; min-width: 0; display: flex; flex-direction: column; gap: 0.55rem; }
-.side.t { border-top: 3px solid var(--theirs); } .side.o { border-top: 3px solid var(--ours); }
-.side .lab { font-size: 0.95rem; font-weight: 600; }
-.side.t .lab { color: var(--theirs); } .side.o .lab { color: var(--ours); }
-.side .big { font-family: var(--display); font-size: 2rem; line-height: 1.1; }
-.side .gloss { font-size: 0.9rem; color: var(--ink-2); }
-.side ul { margin: 0.3rem 0 0; padding-left: 1.05rem; font-size: 0.92rem; color: var(--ink-2); }
-.side li { margin-bottom: 0.35rem; }
 
 /* steps */
 .step { margin-top: 3.4rem; }
@@ -108,6 +100,7 @@ section { padding-block: clamp(2.8rem, 6vw, 5rem) 1.5rem; border-bottom: 1px sol
 .step-n { font-size: 0.85rem; font-weight: 600; color: var(--ours); border: 1px solid var(--ours); border-radius: 50%; width: 1.75rem; height: 1.75rem; display: grid; place-items: center; }
 .step h3 { font-size: 1.5rem; line-height: 1.2; }
 .step-text { font-size: 0.98rem; }
+.chart + .chart { margin-top: 1.4rem; }
 .chart { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 1rem 1.1rem 0.8rem; min-width: 0; display: grid; grid-template-columns: minmax(0, 2.4fr) minmax(15rem, 1fr); column-gap: 2.2rem; align-items: start; }
 .chart > * { grid-column: 1; }
 .chart > .cap { grid-column: 2; grid-row: 1 / span 8; align-self: center; margin-top: 0; }
@@ -115,7 +108,28 @@ section { padding-block: clamp(2.8rem, 6vw, 5rem) 1.5rem; border-bottom: 1px sol
 .two .chart > .cap { margin-top: 0.6rem; }
 @media (max-width: 1000px) { .chart { display: block; } .chart > .cap { margin-top: 0.6rem; } }
 .chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart.plates { grid-template-columns: minmax(0, 46rem) minmax(15rem, 1fr); }
 .chart.disc svg { max-width: 48rem; margin: 0 auto; }
+.chart.tail { grid-template-columns: minmax(0, 1fr); }
+.chart.tail > .cap { grid-column: 1; grid-row: auto; margin-top: 0.8rem; }
+.tail-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(30rem, 1fr)); gap: 1.4rem 1.6rem; margin-top: 0.4rem; }
+.tail-card { margin: 0; min-width: 0; }
+.tail-imgs { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
+.tail-lab { font-size: 0.78rem; color: var(--ink-2); margin-bottom: 0.25rem; }
+.blink-btns { display: flex; gap: 0.3rem; margin-top: 0.4rem; }
+.blink-btns button { font: inherit; font-size: 0.78rem; padding: 0.15rem 0.6rem; border: 1px solid var(--rule); border-radius: 4px; background: var(--surface); color: var(--ink-2); cursor: pointer; }
+.blink-btns button.on { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.blink-btns button:focus-visible { outline: 2px solid var(--ours); outline-offset: 1px; }
+.tail-imgs svg { display: block; width: 100%; height: auto; }
+.tail-imgs figcaption { margin-top: 1.4rem; }
+.tail-card figcaption { font-size: 0.86rem; color: var(--ink-2); line-height: 1.5; margin-top: 0.45rem; }
+.tail-head { font-size: 0.95rem; color: var(--ink); }
+.tail-head b { font-weight: 600; }
+.tail-stats { display: flex; flex-wrap: wrap; row-gap: 0.1rem; font-size: 0.8rem; color: var(--ink-3); margin: 0.1rem 0 0 -1.1rem; clip-path: inset(0 0 0 1.1rem); }
+.tail-stats span { position: relative; margin-left: 1.1rem; }
+/* a dot before each item; the one before the first item on a line falls in the clipped margin */
+.tail-stats span::before { content: "·"; position: absolute; left: -1.1rem; width: 1.1rem; text-align: center; }
+.tail-card figcaption p { margin: 0.35rem 0 0; }
 .cap { font-size: 0.86rem; color: var(--ink-2); margin-top: 0.6rem; line-height: 1.55; }
 .legend { display: flex; flex-wrap: wrap; gap: 0.4rem 1.1rem; font-size: 0.8rem; color: var(--ink-2); margin-bottom: 0.5rem; }
 .legend span { display: inline-flex; align-items: center; gap: 0.4rem; }
@@ -138,9 +152,8 @@ section { padding-block: clamp(2.8rem, 6vw, 5rem) 1.5rem; border-bottom: 1px sol
 @media (max-width: 900px) { .plates2 { grid-template-columns: 1fr; } }
 @media (max-width: 560px) { .labels2 { grid-template-columns: 1fr; } }
 
-.claim { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr); gap: 1.4rem; margin-top: 1.8rem; align-items: stretch; }
+.claim { margin-top: 1.8rem; max-width: 46rem; }
 .claim .quote { margin: 0; }
-@media (max-width: 1000px) { .claim { grid-template-columns: 1fr; } }
 .carry { margin-top: 2.8rem; border-left: 3px solid var(--ours); padding: 0.3rem 0 0.3rem 1.1rem; max-width: 62rem; font-size: 1.04rem; }
 .carry p { margin: 0; }
 .prose.wide { max-width: none; columns: 2 24rem; column-gap: 3.5rem; }
@@ -201,7 +214,7 @@ footer li { margin-bottom: 0.45rem; }
   </div>
   <div class="step">
     <div class="chart disc">
-      <div class="legend"><span>Transients per plate: few <i class="sw" style="width:2.6rem;background:linear-gradient(90deg,#440154,#3b528b,#21918c,#5ec962,#fde725)"></i> many</span><span><i class="sw" style="background:var(--ink-3);opacity:0.35"></i>Plate left out of the published tests</span><span><i class="sw" style="height:0.5rem;width:1.4rem;background:#c9cfd4;border-top:1.5px dashed #111418"></i>Plane of the Milky Way</span></div>
+      <div class="legend"><span><i class="sw" style="background:var(--ink-3);opacity:0.35"></i>Plate left out of the published tests</span><span><i class="sw" style="height:0.5rem;width:1.4rem;background:#c9cfd4;border-top:1.5px dashed #111418"></i>Plane of the Milky Way</span></div>
       <svg id="c-sky0" viewBox="0 0 760 760" role="img" aria-label="Map of the northern sky with every survey plate coloured by its number of transients"></svg>
       <div class="cap">{{survey-map-caption|inline}}</div>
     </div>
@@ -227,8 +240,7 @@ footer li { margin-bottom: 0.45rem; }
     <div class="lightbox">
       <div class="legend"><span><i class="sw line" style="background:repeating-linear-gradient(90deg,#c0392b 0 5px,transparent 5px 8px)"></i>Asteroid’s predicted path on the archive’s date</span>
         <span><i class="sw line" style="background:#c0392b"></i>Its predicted path one day later</span>
-        <span><i class="sw" style="border:1.5px solid #c0392b;background:transparent"></i>The trail, enlarged</span>
-        <span><i class="sw line" style="background:#111418"></i>2 arcminutes</span></div>
+        <span><i class="sw" style="border:1.5px solid #c0392b;background:transparent"></i>The trail, enlarged</span></div>
       <div class="plates2">
         <figure><img src="img/asteroid_isabella_wide.png" alt="Section of scanned plate XE356: the predicted path of asteroid Isabella on the archive's date crosses empty sky; one day later it runs through a trail"><div class="lbcap">{{dates-asteroid-1|inline}}</div></figure>
         <figure><img src="img/asteroid_erigone_wide.png" alt="Section of scanned plate XE617: the predicted path of asteroid Erigone on the archive's date crosses empty sky; one day later it runs through a trail"><div class="lbcap">{{dates-asteroid-2|inline}}</div></figure>
@@ -272,6 +284,10 @@ footer li { margin-bottom: 0.45rem; }
   <div class="step">
     <div class="step-copy"><div class="step-h"><span class="step-n">2</span><h3>{{cat-edge-title|inline}}</h3></div><div class="step-text">{{cat-edge-text}}</div></div>
     <div class="chart">
+      <svg id="c-radial-map" viewBox="0 0 760 390" role="img" aria-label="Density of transients across the face of an average plate, beside VASCO's random positions"></svg>
+      <div class="cap">{{cat-edge-map-caption|inline}}</div>
+    </div>
+    <div class="chart">
       <div class="legend"><span><i class="sw line" style="background:var(--ours)"></i>Transients</span><span><i class="sw" style="background:var(--ours-soft)"></i>Range when the plates are resampled</span><span><i class="sw line" style="background:var(--ink-3)"></i>Randomly placed points</span></div>
       <svg id="c-radial" viewBox="0 0 760 320" role="img" aria-label="Density of transients by distance from the centre of the plate"></svg>
       <div class="cap">{{cat-edge-caption|inline}}</div>
@@ -297,8 +313,6 @@ footer li { margin-bottom: 0.45rem; }
     <blockquote class="quote">“A highly significant (∼22σ) deficit of POSS-I transients within Earth’s shadow … still present
         though at reduced significance (∼7.6σ) when a more realistic plate-based coverage is considered.”
         <cite>Villarroel et al., Publications of the Astronomical Society of the Pacific, 2025</cite></blockquote>
-    <div class="side t"><div class="lab">VASCO analysis</div>{{shadow-theirs-headline|headline}}</div>
-    <div class="side o"><div class="lab">Our analysis</div>{{shadow-ours-headline|headline}}</div>
   </div>
   <div class="step">
     <div class="step-copy"><div class="step-h"><span class="step-n">1</span><h3>{{shadow-step1-title|inline}}</h3></div><div class="step-text">{{shadow-step1-text}}</div></div>
@@ -319,38 +333,31 @@ footer li { margin-bottom: 0.45rem; }
     </div>
   </div>
   <div class="step">
-    <div class="step-copy"><div class="step-h"><span class="step-n">3</span><h3>{{shadow-step3-title|inline}}</h3></div><div class="step-text">{{shadow-step3-text}}</div></div>
-    <div class="chart">
-      <div class="legend"><span><i class="sw line" style="background:var(--ours)"></i>How well each value fits our measurement</span>
-        <span><i class="sw" style="background:var(--ours-soft)"></i>Values allowed at 90% confidence</span></div>
-      <svg id="c-phi" viewBox="0 0 760 320" role="img" aria-label="Our estimate of the fraction of transients that vanish in shadow, with its uncertainty"></svg>
-      <div class="cap">{{shadow-step3-caption|inline}}</div>
+    <div class="step-copy"><div class="step-h"><span class="step-n">3</span><h3>{{shadow-plates-title|inline}}</h3></div><div class="step-text">{{shadow-plates-text}}</div></div>
+    <div class="chart plates">
+      <div class="legend"><span><i class="sw" style="background:var(--ours);border-radius:50%;width:0.45rem;height:0.45rem"></i>Transient in sunlight</span>
+        <span><i class="sw" style="background:#ff4a2e;border-radius:50%;width:0.45rem;height:0.45rem"></i>Transient in Earth’s shadow</span>
+        <span><i class="sw" style="border:2px solid #ff4a2e;background:rgba(255,74,46,0.12)"></i>Part of the plate in shadow</span></div>
+      <svg id="c-plates" viewBox="0 0 760 440" role="img" aria-label="The eight plates partly crossed by Earth's shadow, each showing its transients as dots coloured by whether they lie in shadow or sunlight, with the edge of the shadow and the plate's numbers"></svg>
+      <div class="cap">{{shadow-plates-caption|inline}}</div>
     </div>
   </div>
   <div class="step">
-    <div class="step-copy"><div class="step-h"><span class="step-n">4</span><h3>{{shadow-step4-title|inline}}</h3></div><div class="step-text">{{shadow-step4-text}}</div></div>
-    <div class="chart disc">
-      <div class="legend"><span><i class="sw" style="border:2px solid #111418;box-shadow:0 0 0 2px #fff;background:#21918c"></i>Plate crossed by Earth’s shadow</span><span><i class="sw" style="border:2px solid #ff4a2e;background:transparent;border-radius:50%"></i>Earth’s shadow on the night that plate was taken</span></div>
-      <svg id="c-south-sky" viewBox="0 0 760 760" role="img" aria-label="Sky map extended south, with the 22 southern plates crossed by Earth’s shadow"></svg>
-      <div class="cap">{{shadow-step4-caption|inline}}</div>
+    <div class="step-copy"><div class="step-h"><span class="step-n">4</span><h3>{{shadow-fit-title|inline}}</h3></div><div class="step-text">{{shadow-fit-text}}</div></div>
+    <div class="chart">
+      <div class="legend"><span><i class="sw" style="background:var(--ink-2);border-radius:50%"></i>Ratio for each plate, with its counting error</span>
+        <span><i class="sw" style="background:var(--ours);border-radius:50%"></i>Best-fit ratio across all eight plates</span></div>
+      <svg id="c-ratio-vasco" viewBox="0 0 760 360" role="img" aria-label="Density of transients in shadow divided by density in sunlight, plate by plate with counting ranges, and the ratio fitted to all eight plates"></svg>
+      <div class="cap">{{shadow-fit-caption|inline}}</div>
     </div>
   </div>
   <div class="step">
-    <div class="step-copy"><div class="step-h"><span class="step-n">5</span><h3>{{shadow-step5-title|inline}}</h3></div><div class="step-text">{{shadow-step5-text}}</div></div>
+    <div class="step-copy"><div class="step-h"><span class="step-n">5</span><h3>{{shadow-toys-title|inline}}</h3></div><div class="step-text">{{shadow-toys-text}}</div></div>
     <div class="chart">
-      <div class="legend"><span><i class="sw line" style="background:var(--ours)"></i>How well each value fits the southern plates</span>
-        <span><i class="sw" style="background:var(--ours-soft)"></i>Values allowed at 90% confidence</span></div>
-      <svg id="c-phi-south" viewBox="0 0 760 320" role="img" aria-label="The fraction of transients that vanish in shadow, from the southern plates alone"></svg>
-      <div class="cap">{{shadow-step5-caption|inline}}</div>
-    </div>
-  </div>
-  <div class="step">
-    <div class="step-copy"><div class="step-h"><span class="step-n">6</span><h3>{{shadow-step6-title|inline}}</h3></div><div class="step-text">{{shadow-step6-text}}</div></div>
-    <div class="chart">
-      <div class="legend"><span><i class="sw line" style="background:var(--ours)"></i>How well each value fits all the plates together</span>
-        <span><i class="sw" style="background:var(--ours-soft)"></i>Values allowed at 90% confidence</span></div>
-      <svg id="c-phi-comb" viewBox="0 0 760 320" role="img" aria-label="The fraction of transients that vanish in shadow, from all the plates together"></svg>
-      <div class="cap">{{shadow-step6-caption|inline}}</div>
+      <div class="legend"><span><i class="sw" style="background:var(--ink-3)"></i>Trials with no shadow effect (20,000)</span>
+        <span><i class="sw line" style="background:var(--ours)"></i>Real plates</span></div>
+      <svg id="c-ratio-null" viewBox="0 0 760 320" role="img" aria-label="Spread of the fitted ratio on trials with no shadow effect, with the value fitted on the real plates"></svg>
+      <div class="cap">{{shadow-toys-caption|inline}}</div>
     </div>
   </div>
   <div class="verdict"><div class="vlab">{{shadow-verdict-title|inline}}</div><div class="vtext">{{shadow-verdict}}</div></div>
@@ -366,25 +373,9 @@ footer li { margin-bottom: 0.45rem; }
     <blockquote class="quote">“The pattern of findings in these sensitivity analyses indicated that the nuclear-transient
         association was highly specific temporally, consistent with it reflecting a physical association.”
         <cite>Bruehl, Doherty, Streblyanska &amp; Villarroel, Scientific Reports, 2026</cite></blockquote>
-    <div class="side t"><div class="lab">VASCO analysis</div>{{nuclear-theirs-headline|headline}}</div>
-    <div class="side o"><div class="lab">Our analysis</div>{{nuclear-ours-headline|headline}}</div>
   </div>
   <div class="step">
-    <div class="step-copy"><div class="step-h"><span class="step-n">1</span><h3>{{nuclear-step1-title|inline}}</h3></div><div class="step-text">{{nuclear-step1-text}}</div></div>
-    <div class="chart">
-      <svg id="c-months" viewBox="0 0 760 260" role="img" aria-label="By month: transients per night and the distance of the plates from the Milky Way"></svg>
-      <div class="cap">{{nuclear-step1-caption|inline}}</div>
-    </div>
-  </div>
-  <div class="step">
-    <div class="step-copy"><div class="step-h"><span class="step-n">2</span><h3>{{nuclear-step2-title|inline}}</h3></div><div class="step-text">{{nuclear-step2-text}}</div></div>
-    <div class="chart">
-      <svg id="c-window" viewBox="0 0 760 148" role="img" aria-label="By month: observing nights within a day of a US test"></svg>
-      <div class="cap">{{nuclear-step2-caption|inline}}</div>
-    </div>
-  </div>
-  <div class="step">
-    <div class="step-copy"><div class="step-h"><span class="step-n">3</span><h3>{{nuclear-step3-title|inline}}</h3></div><div class="step-text">{{nuclear-step3-text}}</div></div>
+    <div class="step-copy"><div class="step-h"><span class="step-n">1</span><h3>{{nuclear-step3-title|inline}}</h3></div><div class="step-text">{{nuclear-step3-text}}</div></div>
     <div class="chart">
       <div class="legend"><span><i class="sw" style="background:var(--ink-3);opacity:0.45"></i>Random sets of nights (20,000 trials)</span>
         <span><i class="sw" style="background:var(--ink-3)"></i>Sets that match or beat the nights near tests</span>
@@ -394,12 +385,30 @@ footer li { margin-bottom: 0.45rem; }
     </div>
   </div>
   <div class="step">
+    <div class="step-copy"><div class="step-h"><span class="step-n">2</span><h3>{{nuclear-plates-title|inline}}</h3></div><div class="step-text">{{nuclear-plates-text}}</div></div>
+    <div class="chart">
+      <svg id="c-nuc-steps" viewBox="0 0 760 200" role="img" aria-label="How much more often transients appear on nights near nuclear tests: per night, per plate, and per plate allowing for where the plate pointed"></svg>
+      <div class="cap">{{nuclear-plates-caption|inline}}</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-copy"><div class="step-h"><span class="step-n">3</span><h3>{{nuclear-step1-title|inline}}</h3></div><div class="step-text">{{nuclear-step1-text}}</div></div>
+    <div class="chart">
+      <svg id="c-months" viewBox="0 0 760 260" role="img" aria-label="By month: transients per plate and the distance of the plates from the Milky Way"></svg>
+      <div class="cap">{{nuclear-step1-caption|inline}}</div>
+    </div>
+    <div class="chart">
+      <svg id="c-window" viewBox="0 0 760 148" role="img" aria-label="By month: observing nights within a day of a US test"></svg>
+      <div class="cap">{{nuclear-step2-caption|inline}}</div>
+    </div>
+  </div>
+  <div class="step">
     <div class="step-copy"><div class="step-h"><span class="step-n">4</span><h3>{{nuclear-step4-title|inline}}</h3></div><div class="step-text">{{nuclear-step4-text}}</div></div>
     <div class="chart">
       <div class="legend"><span><i class="sw" style="background:var(--ink-3);opacity:0.45"></i>Random sets of nights (20,000 trials)</span>
         <span><i class="sw" style="background:var(--ink-3)"></i>Sets that match or beat the nights near tests</span>
         <span><i class="sw line" style="background:var(--emulsion)"></i>Nights within a day of a US test</span></div>
-      <svg id="c-perm-adj" viewBox="0 0 760 250" role="img" aria-label="VASCO's test after removing the effect of where the telescope pointed"></svg>
+      <svg id="c-perm-adj" viewBox="0 0 760 250" role="img" aria-label="VASCO's test after allowing for how many photographs were taken and where the telescope pointed"></svg>
       <div class="cap">{{nuclear-step4-caption|inline}}</div>
     </div>
   </div>
@@ -415,8 +424,6 @@ footer li { margin-bottom: 0.45rem; }
   <div class="claim">
     <blockquote class="quote">“We provide a shortlist of the most promising candidate alignments, including one with ∼3.9σ
         statistical significance.”<cite>Villarroel et al., Publications of the Astronomical Society of the Pacific, 2025</cite></blockquote>
-    <div class="side t"><div class="lab">VASCO analysis</div>{{align-theirs-headline|headline}}</div>
-    <div class="side o"><div class="lab">Our analysis</div>{{align-ours-headline|headline}}</div>
   </div>
   <div class="step">
     <div class="step-copy"><div class="step-h"><span class="step-n">1</span><h3>{{align-step1-title|inline}}</h3></div><div class="step-text">{{align-step1-text}}</div></div>
@@ -430,11 +437,48 @@ footer li { margin-bottom: 0.45rem; }
   </div>
   <div class="step">
     <div class="step-copy"><div class="step-h"><span class="step-n">2</span><h3>{{align-step2-title|inline}}</h3></div><div class="step-text">{{align-step2-text}}</div></div>
+  </div>
+  <div class="step">
+    <div class="step-copy"><div class="step-h"><span class="step-n">3</span><h3>{{align-vasco-title|inline}}</h3></div><div class="step-text">{{align-vasco-text}}</div></div>
+    <div class="chart">
+      <svg id="c-compare" viewBox="0 0 760 410" role="img" aria-label="Left: the track score against VASCO's score for the track candidates both rate. Right: the share of artificial tracks each finds, by direction"></svg>
+      <div class="cap">{{align-vasco-caption|inline}}</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-copy"><div class="step-h"><span class="step-n">4</span><h3>{{align-step3-title|inline}}</h3></div><div class="step-text">{{align-step3-text}}</div></div>
     <div class="chart">
       <div class="legend"><span><i class="sw" style="background:var(--emulsion);border-radius:50%"></i>The real catalogue</span>
-        <span><i class="sw" style="background:var(--ink-3);opacity:0.4"></i>Null distribution of track quality (from 1,000 random shuffles of transient positions)</span></div>
-      <svg id="c-counts" viewBox="0 0 760 330" role="img" aria-label="Extra groups of transients fitting a straight line, real catalogue above chance, against how closely they fit"></svg>
-      <div class="cap">{{align-step2-caption|inline}}</div>
+        <span><i class="sw" style="background:var(--ink-3);opacity:0.4"></i>Random chance (1,000 copies)</span></div>
+      <svg id="c-counts" viewBox="0 0 760 400" role="img" aria-label="The track score of every track candidate, by size, in the real catalogue against copies with every real line broken, with the difference in standard deviations"></svg>
+      <div class="cap">{{align-step3-caption|inline}}</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-copy"><div class="step-h"><span class="step-n">5</span><h3>{{align-tail-title|inline}}</h3></div><div class="step-text">{{align-tail-text}}</div></div>
+    <div class="chart tail">
+      <div class="legend"><span><i class="sw" style="border:2px solid var(--emulsion);border-radius:50%;background:transparent"></i>VASCO transients</span>
+        <span><i class="sw" style="border-top:3px dashed var(--ours);height:0;background:transparent"></i>Track fit</span></div>
+      <div id="tail-gallery" class="tail-grid"></div>
+      <div id="tail-findings" hidden>{{align-tail-findings}}</div>
+      <div class="cap">{{align-tail-caption|inline}}</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-copy"><div class="step-h"><span class="step-n">6</span><h3>{{align-widths-title|inline}}</h3></div><div class="step-text">{{align-widths-text}}</div></div>
+    <div class="chart plates">
+      <svg id="c-widths" viewBox="0 0 790 790" role="img" aria-label="For each of the strongest tracks: the star model of its plate, each transient, the transients minus the model averaged, and whether its images are wider than, like, or narrower than the stars"></svg>
+      <div class="cap">{{align-widths-caption|inline}}</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-copy"><div class="step-h"><span class="step-n">7</span><h3>{{align-trail-title|inline}}</h3></div><div class="step-text">{{align-trail-text}}</div></div>
+    <div class="chart">
+      <div class="legend"><span><i class="sw" style="border:2px solid var(--emulsion);border-radius:50%;background:transparent"></i>VASCO transients</span>
+        <span><i class="sw" style="border-top:3px dashed var(--ours);height:0;background:transparent"></i>Track fit</span>
+        <span><i class="sw line" style="background:var(--emulsion)"></i>Arc fit to full trail</span></div>
+      <svg id="c-trail" viewBox="0 0 760 350" role="img" aria-label="The dotted trail on plate XE492 followed across the plate, and its distance from a straight line along its length"></svg>
+      <div class="cap">{{align-trail-caption|inline}}</div>
     </div>
   </div>
   <div class="verdict"><div class="vlab">{{align-verdict-title|inline}}</div><div class="vtext">{{align-verdict}}</div></div>
@@ -447,16 +491,13 @@ footer li { margin-bottom: 0.45rem; }
   </div>
   <div class="score" aria-label="Summary">
     <div class="sc"><div class="q">{{card-4-question|inline}}</div>
-      <div class="o"><span class="who">We find</span>{{card-4-ours|inline}}</div></div>
+      <div class="o">{{card-4-ours|inline}}</div></div>
     <div class="sc"><div class="q">{{card-1-question|inline}}</div>
-      <div class="t"><span class="who">VASCO reported</span>{{card-1-theirs|inline}}</div>
-      <div class="o"><span class="who">We find</span>{{card-1-ours|inline}}</div></div>
+      <div class="o">{{card-1-ours|inline}}</div></div>
     <div class="sc"><div class="q">{{card-2-question|inline}}</div>
-      <div class="t"><span class="who">VASCO reported</span>{{card-2-theirs|inline}}</div>
-      <div class="o"><span class="who">We find</span>{{card-2-ours|inline}}</div></div>
+      <div class="o">{{card-2-ours|inline}}</div></div>
     <div class="sc"><div class="q">{{card-3-question|inline}}</div>
-      <div class="t"><span class="who">VASCO reported</span>{{card-3-theirs|inline}}</div>
-      <div class="o"><span class="who">We find</span>{{card-3-ours|inline}}</div></div>
+      <div class="o">{{card-3-ours|inline}}</div></div>
   </div>
   <div class="prose wide" style="margin-top:2rem">{{end-text}}</div>
 </div></section>

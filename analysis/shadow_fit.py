@@ -1,22 +1,23 @@
-"""Earth's shadow: maximum-likelihood fit of r = (transient density in shadow) / (density in sunlight), plate by plate,
-using only the plates the shadow crosses.
+"""Earth's shadow, measured plate by plate on VASCO's catalogue.
 
-Each plate is gridded into 0.1 deg cells. The count in cell c is Poisson with mean
-    lambda_c = A_c * T_c * exp(b . X_c) * (1 - s_c + r s_c)
-  A_c   available sky: the share of the cell that the selection could use, exp(-rho pi (5")^2) from the local density
-        rho of Gaia and Pan-STARRS sources (the "no catalogued source within 5 arcsec" requirement)
-  T_c   radial template: how transients rise towards the plate edge, measured on the sunlit cells of plates of the
-        same scan type (25-micron, 15-micron resampled, or VASCO's catalogue), never on shadowed cells
-  X_c   per plate: a normalisation and a linear gradient across the plate (x, y). A free radial shape per plate would
-        mimic the shadow edge, which is a gentle arc across a 6 deg plate.
-  s_c   share of the cell inside Earth's shadow (geocentric, 8.5 deg about the anti-sun point, plate mid-exposure)
-Background parameters are profiled out at each r. Plates are independent, so their -2 ln L curves add (common r); the
-interval is where the sum rises by 1. Plates wholly in shadow or sunlight carry no information on r and are left out.
-Error calibration: fake shadows (8.5 deg discs crossing the plate in random directions) on each plate's own sunlit sky,
-real shadow masked, should give r = 1; the width of the pulls ln(r)/sigma rescales the curves. Closure: removing 32% of transients in the real
-shadow should return r = 0.68.
-Sets: VASCO's catalogue on its nine shadow plates; our extraction on the southern plates, on VASCO's nine, and both.
-python analysis/shadow_fit.py   -> data/shadow_fit.json"""
+Hypothesis: on each plate, transients in the shadowed part are r times as dense as in the sunlit part (r = 1: no effect).
+Fit: given a plate's n transients and the shadowed share f of its area, the count in shadow is binomial,
+O ~ Bin(n, p), p = r f / (r f + 1 - f). Conditioning on n removes how rich or poor each plate is. One common r is fitted
+over the plates partly in shadow by maximum likelihood; each plate's own r_i is shown with its 68% counting range
+(Clopper-Pearson; an upper bound when none lie in shadow).
+
+The binomial treats transients as spread evenly and independently within a plate; they are not (clumps, busy edges,
+holes). So the fit is calibrated with toys:
+  - from the fitted model (parametric): checks that the fit returns what went in, with the coverage it claims;
+  - from the data: each real shadow footprint (its exact shape and place on the plate) laid on another VASCO plate the
+    shadow never crosses, with a similar number of transients; the toy's counts are that plate's real transients inside
+    and outside the footprint. An effect r < 1 is injected by removing transients inside at random, r > 1 by removing
+    sunlit ones. Fitted exactly like the data: the no-effect distribution, and a Neyman interval on r.
+Cross-checks: host plates chosen differently (any plate; the nearest on the sky); the shadow moved at random over its
+own plate with the transients fixed (shadow-sized discs, similar coverage); each plate left out in turn.
+Geocentric shadow (8.5 deg about the anti-sun point at mid-exposure), corrected dates, nights in VASCO's list, transients
+within 2.9 deg of the plate centre.
+python analysis/shadow_fit.py -> data/shadow_fit.json"""
 import json
 import sys
 from pathlib import Path
@@ -24,251 +25,175 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from astropy.time import Time
-from astropy.utils import iers
+from scipy.stats import beta
 
-iers.conf.auto_download = False     # the Sun's position needs no fresh Earth-rotation tables; downloading them stalls the run
+sys.path.insert(0, str(Path(__file__).parent))
+from shadow import (GX, HALF, ROOT, SHADOW_DEG, SUB, antisun_axis, cell_counts, deproject, shadow_share,   # noqa: E402
+                    unit, vasco_plate)
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "analysis"))
-from scan_io import centre, pixel_arcsec, plate_header, plate_to_sky   # noqa: E402
-from shadow import SHADOW_DEG, antisun_axis, unit                          # noqa: E402
-
-rng = np.random.default_rng(3)
-HALF, CELL = 2.9, 0.1
-g = np.arange(-HALF + CELL / 2, HALF, CELL)
-GX, GY = [a.ravel() for a in np.meshgrid(g, g)]
-SUB = np.array([(i, j) for i in (-1, 0, 1) for j in (-1, 0, 1)]) * CELL / 3       # 3 x 3 points per cell for s
-RHO = np.maximum(np.abs(GX), np.abs(GY)) / HALF
-RB = np.linspace(0, 1, 11)                                    # rings for the radial template
-RING = np.clip(np.digitize(RHO, RB) - 1, 0, len(RB) - 2)
-X = np.c_[np.ones_like(GX), GX / HALF, GY / HALF]             # per plate: normalisation and a linear gradient
-RGRID = np.exp(np.linspace(np.log(0.25), np.log(4), 161))
+rng = np.random.default_rng(11)
+T, TBELT = 20000, 5000
+GRID = np.exp(np.linspace(np.log(0.05), np.log(20), 1201))
+RBELT = np.round(np.arange(0.3, 2.501, 0.025), 3)
 
 
-def xyz(ra, dec):
-    ra, dec = np.radians(ra), np.radians(dec)
-    return np.c_[np.cos(dec) * np.cos(ra), np.cos(dec) * np.sin(ra), np.sin(dec)]
+def counting_range(k, n, f):
+    """68% Clopper-Pearson range on O/n, as a ratio r; None for an open upper end."""
+    to_r = lambda x: float(x * (1 - f) / ((1 - x) * f))
+    lo = to_r(beta.ppf(0.16, k, n - k + 1)) if k > 0 else 0.0
+    hi = to_r(beta.ppf(0.84, k + 1, n - k)) if k < n else None
+    return lo, hi
 
 
-def deproject(xi, eta, ra0, dec0):
-    """Plate-frame offsets (deg) -> RA, Dec (deg), gnomonic, as in shadow_paste_null.py."""
-    xi, eta, ra0, dec0 = map(np.radians, (xi, eta, ra0, dec0))
-    rho = np.hypot(xi, eta); c = np.arctan(rho)
-    dec = np.arcsin(np.cos(c) * np.sin(dec0) + np.where(rho > 0, eta * np.sin(c) * np.cos(dec0) / np.where(rho > 0, rho, 1), 0))
-    ra = ra0 + np.arctan2(xi * np.sin(c), rho * np.cos(dec0) * np.cos(c) - eta * np.sin(dec0) * np.sin(c))
-    return np.degrees(ra) % 360, np.degrees(dec)
+def make_fit(f):
+    """Grid maximum likelihood of the common r for plates with shadowed shares f (rows of O, n: one experiment each)."""
+    pg = GRID[:, None] * f[None, :] / (GRID[:, None] * f[None, :] + 1 - f[None, :])
+    lp, lq = np.log(pg), np.log(1 - pg)
+    def fit(O, n, interval=False):
+        L = O @ lp.T + (n - O) @ lq.T
+        best = GRID[L.argmax(1)]
+        if not interval:
+            return best
+        ok = 2 * (L.max(1, keepdims=True) - L) <= 1
+        return best, np.where(ok, GRID, np.inf).min(1), np.where(ok, GRID, -np.inf).max(1)
+    return fit
 
 
-def available(cat_plate, to_sky, ut):
-    """Share of each cell the selection could use, from the local catalogue density rho: exp(-rho pi (5")^2), the chance
-    that a random point has no Gaia (moved to the plate epoch) or Pan-STARRS source within 5". Most Gaia stars are also
-    in Pan-STARRS, so the denser of the two is used. Catalogue positions are put on the cell grid through a quadratic
-    map fitted to the cell centres' tangent-plane positions."""
-    ra0, dec0 = to_sky(0.0, 0.0)
-    tp = lambda ra, dec: tangent(ra, dec, float(ra0), float(dec0))
-    cxi, ceta = tp(*to_sky(GX, GY))
-    Q = lambda a, b: np.c_[np.ones_like(a), a, b, a * a, a * b, b * b]
-    mx = np.linalg.lstsq(Q(cxi, ceta), GX, rcond=None)[0]; my = np.linalg.lstsq(Q(cxi, ceta), GY, rcond=None)[0]
-    dt = (pd.Timestamp("2016-01-01") - pd.Timestamp(ut)).days / 365.25
-    dens = []
-    for key in ("gaia", "ps1"):
-        cols = ["ra", "dec", "pmra", "pmdec"] if key == "gaia" else ["ra", "dec"]
-        c = pd.read_parquet(ROOT / f"data/scans/{key}_{cat_plate}.parquet", columns=cols)
-        ra, dec = c.ra.values, c.dec.values
-        if key == "gaia":
-            ra = ra - np.nan_to_num(c.pmra.values) / 3.6e6 * dt / np.cos(np.radians(dec))
-            dec = dec - np.nan_to_num(c.pmdec.values) / 3.6e6 * dt
-        xi, eta = tp(ra, dec)
-        x, y = Q(xi, eta) @ mx, Q(xi, eta) @ my
-        ix, iy = np.floor((x + HALF) / CELL).astype(int), np.floor((y + HALF) / CELL).astype(int)
-        ok = (ix >= 0) & (ix < len(g)) & (iy >= 0) & (iy < len(g))
-        dens.append(np.bincount(iy[ok] * len(g) + ix[ok], minlength=GX.size) / CELL ** 2)
-    return np.exp(-np.maximum(*dens) * np.pi * (5 / 3600) ** 2)
+def toys_from_hosts(P, pick, r_true, size):
+    """Data-driven toys: for each plate, a host drawn by pick(p) (indices into the host list) per toy."""
+    O = np.zeros((size, len(P))); n = np.zeros((size, len(P)))
+    for j, p in enumerate(P):
+        h = rng.choice(pick(p), size); o = p["hO"][h]; s = p["hN"][h] - o
+        if r_true < 1:
+            o = rng.binomial(o, r_true)
+        elif r_true > 1:
+            s = rng.binomial(s, 1 / r_true)
+        O[:, j] = o; n[:, j] = o + s
+    return O, n
 
 
-def tangent(ra, dec, ra0, dec0):
-    """RA, Dec -> gnomonic offsets (deg) about (ra0, dec0)."""
-    ra, dec, ra0, dec0 = map(np.radians, (ra, dec, ra0, dec0))
-    cc = np.sin(dec0) * np.sin(dec) + np.cos(dec0) * np.cos(dec) * np.cos(ra - ra0)
-    xi = np.cos(dec) * np.sin(ra - ra0) / cc
-    eta = (np.cos(dec0) * np.sin(dec) - np.sin(dec0) * np.cos(dec) * np.cos(ra - ra0)) / cc
-    return np.degrees(xi), np.degrees(eta)
+def summary(d):
+    q = np.quantile(d, [0.05, 0.16, 0.5, 0.84, 0.95])
+    return {k: round(float(v), 3) for k, v in zip(("q05", "q16", "median", "q84", "q95"), q)}
 
 
-def shadow_share(sub_xyz, ut):
-    ax = antisun_axis(Time(pd.Timestamp(ut).to_datetime64()))
-    ax = np.asarray(ax).reshape(3)
-    ang = np.degrees(np.arccos(np.clip(sub_xyz @ ax, -1, 1)))
-    return (ang < SHADOW_DEG).reshape(-1, len(SUB)).mean(1)
+def neyman(P, pick, fit, r_obs):
+    """Central Neyman intervals (68%, 90%) on the true r from data-driven toys at each injected r."""
+    rows = []
+    for rt in RBELT:
+        d = fit(*toys_from_hosts(P, pick, rt, TBELT))
+        rows.append([rt, *np.quantile(d, [0.05, 0.16, 0.5, 0.84, 0.95])])
+    B = np.array(rows)
+    in68 = B[(B[:, 2] <= r_obs) & (B[:, 4] >= r_obs), 0]; in90 = B[(B[:, 1] <= r_obs) & (B[:, 5] >= r_obs), 0]
+    return B, (float(in68.min()), float(in68.max())), (float(in90.min()), float(in90.max()))
 
 
-def our_plate(plate, ut, s92=False):
-    h = plate_header(plate); xc, yc = centre(plate); sc = pixel_arcsec(plate) / 3600
-    to_sky = lambda x, y: plate_to_sky(h, xc + np.asarray(x) / sc, yc + np.asarray(y) / sc)
-    sra, sdec = to_sky((GX[:, None] + SUB[:, 0]).ravel(), (GY[:, None] + SUB[:, 1]).ravel())
-    s = pd.read_parquet(ROOT / f"data/scans/selected_{plate}.parquet")
-    ix = np.floor(((s.x - xc) * sc + HALF) / CELL).astype(int); iy = np.floor(((s.y - yc) * sc + HALF) / CELL).astype(int)
-    ok = (ix >= 0) & (ix < len(g)) & (iy >= 0) & (iy < len(g))
-    n = np.bincount(iy[ok] * len(g) + ix[ok], minlength=GX.size)
-    use = np.ones(GX.size, bool)
-    if s92:                                              # Pan-STARRS covers it only north of -29.5
-        use = to_sky(GX, GY)[1] > -29.5
-    fine = h["NAXIS1"] == 13824                                # 15-micron scan resampled to 25 microns (23040 * 3/5)
-    return dict(plate=plate, n=n, A=available(plate, to_sky, ut), use=use, sub=xyz(sra, sdec), ut=ut,
-                type="ours-15um" if fine else "ours-25um")
-
-
-def vasco_plate(plate, p, cat):
-    to_sky = lambda x, y: deproject(np.asarray(x), np.asarray(y), p.ra_c, p.dec_c)
-    sra, sdec = to_sky((GX[:, None] + SUB[:, 0]).ravel(), (GY[:, None] + SUB[:, 1]).ravel())
-    c = cat[cat.plate == plate]
-    ix = np.floor((c.xi.values + HALF) / CELL).astype(int); iy = np.floor((c.eta.values + HALF) / CELL).astype(int)
-    ok = (ix >= 0) & (ix < len(g)) & (iy >= 0) & (iy < len(g))
-    n = np.bincount(iy[ok] * len(g) + ix[ok], minlength=GX.size)
-    return dict(plate=plate, n=n, A=available(plate, to_sky, p.ut), use=np.ones(GX.size, bool), sub=xyz(sra, sdec), ut=p.ut,
-                type="vasco")
-
-
-def template(plates):
-    """Radial template from the sunlit cells of the given plates (one scan type): transients per unit of available sky
-    in each ring, relative to the mean."""
-    num, den = np.zeros(len(RB) - 1), np.zeros(len(RB) - 1)
-    for P in plates:
-        m = P["use"] & (shadow_share(P["sub"], P["ut"]) == 0)
-        num += np.bincount(RING[m], P["n"][m], minlength=len(num)); den += np.bincount(RING[m], P["A"][m], minlength=len(den))
-    t = num / np.where(den > 0, den, np.nan)
-    t = np.where(np.isfinite(t) & (t > 0), t, np.nanmin(t[t > 0]))
-    return (t / np.nanmean(t))[RING]
-
-
-def fit_curve(n, A, s, use, T):
-    """-2 ln L(r) on RGRID with the background (normalisation, gradient) profiled; T is the fixed radial template."""
-    m = use & (A > 0)
-    n, A, s, Xm = n[m], A[m] * T[m], s[m], X[m]
-    beta = np.zeros(X.shape[1]); beta[0] = np.log(max(n.sum(), 1) / A.sum())
-    out = np.empty(len(RGRID))
-    for k, r in enumerate(RGRID):
-        off = np.log(A * (1 - s + r * s))
-        for _ in range(30):
-            mu = np.exp(Xm @ beta + off)
-            step = np.linalg.solve(Xm.T @ (Xm * mu[:, None]) + 1e-9 * np.eye(len(beta)), Xm.T @ (n - mu))
-            beta += step
-            if np.max(np.abs(step)) < 1e-7:
-                break
-        mu = np.exp(Xm @ beta + off)
-        out[k] = 2 * np.sum(mu - n * np.log(np.where(mu > 0, mu, 1e-300)))
-    return out - out.min()
-
-
-def summarise(curve, scale=1.0):
-    c = curve / scale ** 2
-    k = int(np.argmin(c)); lr = np.log(RGRID)
-    if 0 < k < len(c) - 1:                               # parabola through the minimum and its neighbours
-        a, b, _ = np.polyfit(lr[k - 1:k + 2], c[k - 1:k + 2], 2); best = -b / (2 * a)
-    else:
-        best = lr[k]
-    inside = lr[c <= 1]
-    return dict(r=round(float(np.exp(best)), 3), lo=round(float(np.exp(inside.min())), 3), hi=round(float(np.exp(inside.max())), 3))
-
-
-def informative(P, s):
-    a = (P["A"] * P["use"]); f = (a * s).sum() / a.sum()
-    return 0.02 < f < 0.97, float(f)
-
-
-def fake_disc(P, k):
-    """A fake shadow: an 8.5 deg disc whose edge crosses the plate, centred 6-14 deg from the plate centre in a random
-    direction."""
-    c = P["sub"].reshape(-1, len(SUB), 3).mean(1).mean(0); c /= np.linalg.norm(c)
+def placements(P_, want=6000, batch=512):
+    """Shadow-sized discs at random positions on one plate (shares of each 0.1 deg cell), cached in data/placements/."""
+    cache = ROOT / f"data/placements/placements_vasco_{P_['plate']}.npz"
+    if cache.exists():
+        d = np.load(cache); return d["S"].astype(np.float32) / 255, d["f"]
+    g = np.random.default_rng(int(P_["plate"][2:]))
+    c = P_["sub"].reshape(-1, len(SUB), 3).mean(1).mean(0); c /= np.linalg.norm(c)
     e1 = np.cross(c, [0, 0, 1.0]); e1 /= np.linalg.norm(e1); e2 = np.cross(c, e1)
-    th, d = np.radians(rng.uniform(0, 360)), np.radians(rng.uniform(6, 14))
-    ax = np.cos(d) * c + np.sin(d) * (np.cos(th) * e1 + np.sin(th) * e2)
-    return (np.degrees(np.arccos(np.clip(P["sub"] @ ax, -1, 1))) < SHADOW_DEG).reshape(-1, len(SUB)).mean(1)
-
-
-def pulls(P, T, nfake=40):
-    """Controls: fake shadows on the plate's own sunlit sky (real shadow masked); ln(r_fake) / sigma for each."""
-    use = P["use"] & ~(shadow_share(P["sub"], P["ut"]) > 0)
-    out = []
-    for k in range(nfake):
-        sf = fake_disc(P, k)
-        a = P["A"] * use; f = (a * sf).sum() / max(a.sum(), 1e-9)
-        if not 0.05 < f < 0.95:
-            continue
-        sm = summarise(fit_curve(P["n"], P["A"], sf, use, T))
-        lr = np.log(sm["r"]); sig = np.log(sm["hi"] / sm["r"]) if lr < 0 else np.log(sm["r"] / sm["lo"])
-        if sig > 0:
-            out.append(lr / sig)
-    return out
-
-
-def run_set(plates, label):
-    rows, curves, all_pulls = [], [], []
-    T = {ty: template([P for P in plates if P["type"] == ty]) for ty in {P["type"] for P in plates}}
-    for P in plates:
-        s = shadow_share(P["sub"], P["ut"])
-        ok, f = informative(P, s)
-        if not ok:
-            continue
-        c = fit_curve(P["n"], P["A"], s, P["use"], T[P["type"]])
-        curves.append(c); all_pulls += pulls(P, T[P["type"]])
-        rows.append(dict(plate=P["plate"], shadow=round(f, 3), n=int((P["n"] * P["use"]).sum()), **summarise(c)))
-    tot = np.sum(curves, axis=0)
-    pw = float(np.std(all_pulls)) if len(all_pulls) > 5 else 1.0
-    k = max(pw, 1.0)
-    res = dict(label=label, plates=rows, stat=summarise(tot), pull_width=round(pw, 2), n_pulls=len(all_pulls),
-               calibrated=summarise(tot, k), curve=(tot / k ** 2).round(3).tolist(), rgrid=RGRID.round(4).tolist())
-    cal = res["calibrated"]
-    sig = (np.log(cal["hi"] / cal["r"]) if cal["r"] < 1 else np.log(cal["r"] / cal["lo"]))
-    res["sigma_from_1"] = round(float(np.log(cal["r"]) / sig), 2)
-    c068 = np.interp(np.log(0.68), np.log(RGRID), tot / k ** 2) - (tot / k ** 2).min()
-    res["sigma_from_068"] = round(float(np.sqrt(max(c068, 0))), 2)
-    print(f"\n{label}: {len(rows)} plates; r = {cal['r']:.3f} [{cal['lo']:.3f}, {cal['hi']:.3f}] (pull width {pw:.2f} "
-          f"from {len(all_pulls)} time slides; uncalibrated [{res['stat']['lo']:.3f}, {res['stat']['hi']:.3f}]); "
-          f"{res['sigma_from_1']:+.1f} sigma from 1, {res['sigma_from_068']:.1f} sigma from 0.68", flush=True)
-    print(pd.DataFrame(rows).to_string(index=False), flush=True)
-    return res
-
-
-def closure(plates, frac=0.32, ntoy=100):
-    """Remove each transient in the real shadow with probability frac; the fit should return r = 1 - frac (times the
-    real r, which the ratio of means corrects for)."""
-    base, toys = [], []
-    sets = [(P, shadow_share(P["sub"], P["ut"])) for P in plates]
-    sets = [(P, s) for P, s in sets if informative(P, s)[0]]
-    T = {ty: template([P for P in plates if P["type"] == ty]) for ty in {P["type"] for P in plates}}
-    base = summarise(sum(fit_curve(P["n"], P["A"], s, P["use"], T[P["type"]]) for P, s in sets))["r"]
-    for _ in range(ntoy):
-        tot = 0
-        for P, s in sets:
-            n = rng.binomial(P["n"], 1 - frac * s)
-            tot = tot + fit_curve(n, P["A"], s, P["use"], T[P["type"]])
-        toys.append(summarise(tot)["r"])
-    return dict(base=base, mean_toy=round(float(np.mean(toys)), 3), expected=round(base * (1 - frac), 3),
-                sd_toy=round(float(np.std(toys)), 3))
+    cosr = np.cos(np.radians(SHADOW_DEG)); keep, fs = [], []
+    for _ in range(200):
+        th, d = np.radians(g.uniform(0, 360, batch)), np.radians(g.uniform(0, 13, batch))
+        ax = np.cos(d)[:, None] * c + np.sin(d)[:, None] * (np.cos(th)[:, None] * e1 + np.sin(th)[:, None] * e2)
+        S = ((P_["sub"] @ ax.T) > cosr).reshape(-1, len(SUB), batch).mean(1).T.astype(np.float32)
+        f = S.mean(1); ok = (f > 0.02) & (f < 0.97)
+        keep.append(np.round(S[ok] * 255).astype(np.uint8)); fs.append(f[ok])
+        if sum(len(k) for k in keep) >= want:
+            break
+    S = np.concatenate(keep)[:want]; f = np.concatenate(fs)[:want]
+    cache.parent.mkdir(exist_ok=True); np.savez_compressed(cache, S=S, f=f)
+    return S.astype(np.float32) / 255, f
 
 
 if __name__ == "__main__":
-    log = pd.read_csv(ROOT / "data/shadow_plates_log.csv").astype({"plate_number": str})
-    south = pd.read_csv(ROOT / "data/southern_shadow_scans.csv").astype({"plate_number": str}).merge(
-        log[["plate_number", "evening_date", "ra", "dec", "ut"]], on=["plate_number", "evening_date", "ra", "dec"])
-    north = pd.read_csv(ROOT / "data/north_shadow_scans.csv")
     pl = pd.read_parquet(ROOT / "data/plates_corrected.parquet")
-    have = lambda q: all((ROOT / f"data/scans/{k}_{q}.parquet").exists() for k in ("gaia", "ps1"))
-    S = [our_plate(p.plate, p.ut, p.plate_number == "S 92") for p in south.itertuples()
-         if (ROOT / f"data/scans/selected_{p.plate}.parquet").exists()]
-    N = [our_plate(q, pl.loc[q, "ut"]) for q in north.plate if (ROOT / f"data/scans/selected_{q}.parquet").exists()]
     cat = pd.read_parquet(ROOT / "data/transients_with_plates.parquet")
-    strict = set(pd.read_csv(ROOT / "VASCO-ML/data/poss_i_observing_dates_strict.csv").obs_date.astype(str).str[:10])
-    cat = cat[cat.obs_date.astype(str).str[:10].isin(strict)]
-    V = [vasco_plate(q, pl.loc[q], cat) for q in north.plate if have(q)]
-    out = {}
-    if V:
-        out["vasco"] = run_set(V, "VASCO's catalogue, VASCO's nine plates")
-    out["south"] = run_set(S, "Our transients, southern plates")
-    if N:
-        out["north"] = run_set(N, "Our transients, VASCO's nine plates")
-    out["combined"] = run_set(S + N, "Our transients, all plates")
-    out["closure"] = closure(S + N)
-    print("\nclosure:", out["closure"])
+    strict = set(pd.read_csv(ROOT / "data/external/poss_i_observing_dates_strict.csv").obs_date.astype(str).str[:10])
+    cat = cat[cat.obs_date.astype(str).str[:10].isin(strict) & (cat.plate != "") & (cat.xi.abs() < HALF) & (cat.eta.abs() < HALF)]
+    shadow9 = sorted(pd.read_parquet(ROOT / "data/plate_shadow_geo_corr.parquet").query("f_area > 0").index)
+    hosts = {q: gq for q, gq in cat[~cat.plate.isin(shadow9)].groupby("plate")}
+    # acceptance: the average density of transients over the face of a plate (each plate other than the shadow plates
+    # counted equally); a cell's shadowed share is weighted by it, so edges and corners count for what they hold
+    ACC = np.mean([cell_counts(gq.xi.values, gq.eta.values) / len(gq) for gq in hosts.values()], 0)
+    ACC = ACC / ACC.mean()
+    share = lambda sh: float(np.sum(sh * ACC) / ACC.sum())
+    H = list(hosts); Hn = np.array([len(hosts[h]) for h in H])
+    Hxyz = np.array([[np.cos(np.radians(pl.loc[h].dec_c)) * np.cos(np.radians(pl.loc[h].ra_c)),
+                      np.cos(np.radians(pl.loc[h].dec_c)) * np.sin(np.radians(pl.loc[h].ra_c)), np.sin(np.radians(pl.loc[h].dec_c))] for h in H])
+
+    P, whole = [], []
+    for q in shadow9:
+        p = pl.loc[q]; V = vasco_plate(q, p, cat); s = shadow_share(V["sub"], p.ut); area = float(s.mean()); f = share(s)
+        if not 0.02 < area < 0.97:
+            whole.append(q); continue
+        ax = np.asarray(antisun_axis(Time(pd.Timestamp(p.ut).to_datetime64()))).reshape(3)
+        inside = lambda xi, eta: (unit(*deproject(xi, eta, p.ra_c, p.dec_c)) @ ax) > np.cos(np.radians(SHADOW_DEG))
+        c = cat[cat.plate == q]; n = len(c); O = int(inside(c.xi.values, c.eta.values).sum())
+        cen = Hxyz @ np.asarray(unit(p.ra_c, p.dec_c)).reshape(3)
+        P.append(dict(plate=q, f=f, area=area, n=n, O=O, s=s, V=V,
+                      hO=np.array([inside(hosts[h].xi.values, hosts[h].eta.values).sum() for h in H]), hN=Hn,
+                      similar=np.flatnonzero((Hn > n / 1.5) & (Hn < n * 1.5)), near=np.argsort(-cen)[:12]))
+    f = np.array([p["f"] for p in P]); nR = np.array([p["n"] for p in P], float); OR = np.array([p["O"] for p in P], float)
+    fit = make_fit(f)
+    r_hat, c_lo, c_hi = (float(v[0]) for v in fit(OR[None], nR[None], interval=True))
+    out = {"plates": [], "whole": whole, "fit": {"r": round(r_hat, 3), "count_lo": round(c_lo, 3), "count_hi": round(c_hi, 3),
+                                                 "O": int(OR.sum()), "n": int(nR.sum())}}
+    for p in P:
+        lo, hi = counting_range(p["O"], p["n"], p["f"]); E = (p["n"] - p["O"]) * p["f"] / (1 - p["f"])
+        out["plates"].append({"plate": p["plate"], "shadow": round(p["area"], 3), "weighted": round(p["f"], 3), "n": p["n"], "O": p["O"], "E": round(E, 1),
+                              "r": round(p["O"] / E, 3) if E > 0 else None, "lo": round(lo, 3), "hi": None if hi is None else round(hi, 3)})
+    print(pd.DataFrame(out["plates"]).to_string(index=False))
+    print(f"common r {r_hat:.3f}, counting-only 68% {c_lo:.3f}-{c_hi:.3f}")
+
+    # 1. the fit on its own model: generate from the binomial at the fitted r, fit back
+    Op = rng.binomial(nR.astype(int), r_hat * f / (r_hat * f + 1 - f), (T, len(P))).astype(float)
+    rb, lo_b, hi_b = fit(Op, np.broadcast_to(nR, Op.shape), interval=True)
+    out["closure"] = {"median": round(float(np.median(rb)), 3), "coverage68": round(float(np.mean((lo_b <= r_hat) & (hi_b >= r_hat))), 3),
+                      **{k: v for k, v in summary(rb).items() if k in ("q16", "q84")}}
+    print("closure on the binomial model:", out["closure"])
+
+    # 2. toys from the data: footprints on other plates with a similar number of transients
+    pick = lambda p: p["similar"]
+    d0 = fit(*toys_from_hosts(P, pick, 1.0, T))
+    B, i68, i90 = neyman(P, pick, fit, r_hat)
+    out["toys"] = {"null": summary(d0), "p_as_high": round(float(np.mean(d0 >= r_hat)), 3),
+                   "hist_null": np.histogram(d0, np.linspace(0, 3, 61))[0].tolist(),
+                   "interval68": [round(v, 3) for v in i68], "interval90": [round(v, 3) for v in i90],
+                   "belt": [[round(float(x), 3) for x in row] for row in B]}
+    print("toys from the data, no effect:", out["toys"]["null"], "share as high as the data", out["toys"]["p_as_high"])
+    print("Neyman interval on r: 68%", i68, "90%", i90)
+
+    # 3. cross-checks: other host choices; the shadow moved over its own plate; each plate left out
+    out["checks"] = {}
+    for key, pk in (("any_plate", lambda p: np.arange(len(H))), ("near_on_sky", lambda p: p["near"])):
+        d = fit(*toys_from_hosts(P, pk, 1.0, T)); _, a68, a90 = neyman(P, pk, fit, r_hat)
+        out["checks"][key] = {"null": summary(d), "p_as_high": round(float(np.mean(d >= r_hat)), 3),
+                              "interval68": [round(v, 3) for v in a68], "interval90": [round(v, 3) for v in a90]}
+        print(f"hosts {key}:", out["checks"][key])
+    # same plate, transients fixed: shadow-sized discs of similar coverage at random positions; each toy fitted with
+    # its own shadowed shares
+    Os, ns, fs = [], [], []
+    for p in P:
+        S, fa = placements(p["V"]); fa = S @ ACC / ACC.sum(); m = (fa > p["f"] / 1.5) & (fa < min(0.97, p["f"] * 1.5)); S, fa = S[m], fa[m]
+        i = rng.integers(0, len(S), T); cnt = cell_counts(cat[cat.plate == p["plate"]].xi.values, cat[cat.plate == p["plate"]].eta.values)
+        Os.append(S[i] @ cnt); ns.append(np.full(T, cnt.sum())); fs.append(fa[i])
+    Os, ns, fs = np.array(Os).T, np.array(ns).T, np.array(fs).T
+    best = np.empty(T)
+    for k0 in range(0, T, 2000):
+        o, n_, ff = Os[k0:k0 + 2000], ns[k0:k0 + 2000], fs[k0:k0 + 2000]
+        pg = GRID[None, None, :] * ff[..., None] / (GRID[None, None, :] * ff[..., None] + 1 - ff[..., None])
+        L = (o[..., None] * np.log(pg) + (n_ - o)[..., None] * np.log(1 - pg)).sum(1)
+        best[k0:k0 + 2000] = GRID[L.argmax(1)]
+    out["checks"]["same_plate"] = {"null": summary(best), "p_as_high": round(float(np.mean(best >= r_hat)), 3)}
+    print("shadow moved over its own plate:", out["checks"]["same_plate"])
+    out["checks"]["leave_one_out"] = {}
+    for j, p in enumerate(P):
+        k = np.arange(len(P)) != j
+        out["checks"]["leave_one_out"][p["plate"]] = round(float(make_fit(f[k])(OR[None, k], nR[None, k])[0]), 3)
+    print("each plate left out:", out["checks"]["leave_one_out"])
     (ROOT / "data/shadow_fit.json").write_text(json.dumps(out))

@@ -5,7 +5,6 @@ import numpy as np
 import pandas as pd
 import astropy.units as u
 from astropy.coordinates import SkyCoord
-from astropy.io import fits
 
 ROOT = Path(__file__).resolve().parents[1]
 h = pd.read_parquet(ROOT / "data/xe_headers.parquet").drop_duplicates("plate").set_index("plate")
@@ -33,18 +32,9 @@ ast = pd.read_csv(ROOT / "data/date_check_summary.csv").set_index("plate")
 t["asteroid_offset"] = ast.best_day_offset.reindex(t.index)
 
 
-def plate_centre(f):
-    kv = fits.Header.fromstring(f.read_bytes().decode("ascii", "ignore"))
-    ra = 15 * (kv["PLTRAH"] + kv["PLTRAM"] / 60 + kv["PLTRAS"] / 3600)
-    dec = kv["PLTDECD"] + kv["PLTDECM"] / 60 + kv["PLTDECS"] / 3600
-    return ra, -dec if kv.get("PLTDECSN", "+").strip() == "-" else dec
-
-
 # Palomar's plate log: matched on serial number and on position (the log repeats some serial numbers, once for a
 # northern field and once for a southern one). The log gives the double date's first (evening) date; UT is the second.
-cen = {}
-for f in sorted((ROOT / "data/dss_headers").glob("full_xe*_00_00.hdr")):
-    cen.setdefault(f.name.split("_")[1].upper(), plate_centre(f))
+cen = {r.plate: (r.ra, r.dec) for r in pd.read_csv(ROOT / "data/xe_plate_centres.csv").itertuples()}   # from the scan headers (PLTRA*, PLTDEC*)
 log = pd.read_csv(ROOT / "data/palomar_log_vi25.csv", dtype={"plate_number": str})
 log["num"] = pd.to_numeric(log.plate_number, errors="coerce")
 log["pos"] = list(SkyCoord(log.ra_j2000.values, log.dec_j2000.values, unit=(u.hourangle, u.deg)))

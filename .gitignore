@@ -1,21 +1,14 @@
-# third-party repositories (links to local clones)
-VASCO-ML
-VASCO-challenge
-# STScI DSS material may not be redistributed: headers, cutouts and scan strips are re-downloaded on demand
-data/dss_headers
-data/cutouts
-data/plate_edges
-data/labels
-data/headers
-data/xe_headers_extra.csv
-data/xe_scan_centres.csv
-# plate scans and catalogue extracts (large; kept out of iCloud in scans.nosync, deleted after processing)
-data/scans
-data/scans.nosync/
+# VASCO's public inputs, fetched by analysis/fetch_external.py
+data/external/
+# STScI DSS material may not be redistributed: headers, cutouts and label crops are re-downloaded on demand
+data/dss_headers/
+data/cutouts/
+data/labels/
 # regenerated intermediates
 data/*.parquet
 data/*.npz
 data/*.npy
+data/placements/
 __pycache__/
 .venv/
 .DS_Store
@@ -25,3 +18,5 @@ logs/
 site/notes.json
 site/notes.md
 *.tmpcopy
+# public header facts (plate_headers.py), kept so the date corrections reproduce exactly
+!data/xe_headers.parquet

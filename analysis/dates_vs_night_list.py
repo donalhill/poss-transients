@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
-log = set(pd.to_datetime(pd.read_csv(ROOT / "VASCO-ML/data/poss_i_observing_dates_strict.csv").obs_date).dt.normalize())
+log = set(pd.to_datetime(pd.read_csv(ROOT / "data/external/poss_i_observing_dates_strict.csv").obs_date).dt.normalize())
 c = pd.read_csv(ROOT / "data/plate_date_corrections.csv", index_col=0)
 h = pd.read_parquet(ROOT / "data/xe_headers.parquet").drop_duplicates("plate").set_index("plate")
 t = pd.read_parquet(ROOT / "data/transients_with_plates.parquet"); t = t[t.plate != ""]

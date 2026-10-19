@@ -23,16 +23,17 @@ GEOM = os.environ.get("LL_GEOM", "geo")
 rng = np.random.default_rng(11)
 cat = pd.read_parquet(ROOT / "data/transients_with_plates.parquet")
 plates = pd.read_parquet(ROOT / ("data/plates.parquet" if HDR else "data/plates_corrected.parquet"))
-strict = set(pd.read_csv(ROOT / "VASCO-ML/data/poss_i_observing_dates_strict.csv")["obs_date"].astype(str).str[:10])
+strict = set(pd.read_csv(ROOT / "data/external/poss_i_observing_dates_strict.csv")["obs_date"].astype(str).str[:10])
 cat = cat[cat.obs_date.astype(str).str[:10].isin(strict)].copy()
 plates = plates[plates.index.isin(cat.plate.unique())].copy()
 print(f"dates={'header' if HDR else 'corrected'} geom={GEOM}: {len(cat)} transients, {len(plates)} plates")
 
-HALF, STEP = 3.6, 0.1
+HALF, STEP = 3.0, 0.1   # the central 6 x 6 deg of each plate, as in shadow.py
+cat = cat[(cat.xi.abs() < HALF) & (cat.eta.abs() < HALF)].copy()
 g = np.arange(-HALF + STEP / 2, HALF, STEP)
 GX, GY = [a.ravel() for a in np.meshgrid(g, g)]
 NG = len(g)
-SQ31 = (np.abs(GX) < 3.1) & (np.abs(GY) < 3.1)  # control-sample footprint (published area weighting)
+SQ31 = (np.abs(GX) < HALF) & (np.abs(GY) < HALF)  # the whole grid (published area weighting)
 
 
 def deproject(xi, eta, ra0, dec0):
@@ -73,7 +74,7 @@ for name, p in plates.iterrows():
     if m[SQ31].any() or m.any():
         masks[name] = m
 sh = list(masks)
-print(f"plates with shadow inside the {HALF} deg grid: {len(sh)}; inside the 3.1 deg square: {sum(masks[k][SQ31].any() for k in sh)}")
+print(f"plates with shadow inside the {HALF} deg grid: {len(sh)}; inside the square: {sum(masks[k][SQ31].any() for k in sh)}")
 
 
 def template(exclude=()):
@@ -82,7 +83,7 @@ def template(exclude=()):
     return w / w.sum()
 
 
-T = {"wide (all)": template(), "wide (excl. shadow plates)": template(sh), "uniform 3.1 sq": SQ31 / SQ31.sum()}
+T = {"wide (all)": template(), "wide (excl. shadow plates)": template(sh), "uniform": SQ31 / SQ31.sum()}
 
 
 def phi_hat(O, Nn, f):

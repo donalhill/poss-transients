@@ -14,8 +14,8 @@ from shadow import ROOT, unit
 OUT = ROOT / "data"
 OUT.mkdir(exist_ok=True)
 
-ctrl = pd.read_csv(ROOT / "VASCO-challenge/data/XE_final_random_sources.csv")
-cat = pd.read_csv(ROOT / "VASCO-ML/data/SUPERVIKTIG_HELAVASCO_validated_v4.csv",
+ctrl = pd.read_csv(ROOT / "data/external/XE_final_random_sources.csv")
+cat = pd.read_csv(ROOT / "data/external/SUPERVIKTIG_HELAVASCO_validated_v4.csv",
                   usecols=["ra", "dec", "obs_date", "plate_quality", "snr", "near_defect"])
 
 v = unit(ctrl.RA.values, ctrl.Dec.values)

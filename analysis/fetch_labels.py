@@ -1,6 +1,7 @@
 """Fetch the label corner (last 600 rows, first 2000 columns) of POSS-I XE plate scans and save PNG crops for reading.
 
 Usage: python analysis/fetch_labels.py XE641 XE089 ...  (or a file of plate names via @file)"""
+import re
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -30,8 +31,12 @@ def fetch(plate):
     if out.exists():
         return plate, "cached"
     files = sorted(HDR.glob(f"full_{plate.lower()}_*_00_0*.hdr"))
-    if not files:
-        return plate, "no header"
+    if not files:                                       # the scan's FITS header, from the archive (first 20 blocks)
+        listing = requests.get(DSS, timeout=60).text
+        fn = sorted(set(re.findall(rf"{plate.lower()}_[0-9a-z]{{4}}_00_0\d\.fits", listing)))[0]
+        HDR.mkdir(parents=True, exist_ok=True)
+        files = [HDR / f"full_{fn[:-5]}.hdr"]
+        files[0].write_bytes(requests.get(DSS + fn, headers={"Range": "bytes=0-57599"}, timeout=60).content)
     f = files[0]
     h = f.read_bytes().decode("ascii", "replace")
     nx, ny = int(card(h, "NAXIS1")), int(card(h, "NAXIS2"))

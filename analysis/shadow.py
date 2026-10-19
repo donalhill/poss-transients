@@ -7,6 +7,9 @@ import astropy.units as u
 from astropy.coordinates import EarthLocation, SkyCoord, get_sun
 from erfa import ErfaWarning
 from astropy.utils.exceptions import AstropyWarning
+from astropy.utils import iers
+
+iers.conf.auto_download = False     # the Sun's position needs no fresh Earth-rotation tables; downloading them stalls runs
 
 warnings.simplefilter("ignore", ErfaWarning)
 warnings.simplefilter("ignore", AstropyWarning)
@@ -64,3 +67,48 @@ def sep_topocentric(ra, dec, t, r_orbit=R_GEO, return_alt=False):
     if return_alt:
         return sep, np.degrees(np.arcsin(a / np.linalg.norm(obs, axis=-1)))
     return sep
+
+
+# ------------------------------------------------------------------ plate grid for the within-plate tests
+# Each plate is gridded into 0.1 deg cells over the central 6 x 6 deg, the plate size VASCO use (Villarroel et al. 2025);
+# VASCO's random positions cover this square evenly on every plate. The shadow share of a cell is taken from 3 x 3
+# points inside it.
+HALF, CELL = 3.0, 0.1
+g = np.arange(-HALF + CELL / 2, HALF, CELL)
+GX, GY = [a.ravel() for a in np.meshgrid(g, g)]
+SUB = np.array([(i, j) for i in (-1, 0, 1) for j in (-1, 0, 1)]) * CELL / 3
+
+
+def deproject(xi, eta, ra0, dec0):
+    """Plate-frame offsets (deg) -> RA, Dec (deg), gnomonic."""
+    xi, eta, ra0, dec0 = map(np.radians, (xi, eta, ra0, dec0))
+    rho = np.hypot(xi, eta); c = np.arctan(rho)
+    dec = np.arcsin(np.cos(c) * np.sin(dec0) + np.where(rho > 0, eta * np.sin(c) * np.cos(dec0) / np.where(rho > 0, rho, 1), 0))
+    ra = ra0 + np.arctan2(xi * np.sin(c), rho * np.cos(dec0) * np.cos(c) - eta * np.sin(dec0) * np.sin(c))
+    return np.degrees(ra) % 360, np.degrees(dec)
+
+
+def cell_counts(xi, eta):
+    """Transients per grid cell from plate-frame offsets (deg)."""
+    ix = np.floor((np.asarray(xi) + HALF) / CELL).astype(int); iy = np.floor((np.asarray(eta) + HALF) / CELL).astype(int)
+    ok = (ix >= 0) & (ix < len(g)) & (iy >= 0) & (iy < len(g))
+    return np.bincount(iy[ok] * len(g) + ix[ok], minlength=GX.size)
+
+
+def shadow_share(sub_xyz, ut):
+    """Share of each cell inside Earth's shadow at geostationary height: the geocentric anti-sun direction at
+    mid-exposure, as in VASCO's analysis."""
+    from astropy.time import Time
+    import pandas as pd
+    ax = np.asarray(antisun_axis(Time(pd.Timestamp(ut).to_datetime64()))).reshape(3)
+    ang = np.degrees(np.arccos(np.clip(sub_xyz @ ax, -1, 1)))
+    return (ang < SHADOW_DEG).reshape(-1, len(SUB)).mean(1)
+
+
+def vasco_plate(plate, p, cat):
+    """One plate of VASCO's catalogue on the grid: transient counts per cell and the sky position of each sub-point.
+    p: the plate's row of plates_corrected.parquet (centre, corrected mid-exposure time)."""
+    sra, sdec = deproject((GX[:, None] + SUB[:, 0]).ravel(), (GY[:, None] + SUB[:, 1]).ravel(), p.ra_c, p.dec_c)
+    c = cat[cat.plate == plate]
+    return dict(plate=plate, n=cell_counts(c.xi.values, c.eta.values), use=np.ones(GX.size, bool),
+                sub=unit(sra, sdec), ut=p.ut)

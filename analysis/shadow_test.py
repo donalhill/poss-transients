@@ -21,12 +21,13 @@ SUFFIX = "_corr" if CORR else ""
 rng = np.random.default_rng(42)
 cat = pd.read_parquet(ROOT / "data/transients_with_plates.parquet")
 plates = pd.read_parquet(ROOT / ("data/plates_corrected.parquet" if CORR else "data/plates.parquet"))
-strict = set(pd.read_csv(ROOT / "VASCO-ML/data/poss_i_observing_dates_strict.csv")["obs_date"].astype(str).str[:10])
+strict = set(pd.read_csv(ROOT / "data/external/poss_i_observing_dates_strict.csv")["obs_date"].astype(str).str[:10])
 cat = cat[cat.obs_date.astype(str).str[:10].isin(strict)].copy()
 plates = plates[plates.index.isin(cat.plate.unique())].copy()
 print(f"strict-date sample: {len(cat)} transients on {len(plates)} plates, {cat.obs_date.nunique()} nights")
 
-HALF, STEP = 3.1, 0.1
+HALF, STEP = 3.0, 0.1   # the central 6 x 6 deg of each plate, as in shadow.py
+cat = cat[(cat.xi.abs() < HALF) & (cat.eta.abs() < HALF)].copy()
 g = np.arange(-HALF + STEP / 2, HALF, STEP)
 GX, GY = [a.ravel() for a in np.meshgrid(g, g)]
 

@@ -8,12 +8,12 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
 NPERM = 5000
-log = pd.DatetimeIndex(pd.to_datetime(pd.read_csv(ROOT / "VASCO-ML/data/poss_i_observing_dates_strict.csv").obs_date)).normalize()
+log = pd.DatetimeIndex(pd.to_datetime(pd.read_csv(ROOT / "data/external/poss_i_observing_dates_strict.csv").obs_date)).normalize()
 cat = pd.read_parquet(ROOT / "data/transients_with_plates.parquet")
 corr = pd.read_csv(ROOT / "data/plate_date_corrections.csv", index_col=0)
 cat["hdr"] = pd.to_datetime(cat.obs_date.astype(str).str[:10])
 cat["ut"] = cat.hdr + pd.to_timedelta(cat.plate.map(corr.offset_days).fillna(0), unit="D")
-nt = pd.read_csv(ROOT / "VASCO-ML/data/nuclear_tests_1949_1957.csv")
+nt = pd.read_csv(ROOT / "data/external/nuclear_tests_1949_1957.csv")
 us = nt[nt.Country.str.upper() == "USA"]
 T_all = pd.DatetimeIndex(pd.to_datetime(us.Date).drop_duplicates())
 T_nts = pd.DatetimeIndex(pd.to_datetime(us[us.Site.str.startswith("NTS")].Date).drop_duplicates())

@@ -17,14 +17,14 @@ import pandas as pd
 from scipy import stats
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "VASCO-ML" / "MLscripts"))
+sys.path.insert(0, str(ROOT / "data/external/MLscripts"))   # VASCO's own code (fetch_external.py)
 import nuclear_permutation_deciles as nuc   # noqa: E402
 import shadow_deficit_deciles as shd        # noqa: E402
 
 NREP = 1000
 rng = np.random.default_rng(2026)
 
-cat = pd.read_csv(ROOT / "VASCO-ML/data/SUPERVIKTIG_HELAVASCO_validated_v4.csv")
+cat = pd.read_csv(ROOT / "data/external/SUPERVIKTIG_HELAVASCO_validated_v4.csv")
 tp = pd.read_parquet(ROOT / "data/transients_with_plates.parquet")
 assert len(tp) == len(cat) and np.allclose(tp.ra.values, cat.ra.values) and np.allclose(tp.dec.values, cat.dec.values)
 cat["plate"] = tp.plate.values
@@ -32,10 +32,10 @@ cat["plate"] = tp.plate.values
 cat["obs_dt"] = shd.parse_obs_dates(cat)
 cat["in_shadow"] = (shd.compute_shadow_seps(cat.ra.values.astype(float), cat.dec.values.astype(float), cat.obs_dt.values)
                     < shd.PENUMBRA_DEG).astype(int)
-strict = set(pd.to_datetime(pd.read_csv(ROOT / "VASCO-ML/data/poss_i_observing_dates_strict.csv").obs_date).dt.strftime("%Y-%m-%d"))
+strict = set(pd.to_datetime(pd.read_csv(ROOT / "data/external/poss_i_observing_dates_strict.csv").obs_date).dt.strftime("%Y-%m-%d"))
 cat["obs_date_str"] = nuc.parse_obs_dates_to_str(cat)
 cat = cat[cat.obs_date_str.isin(strict)].reset_index(drop=True)
-tests = nuc.load_nuclear_test_dates(ROOT / "VASCO-ML/data/nuclear_tests_1949_1957.csv", nuc.COUNTRY_FILTER)
+tests = nuc.load_nuclear_test_dates(ROOT / "data/external/nuclear_tests_1949_1957.csv", nuc.COUNTRY_FILTER)
 window = nuc.expand_window(tests, nuc.WINDOW_DAYS) & strict
 cat["in_window"] = cat.obs_date_str.isin(window).astype(int)
 N, E = len(cat), shd.EXPECTED_SHADOW_FRAC
