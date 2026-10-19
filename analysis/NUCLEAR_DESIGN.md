@@ -98,3 +98,12 @@ day after) was fixed by the authors before they looked at the data. They read th
   tests, of each night's transients over expected, with the run levels fitted with the window as a factor in the data
   and in every trial alike; also with each set's two richest nights left out. The statistic was chosen after seeing
   the chart.
+- Correction: the "typical night" statistic above borrowed the fitted overall ratio through each run's level (a run
+  with no other plates showed exactly the fitted ratio), so it was not independent evidence and is withdrawn. In its
+  place, each informative run on its own: plates near tests against the run's other plates, each against its expected
+  count from the plate properties alone (no run levels, no window), with nothing shared between runs.
+- Added after the ground-up results and before these were run (nuclear_basic.py): (i) a within-plate ABCD test on
+  object classes, edge (more than 2.5 deg from the centre in either axis) against central, and crowded (another
+  transient within 5') against isolated; the ratio of class shares, plates in the window against the other plates of
+  their runs (Mantel-Haenszel over runs), calibrated by the same within-run reassignment; (ii) a 95% upper limit on the
+  Mantel-Haenszel ratio, from effects injected into the within-run reassignments.

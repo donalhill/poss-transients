@@ -637,56 +637,57 @@ function drawPerm(D, id, key, lab) {
   s.append("text").attr("transform", `translate(12,${(top + bot) / 2}) rotate(-90)`).attr("text-anchor", "middle").text("Share of random sets");
 }
 
-/* ---------- nuclear: each night in VASCO's window, its plates' transients over what the model expects of them, with the
-   fitted ratio across all of them (nuclear_fit.py) ---------- */
-function drawNucNights(D, id) {
-  const N = D.nucfit, s = svg(id); if (!N) return;
-  const rows = N.nights, F = N.fit, W = 760, rowH = 24, m = { l: 150, r: 150, t: 30, b: 50 };
+/* ---------- nuclear: each observing run on its own, plates near tests against the run's other plates, each against its
+   expected count from its properties, with a range from the scatter between plates; and the runs pooled ---------- */
+function drawNucRuns(D, id) {
+  const N = D.nuc, s = svg(id); if (!N) return;
+  const rows = N.runs, W = 760, rowH = 34, m = { l: 190, r: 170, t: 30, b: 50 };
   const H = m.t + (rows.length + 1.6) * rowH + m.b; s.attr("viewBox", `0 0 ${W} ${H}`);
-  const x = d3.scaleLog().domain([0.15, 8]).range([m.l, W - m.r]).clamp(true), y = i => m.t + (i + 0.5) * rowH, yC = m.t + (rows.length + 1.0) * rowH;
-  s.append("g").attr("transform", `translate(0,${H - m.b})`).call(d3.axisBottom(x).tickValues([0.25, 0.5, 1, 2, 4]).tickFormat(d => d + "×").tickSizeOuter(0)).call(axisStyle);
-  s.append("text").attr("x", (m.l + W - m.r) / 2).attr("y", H - 12).attr("text-anchor", "middle").text("Transients on the night’s plates ÷ what the model expects of them");
+  const x = d3.scaleLog().domain([0.1, 10]).range([m.l, W - m.r]).clamp(true), y = i => m.t + (i + 0.5) * rowH, yC = m.t + (rows.length + 1.0) * rowH;
+  s.append("g").attr("transform", `translate(0,${H - m.b})`).call(d3.axisBottom(x).tickValues([0.25, 0.5, 1, 2, 4, 8]).tickFormat(d => d + "×").tickSizeOuter(0)).call(axisStyle);
+  s.append("text").attr("x", (m.l + W - m.r) / 2).attr("y", H - 12).attr("text-anchor", "middle").text("Plates near tests against the other plates of the same run");
   s.append("line").attr("x1", x(1)).attr("x2", x(1)).attr("y1", m.t - 8).attr("y2", H - m.b).attr("stroke", V("--ink")).attr("stroke-width", 1.2);
-  s.append("text").attr("class", "ann").attr("x", x(1)).attr("y", m.t - 14).attr("text-anchor", "middle").style("fill", V("--ink-2")).text("As expected");
-  const fd = d3.timeFormat("%-d %b %Y"), pd_ = d3.timeParse("%Y-%m-%d");
+  s.append("text").attr("class", "ann").attr("x", x(1)).attr("y", m.t - 14).attr("text-anchor", "middle").style("fill", V("--ink-2")).text("No difference");
+  const pd_ = d3.timeParse("%Y-%m-%d"), fd = d => d3.timeFormat("%-d %b")(pd_(d)), fy = d => d3.timeFormat("%Y")(pd_(d));
   rows.forEach((r, i) => {
-    s.append("text").attr("x", m.l - 10).attr("y", y(i) + 4).attr("text-anchor", "end").style("fill", V("--ink-2")).text(fd(pd_(r.date)));
-    s.append("line").attr("x1", x(Math.max(r.lo, 0.15))).attr("x2", x(r.hi)).attr("y1", y(i)).attr("y2", y(i)).attr("stroke", V("--ink-3")).attr("stroke-width", 1.6);
-    s.append("circle").attr("class", "hov").attr("cx", x(Math.max(r.r, 0.15))).attr("cy", y(i)).attr("r", 4.5).attr("fill", V("--emulsion"))
-      .call(sel => hov(sel, () => `<b>${fd(pd_(r.date))}</b><br>${r.plates.length} plate${r.plates.length > 1 ? "s" : ""}: ${r.plates.join(", ")}<br>${fmt(r.n)} transients, ${fmt(Math.round(r.E))} expected<br>ratio ${r.r.toFixed(2)}`));
-    s.append("text").attr("class", "ann").attr("x", W - m.r + 12).attr("y", y(i) + 4).style("fill", V("--ink-3")).style("font-size", "11px")
-      .text(`${r.plates.length} plate${r.plates.length > 1 ? "s" : ""}, ${fmt(r.n)} transients`);
+    s.append("text").attr("x", m.l - 12).attr("y", y(i) + 4).attr("text-anchor", "end").style("fill", V("--ink-2"))
+      .text(`${fd(r.from)} to ${fd(r.to)} ${fy(r.to)}`);
+    s.append("line").attr("x1", x(r.lo)).attr("x2", x(r.hi)).attr("y1", y(i)).attr("y2", y(i)).attr("stroke", V("--ink-3")).attr("stroke-width", 1.8);
+    s.append("circle").attr("class", "hov").attr("cx", x(r.contrast)).attr("cy", y(i)).attr("r", 5).attr("fill", V("--emulsion"))
+      .call(sel => hov(sel, () => `<b>Run of ${fd(r.from)} to ${fd(r.to)} ${fy(r.to)}</b><br>${r.near} plates near tests, ${fmt(r.n_near)} transients, ${r.near_ratio.toFixed(2)}× expected<br>` +
+        `${r.others} other plates, ${fmt(r.n_others)} transients, ${r.others_ratio.toFixed(2)}× expected<br>ratio ${r.contrast.toFixed(2)} (${r.lo.toFixed(2)} to ${r.hi.toFixed(2)})`));
+    s.append("text").attr("class", "ann").attr("x", W - m.r + 14).attr("y", y(i) + 4).style("fill", V("--ink-3")).style("font-size", "11px")
+      .text(`${r.near} plate${r.near > 1 ? "s" : ""} near tests, ${r.others} other${r.others > 1 ? "s" : ""}`);
   });
-  s.append("line").attr("x1", 10).attr("x2", W - 10).attr("y1", yC - rowH * 0.8).attr("y2", yC - rowH * 0.8).attr("stroke", V("--rule"));
-  s.append("text").attr("x", m.l - 10).attr("y", yC + 4).attr("text-anchor", "end").style("font-weight", 600).style("fill", V("--emulsion")).text("All together");
-  s.append("line").attr("x1", x(F.count_lo)).attr("x2", x(F.count_hi)).attr("y1", yC).attr("y2", yC).attr("stroke", V("--emulsion")).attr("stroke-width", 2.4);
-  s.append("circle").attr("cx", x(F.r)).attr("cy", yC).attr("r", 5.5).attr("fill", V("--emulsion"));
-  s.append("text").attr("class", "ann").attr("x", W - m.r + 12).attr("y", yC + 4).style("fill", V("--emulsion")).style("font-weight", 600).text(`${F.r.toFixed(2)}×`);
+  s.append("line").attr("x1", 10).attr("x2", W - 10).attr("y1", yC - rowH * 0.7).attr("y2", yC - rowH * 0.7).attr("stroke", V("--rule"));
+  s.append("text").attr("x", m.l - 12).attr("y", yC + 4).attr("text-anchor", "end").style("font-weight", 600).style("fill", V("--emulsion")).text("All runs together");
+  s.append("circle").attr("cx", x(N.r)).attr("cy", yC).attr("r", 6).attr("fill", V("--emulsion"));
+  s.append("text").attr("class", "ann").attr("x", W - m.r + 14).attr("y", yC + 4).style("fill", V("--emulsion")).style("font-weight", 600).text(`${N.r.toFixed(2)}×`);
 }
 
 /* ---------- nuclear: the ratio with VASCO's window given to random nights of the same observing runs, against the data ---------- */
 function drawNucNull(D, id) {
-  const N = D.nucfit, s = svg(id); if (!N) return;
+  const N = D.nuc, s = svg(id); if (!N) return;
   const R = N.null, W = 760, H = 300, m = { l: 20, r: 20, t: 40, b: 46 }, bw = 3 / R.hist.length, n = d3.sum(R.hist);
   const bins = R.hist.map((c, i) => ({ x0: i * bw, x1: (i + 1) * bw, p: c / n }));
   const x = d3.scaleLinear().domain([0.2, 2.6]).range([m.l, W - m.r]);
   const y = d3.scaleLinear().domain([0, d3.max(bins, d => d.p) * 1.1]).range([H - m.b, m.t]);
   s.append("g").attr("transform", `translate(0,${H - m.b})`).call(d3.axisBottom(x).ticks(12).tickFormat(d => d + "×").tickSizeOuter(0)).call(axisStyle);
-  s.append("text").attr("x", (m.l + W - m.r) / 2).attr("y", H - 8).attr("text-anchor", "middle").text("Fitted ratio, plates in the window against the rest of their runs");
+  s.append("text").attr("x", (m.l + W - m.r) / 2).attr("y", H - 8).attr("text-anchor", "middle").text("Ratio, plates in the window against the other plates of their runs");
   s.append("g").selectAll("rect").data(bins.filter(d => d.x0 >= 0.2 && d.x1 <= 2.6)).join("rect")
     .attr("x", d => x(d.x0) + 0.5).attr("width", d => Math.max(0, x(d.x1) - x(d.x0) - 1)).attr("y", d => y(d.p)).attr("height", d => y(0) - y(d.p)).attr("rx", 1.5)
     .attr("fill", V("--ink-3")).attr("fill-opacity", 0.55);
   const halo = sel => sel.attr("class", "ann").style("paint-order", "stroke").style("stroke", V("--surface")).style("stroke-width", "4px");
-  s.append("line").attr("x1", x(N.fit.r)).attr("x2", x(N.fit.r)).attr("y1", m.t - 6).attr("y2", H - m.b).attr("stroke", V("--emulsion")).attr("stroke-width", 2.4);
-  s.append("text").attr("x", x(N.fit.r) + 8).attr("y", m.t + 4).call(halo).style("fill", V("--emulsion")).text(`VASCO’s window: ${N.fit.r.toFixed(2)}×`);
-  s.append("text").attr("x", x(N.fit.r) + 8).attr("y", m.t + 20).call(halo).style("fill", V("--emulsion"))
-    .text(`Random nights reach it 1 time in ${Math.round(1 / R.p_as_high)}`);
+  s.append("line").attr("x1", x(N.r)).attr("x2", x(N.r)).attr("y1", m.t - 6).attr("y2", H - m.b).attr("stroke", V("--emulsion")).attr("stroke-width", 2.4);
+  s.append("text").attr("x", x(N.r) + 8).attr("y", m.t + 4).call(halo).style("fill", V("--emulsion")).text(`VASCO’s window: ${N.r.toFixed(2)}×`);
+  s.append("text").attr("x", x(N.r) + 8).attr("y", m.t + 20).call(halo).style("fill", V("--emulsion"))
+    .text(`Random nights reach it 1 time in ${Math.round(1 / R.p)}`);
 }
 
 /* ---------- nuclear: every window of days around the tests, each cell one window [first day, last day], coloured by how
    rarely random calendars match it; VASCO's window outlined ---------- */
 function drawNucMap(D, id) {
-  const N = D.nucfit, s = svg(id); if (!N) return;
+  const N = D.nuc, s = svg(id); if (!N) return;
   const G = N.grid, W = 760, H = 470, m = { l: 70, r: 120, t: 16, b: 56 }, n = 29;
   const c = Math.min((W - m.l - m.r) / n, (H - m.t - m.b) / n);
   const x = a => m.l + (a + 14) * c, y = b => m.t + (14 - b) * c;
@@ -713,9 +714,9 @@ function drawNucMap(D, id) {
 /* ---------- nuclear: the fitted ratio under each measure; VASCO's catalogue, our scans of the same plates, and track
    candidates ---------- */
 function drawNucMeasures(D, id) {
-  const N = D.nucfit, s = svg(id); if (!N) return;
+  const N = D.nuc, s = svg(id); if (!N) return;
   const rows = N.measures, W = 760, rowH = 28, m = { l: 260, r: 70, t: 30, b: 48 }, gap = 16;
-  const groups = { catalogue: "VASCO’s catalogue", scans: "Our scans, same plates", tracks: "Straight track candidates" };
+  const groups = { catalogue: "VASCO’s transients", which: "Which transients", scans: "Our scans, same plates", tracks: "Straight track candidates" };
   let yy = m.t; const pos = [];
   rows.forEach((r, i) => { if (i === 0 || rows[i - 1].group !== r.group) { yy += i ? gap : 0; pos.push({ head: groups[r.group], y: yy }); yy += 20; } pos.push({ row: r, y: yy }); yy += rowH; });
   const H = yy + m.b; s.attr("viewBox", `0 0 ${W} ${H}`);
@@ -737,7 +738,7 @@ function drawNucMeasures(D, id) {
 let DATA = null;
 function render() {
   if (!DATA) return;
-  drawSky(DATA, "c-sky0", false); drawSpread(DATA); drawSky(DATA, "c-sky", true); drawChance(DATA); drawPerm(DATA, "c-perm-any", "raw", "VASCO’s test"); drawNucNights(DATA, "c-nuc-nights"); drawNucNull(DATA, "c-nuc-null"); drawNucMap(DATA, "c-nuc-map"); drawNucMeasures(DATA, "c-nuc-measures");
+  drawSky(DATA, "c-sky0", false); drawSpread(DATA); drawSky(DATA, "c-sky", true); drawChance(DATA); drawPerm(DATA, "c-perm-any", "raw", "VASCO’s test"); drawNucRuns(DATA, "c-nuc-runs"); drawNucNull(DATA, "c-nuc-null"); drawNucMap(DATA, "c-nuc-map"); drawNucMeasures(DATA, "c-nuc-measures");
   drawFan(DATA); drawTracks(DATA); drawCompare(DATA, "c-compare"); drawTail(DATA, "tail-gallery"); drawWidths(DATA, "c-widths"); drawTrail(DATA, "c-trail"); fillDates(DATA); drawRadialMap(DATA); drawRadial(DATA); drawCrowd(DATA);
   drawPlates(DATA, "c-plates"); drawForest(DATA, "c-ratio-vasco"); drawRatioNull(DATA, "c-ratio-null");
 }

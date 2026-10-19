@@ -13,8 +13,7 @@
    covariate: do transients near tests line up more often than their numbers imply?
 4. The richest nights (a diagnostic found after the frozen results): each night's transients over what the model
    expects of them; how many nights are as rich as the richest near tests, and how many of those fall near tests; and
-   r without the two richest nights near tests; and the typical night near a test (the median of the nights'
-   ratios), with and without the two richest.
+   r without the two richest nights near tests; and each informative observing run on its own.
 
 python analysis/nuclear_checks.py -> data/nuclear_checks.json"""
 import json
@@ -129,20 +128,29 @@ out["rich_nights"] = {"top_near": [{"date": date(d), "ratio": r3(r_.ratio), "n":
                       "rich_elsewhere": [date(d) for d in rich.index[rich.S == 0]],
                       "p_chance": r3(hypergeom.sf(int(rich.S.sum()) - 1, len(N), int(N.S.sum()), len(rich))),
                       "r_without": r3(rk), "p_without": r3(pk(Ak, rk))}
-# the typical night: the median over the nights in the window of each night's transients over expected, the run levels
-# fitted with the window (or the trial's window) as a factor
-TR0 = Trials(mu0w, run0, a0, dof0)
-T = np.c_[S0, reassign(S0, run0, 4000, 23)]
-_, lam, _ = TR0.r(T, y_raw, levels=True)
-bkg = mu0w[:, None] * np.exp(lam[TR0.ri])
-ud, di = np.unique(day, return_inverse=True); Nn = np.bincount(di, weights=y_raw)
-for drop, key in ((0, "typical"), (2, "typical_without_two")):
-    st = []
-    for j in range(T.shape[1]):
-        rs = np.sort((Nn / np.bincount(di, weights=bkg[:, j]))[np.unique(di[T[:, j] == 1])])
-        st.append(np.median(rs[:len(rs) - drop]))
-    st = np.array(st)
-    out["rich_nights"][key] = {"median": r3(st[0]), "trials_median": r3(np.median(st[1:])), "p": r3(pk(st[1:], st[0]))}
+# each informative run on its own: plates near tests against the run's other plates, each against its expected count
+# from the plate properties alone, nothing shared between runs; with 68% counting ranges
+import patsy                                                                  # noqa: E402
+import statsmodels.api as sm                                                  # noqa: E402
+from scipy.stats import gamma as gamma_dist                                   # noqa: E402
+import plate_properties as PP                                                 # noqa: E402
+Xp = np.asarray(patsy.dmatrix(PP.FORMULA.split("~")[1].replace(" + bs(t, df=16)", ""), PP.standardised(P)))
+e_props = sm.GLM(y_raw, Xp, family=sm.families.NegativeBinomial(alpha=a0)).fit().fittedvalues
+out["runs"] = []
+for rn in np.unique(run0[S0 == 1]):
+    k = run0 == rn; w, o = k & (S0 == 1), k & (S0 == 0)
+    if not o.any():
+        continue
+    nw, ew, no, eo = y_raw[w].sum(), e_props[w].sum(), y_raw[o].sum(), e_props[o].sum()
+    c = (nw / ew) / (no / eo)
+    # counting range on the contrast, from the share of the run's transients on the plates near tests
+    f = nw / (nw + no); lo_f, hi_f = gamma_dist.ppf(0.16, nw) / (gamma_dist.ppf(0.16, nw) + no), gamma_dist.ppf(0.84, nw + 1) / (gamma_dist.ppf(0.84, nw + 1) + no)
+    to_c = lambda x: (x / (1 - x)) * (eo / ew)
+    out["runs"].append({"from": date(day[k].min()), "to": date(day[k].max()), "near": int(w.sum()), "others": int(o.sum()),
+                        "n_near": int(nw), "n_others": int(no), "near_ratio": r3(nw / ew), "others_ratio": r3(no / eo),
+                        "contrast": r3(c), "lo": r3(to_c(lo_f)), "hi": r3(to_c(hi_f))})
+cs = np.array([x["contrast"] for x in out["runs"]])
+out["runs_summary"] = {"runs": len(cs), "above": int((cs > 1).sum()), "within_10pct": int((np.abs(cs - 1) < 0.1).sum()), "median": r3(np.median(cs))}
 
 (ROOT / "data/nuclear_checks.json").write_text(json.dumps(out, indent=1))
 print(json.dumps(out, indent=1))

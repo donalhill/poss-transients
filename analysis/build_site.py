@@ -93,20 +93,21 @@ NU = json.loads((ROOT / "data/nuclear.json").read_text())
 NF = json.loads((ROOT / "data/nuclear_fit.json").read_text())
 NC = json.loads((ROOT / "data/nuclear_checks.json").read_text())
 site["perm"] = NU["perm"]
-site["nucfit"] = {"fit": NF["fit"], "null": {k: NF["null_runs"][k] for k in ("hist", "median", "q16", "q84", "p_as_high")},
-                  "nights": NF["nights"], "grid": NF["scan"]["grid"], "physical": NF["physical"]}
-# r under each measure, for the chart of what the extra transients are not
-rob = {o["outcome"]: o for o in NF["robust"]["outcomes"]}
-teapot = next(x for x in NF["robust"]["leave_series_out"] if x["series"] == "Teapot")
-site["nucfit"]["measures"] = [
-    {"label": "VASCO’s transients", "r": NF["fit"]["r"], "lo": NF["fit"]["count_lo"], "hi": NF["fit"]["count_hi"], "group": "catalogue"},
-    {"label": "Counting 2′ cells, not transients", "r": rob["2' cells holding a transient"]["r"], "group": "catalogue"},
-    {"label": "Central 5 × 5 degrees only", "r": rob["central 5 x 5 deg only"]["r"], "group": "catalogue"},
-    {"label": "Without the 1955 Teapot tests", "r": teapot["r"], "group": "catalogue"},
-    {"label": "Without its two richest nights", "r": NC["rich_nights"]["r_without"], "group": "catalogue"},
+NB_ = json.loads((ROOT / "data/nuclear_basic.json").read_text())
+# the nuclear measurement from the ground up (nuclear_basic.py), with the full model fit (nuclear_fit.py) as a cross-check
+lro = {x["run"]: x["r"] for x in NB_["leave_run_out"]}
+abcd = {x["split"]: x for x in NB_["abcd"]}
+site["nuc"] = {"r": NB_["within_runs_expected"], "runs": NB_["runs"], "null": NB_["null_runs"], "grid": NB_["scan"]["grid"],
+               "measures": [
+    {"label": "VASCO’s transients", "r": NB_["within_runs_expected"], "group": "catalogue"},
+    {"label": "Without the November 1951 run", "r": lro["1951-11-03"], "group": "catalogue"},
+    {"label": "Without the late-March 1955 run", "r": lro["1955-03-19"], "group": "catalogue"},
+    {"label": "Full model fit (cross-check)", "r": NF["fit"]["r"], "lo": NF["fit"]["count_lo"], "hi": NF["fit"]["count_hi"], "group": "catalogue"},
+    {"label": "Share in the central plate", "r": abcd["edge against central"]["odds_ratio"], "group": "which"},
+    {"label": "Share with no neighbour within 5′", "r": abcd["crowded against isolated"]["odds_ratio"], "group": "which"},
     {"label": "Red-plate specks", "r": NC["blue"]["red"]["r"], "lo": NC["blue"]["red"]["count_lo"], "hi": NC["blue"]["red"]["count_hi"], "group": "scans"},
     {"label": "Blue-plate specks, same nights", "r": NC["blue"]["blue"]["r"], "lo": NC["blue"]["blue"]["count_lo"], "hi": NC["blue"]["blue"]["count_hi"], "group": "scans"},
-    *[{"label": f"Tracks scoring {t['score']} or better", "r": t["r"], "lo": t["count_lo"], "hi": t["count_hi"], "group": "tracks"} for t in NC["tracks"]]]
+    *[{"label": f"Tracks scoring {t['score']} or better", "r": t["r"], "lo": t["count_lo"], "hi": t["count_hi"], "group": "tracks"} for t in NC["tracks"]]]}
 
 # ------------------------------------------------------------------ alignments
 rb = lambda a: a.reshape(*a.shape[:-1], -1, 2).sum(-1)                 # 0.2-dex bins
@@ -436,54 +437,41 @@ numbers.update({
     "trail.length": num(np.floor(TR["length_arcmin"])), "trail.sag": num(round(TR["sag_arcsec"], -1)), "trail.radius": num(TR["radius_deg"]),
     "trail.turn_km": num(SHP["defocus_km"] * np.tan(np.radians(TR["radius_deg"]))),
     "trail.spacing_lo": num(TR["spacing_16_84"][0]), "trail.spacing_hi": num(TR["spacing_16_84"][1])})
-# the nuclear tests (nuclear.py, nuclear_fit.py, nuclear_checks.py)
-F, NR = NF["fit"], NF["null_runs"]
+# the nuclear tests (nuclear.py, nuclear_basic.py, nuclear_fit.py, nuclear_checks.py)
 pc = lambda p_: num(100 * p_)
-phys = {x["window"]: x for x in NF["physical"]}
-bysize = {x["days"]: x for x in NF["scan"]["by_size"]}
+bysize = {x["days"]: x for x in NB_["scan"]["by_size"]}
+phys = {x["window"]: x for x in NB_["physical"]}
 pred = {x["feature"]: x for x in NC["prediction"]}
-loo = [x["r"] for x in NF["robust"]["leave_run_out"]]
-gaps = NF["robust"]["run_gap"]
+RS = NB_["runs_summary"]; RN = NC["rich_nights"]
+longdate = lambda d: pd.Timestamp(d).strftime("%-d %B %Y")
 numbers.update({
     "nuc.nights": num(ST["nights_window"]), "nuc.ratio": num(NU["perm"]["raw"]["real"], 2), "nuc.odds": odds(NU["perm"]["raw"]["p"]),
     "nuc.sig": num(NU["perm"]["raw"]["sigma"], 1), "nuc.plates_window": num(ST["plates_window"], 2), "nuc.plates_other": num(ST["plates_other"], 2),
-    "nuc.per_plate": num(ST["per_plate"], 2), "nuc.empty_window": num(ST["empty_window"]), "nuc.empty_other": num(ST["empty_other"]),
-    "nuc.nights_other": num(ST["nights_other"]),
-    "nf.plates": num(NF["plates_near"]), "nf.nights": num(NF["nights_near"]), "nf.runs": word(NF["runs_near"]),
-    "nf.runs_info": word(sum(x["informative"] for x in NF["runs"])), "nf.r": num(F["r"], 2), "nf.count_lo": num(F["count_lo"], 2),
-    "nf.count_hi": num(F["count_hi"], 2), "nf.p": pc(NR["p_as_high"]), "nf.odds": odds(NR["p_as_high"]), "nf.sig": num(F["sigma"], 1),
-    "nf.null_median": num(NR["median"], 2), "nf.null_lo": num(NR["q16"], 2), "nf.null_hi": num(NR["q84"], 2),
-    "nf.p_cal": num(100 * NF["null_calendar"]["p_as_high"], 1), "nf.ci68_lo": num(NF["interval68"][0], 2), "nf.ci68_hi": num(NF["interval68"][1], 2),
-    "nf.ci90_lo": num(NF["interval90"][0], 2), "nf.ci90_hi": num(NF["interval90"][1], 2), "nf.power": pc(NF["power_vasco"]["p_as_low"]),
-    "nf.vasco_r": num(NF["power_vasco"]["r_true"], 2),
-    "nf.loo_lo": num(min(loo), 2), "nf.loo_hi": num(max(loo), 2), "nf.teapot_r": num(teapot["r"], 2), "nf.teapot_plates": num(teapot["plates_dropped"]),
-    "nf.gap_r_lo": num(min(g_["r"] for g_ in gaps), 2), "nf.gap_r_hi": num(max(g_["r"] for g_ in gaps), 2),
-    "nf.gap_p_hi": pc(max(g_["p_runs"] for g_ in gaps)),
-    "nf.cells_r": num(rob["2' cells holding a transient"]["r"], 2), "nf.inner_r": num(rob["central 5 x 5 deg only"]["r"], 2),
-    "nf.after_r": num(phys["0 to 24 hours after a shot"]["r"], 2), "nf.after_plates": num(phys["0 to 24 hours after a shot"]["plates"]),
-    "nf.after_p": num(100 * phys["0 to 24 hours after a shot"]["p_runs"], 1),
-    "nf.after2_r": num(phys["24 to 48 hours after"]["r"], 2), "nf.before_r": num(phys["24 hours before a shot"]["r"], 2),
-    "nf.before_plates": num(phys["24 hours before a shot"]["plates"]), "nf.before_p": num(100 * phys["24 hours before a shot"]["p_runs"], 1),
-    "nf.rank": num(NF["scan"]["primary_rank"]), "nf.windows": num(NF["scan"]["windows"]), "nf.rank_p": num(100 * NF["scan"]["share_trials_rank_as_high"], 1),
-    "nf.g3": pc(bysize[3]["p_global"]), "nf.g3_sig": num(bysize[3]["sigma"], 1), "nf.g7": pc(bysize[7]["p_global"]), "nf.g7_sig": num(bysize[7]["sigma"], 1),
-    "nf.g14": pc(bysize[14]["p_global"]), "nf.g14_sig": num(bysize[14]["sigma"], 1),
-    "nf.g14_best": f"{bysize[14]['best'][0]} to {bysize[14]['best'][1]}".replace("-", "−"), "nf.g14_best_r": num(bysize[14]["best_r"], 1),
-    "nc.plates": num(NC["blue"]["plates"]), "nc.red_r": num(NC["blue"]["red"]["r"], 2), "nc.blue_r": num(NC["blue"]["blue"]["r"], 2),
-    "nc.cat_r": num(NC["blue"]["catalogue"]["r"], 2), "nc.red_specks": num(NC["blue"]["red"]["specks_per_plate"]),
-    "nc.pred_p": pc(pred["VASCO's window"]["p"]), "nc.pred_after_p": num(100 * pred["the day after"]["p"], 1),
-    "nc.pred_nights": num(pred["VASCO's window"]["nights_held_out"]),
-    "nc.tracks10_r": num(NC["tracks"][0]["r"], 2), "nc.tracks100_r": num(NC["tracks"][1]["r"], 2),
-    "nc.tracks10_near": num(NC["tracks"][0]["tracks_near"]), "nc.tracks100_near": word(NC["tracks"][1]["tracks_near"])})
-RN = NC["rich_nights"]
-longdate = lambda d: pd.Timestamp(d).strftime("%-d %B %Y")
-numbers.update({
+    "nuc.per_plate": num(ST["per_plate"], 2),
+    "nb.plates": num(NB_["plates_near"]), "nb.nights": num(NB_["nights_near"]), "nb.runs": word(len(NB_["runs"])),
+    "nb.raw": num(NB_["raw"], 2), "nb.within": num(NB_["within_runs"], 2), "nb.r": num(NB_["within_runs_expected"], 2),
+    "nb.p": pc(NB_["null_runs"]["p"]), "nb.odds": odds(NB_["null_runs"]["p"]), "nb.sig": num(NB_["null_runs"]["sigma"], 1),
+    "nb.null_median": num(NB_["null_runs"]["median"], 2), "nb.null_lo": num(NB_["null_runs"]["q16"], 2), "nb.null_hi": num(NB_["null_runs"]["q84"], 2),
+    "nb.p_cal": num(100 * NB_["null_calendar"]["p"], 1), "nb.upper": num(NB_["upper95"], 1), "nb.vasco_low": pc(NB_["vasco_p_as_low"]),
+    "nb.runs_sep": word(sum(1 for x in NB_["runs"] if x["lo"] > 1)), "nb.runs_close": word(RS["within_10pct"]),
+    "nb.run_median": num(RS["median"], 2), "nb.without_nov51": num(lro["1951-11-03"], 2), "nb.without_mar55": num(lro["1955-03-19"], 2),
+    "nb.nov51": num(next(x["contrast"] for x in NB_["runs"] if x["from"] == "1951-11-03"), 1),
+    "nb.mar55": num(next(x["contrast"] for x in NB_["runs"] if x["from"] == "1955-03-19"), 1),
+    "nb.fit_r": num(NF["fit"]["r"], 2), "nb.fit_p": num(100 * NF["null_runs"]["p_as_high"], 1),
+    "nb.rank": num(NB_["scan"]["primary_rank"]), "nb.windows": num(NB_["scan"]["windows"]),
+    "nb.g3": pc(bysize[3]["p_global"]), "nb.g7": pc(bysize[7]["p_global"]), "nb.g14": pc(bysize[14]["p_global"]),
+    "nb.g14_best": f"{bysize[14]['best'][0]} to {bysize[14]['best'][1]}".replace("-", "−"), "nb.g14_best_r": num(bysize[14]["best_r"], 1),
+    "nb.after_r": num(phys["0 to 24 hours after a shot"]["r"], 2), "nb.before_r": num(phys["24 hours before a shot"]["r"], 2),
+    "nb.after2_r": num(phys["24 to 48 hours after"]["r"], 2),
+    "nb.central": num(abcd["edge against central"]["odds_ratio"], 2), "nb.isolated": num(abcd["crowded against isolated"]["odds_ratio"], 2),
+    "nb.isolated_p": num(100 * abcd["crowded against isolated"]["p_less_signal_like"], 1),
     "nr.top1": longdate(RN["top_near"][0]["date"]), "nr.top1_r": num(RN["top_near"][0]["ratio"], 1),
     "nr.top2": longdate(RN["top_near"][1]["date"]), "nr.top2_r": num(RN["top_near"][1]["ratio"], 1),
-    "nr.threshold": num(RN["threshold"], 1), "nr.rich": word(RN["rich"]), "nr.rich_near": word(RN["rich_near"]),
-    "nr.p_chance": pc(RN["p_chance"]), "nr.r_without": num(RN["r_without"], 2), "nr.p_without": pc(RN["p_without"]),
-    "nr.typical": num(RN["typical"]["median"], 2), "nr.typical_trials": num(RN["typical"]["trials_median"], 2),
-    "nr.typical_p": pc(RN["typical"]["p"]), "nr.typical2": num(RN["typical_without_two"]["median"], 2),
-    "nr.typical2_p": num(100 * RN["typical_without_two"]["p"], 1)})
+    "nr.threshold": num(RN["threshold"], 1), "nr.rich": word(RN["rich"]), "nr.rich_near": word(RN["rich_near"]), "nr.p_chance": pc(RN["p_chance"]),
+    "nc.plates": num(NC["blue"]["plates"]), "nc.red_r": num(NC["blue"]["red"]["r"], 2), "nc.blue_r": num(NC["blue"]["blue"]["r"], 2),
+    "nc.pred_p": pc(pred["VASCO's window"]["p"]), "nc.pred_nights": num(pred["VASCO's window"]["nights_held_out"]),
+    "nc.tracks10_r": num(NC["tracks"][0]["r"], 2), "nc.tracks100_r": num(NC["tracks"][1]["r"], 2),
+    "nc.tracks10_near": num(NC["tracks"][0]["tracks_near"]), "nc.tracks100_near": word(NC["tracks"][1]["tracks_near"])})
 site["numbers"] = numbers
 
 (OUT / "data/site.json").write_text(json.dumps(site, separators=(",", ":"), allow_nan=False))
