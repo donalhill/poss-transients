@@ -280,6 +280,17 @@ Nor does what counts as a transient. Counting 2-arcminute cells rather than tran
 ### nuc-checks-caption
 How far each further check moves the ratio for plates near nuclear tests, from {n:nc2.point_r} times per photograph allowing for pointing. Each version is measured against its own slid test calendars.
 
+### nuc-window-title
+Is VASCO’s window special?
+
+### nuc-window-text
+VASCO fixed their window, a test’s date and a day either side, before looking at the data, so its chance needs no allowance for other windows. The 2026 paper also reads the sharpness of the association in time as a sign that it is genuine. That claim compares windows, so we scored every window of consecutive days within two weeks of a test in the same way: per photograph, against pointing, and against the same slid calendars.
+
+VASCO’s window ranks {n:nc4.rank} of {n:nc4.windows}, so about half of all windows are more striking. The most striking are single days a week or two from a test, led by {n:nc4.best} at {n:nc4.best_r} times, which slid calendars match {n:nc4.best_p}% of the time. Slid calendars produce a best window at least that striking {n:nc4.g14}% of the time, so none of the windows stands out.
+
+### nuc-window-caption
+Every window of consecutive days within two weeks of a US test that holds at least 5 plates, by its first and last day, coloured by how rarely slid test calendars match it. VASCO’s window is outlined.
+
 ### align-h2
 Do transients form geometric patterns?
 

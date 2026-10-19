@@ -95,6 +95,7 @@ NF = json.loads((ROOT / "data/nuclear_fit.json").read_text())
 NC = json.loads((ROOT / "data/nuclear_checks.json").read_text())
 site["perm"] = NU["perm"]
 site["perm"]["corrected"] = NU["corrected"]
+site["nuc_scan"] = {"grid": NU["scan"]["grid"]}
 site["nuc_checks"] = {"base": NU["corrected"]["real"], "rows": [x for x in NU["checks"] if x["label"] != "All of them together"]}
 NB_ = json.loads((ROOT / "data/nuclear_basic.json").read_text())
 # the nuclear measurement from the ground up (nuclear_basic.py), with the full model fit (nuclear_fit.py) as a cross-check
@@ -458,6 +459,8 @@ numbers.update({
     "trail.spacing_lo": num(TR["spacing_16_84"][0]), "trail.spacing_hi": num(TR["spacing_16_84"][1])})
 # the nuclear tests (nuclear.py, nuclear_basic.py, nuclear_fit.py, nuclear_checks.py)
 pc = lambda p_: num(100 * p_)
+days_from = lambda w: (f"{abs(w[0])} day{'s' if abs(w[0]) != 1 else ''} {'after' if w[0] > 0 else 'before'} a test" if w[0] == w[1] and w[0] != 0
+                       else f"{w[0]} to {w[1]} days from a test".replace("-", "−"))
 bysize = {x["days"]: x for x in NB_["scan"]["by_size"]}
 phys = {x["window"]: x for x in NB_["physical"]}
 pred = {x["feature"]: x for x in NC["prediction"]}
@@ -482,6 +485,11 @@ numbers.update({
     "nc2.slides": num(NU["pointing"]["slides"]), "nc2.sig": num(NU["corrected"]["sigma"], 1), "nc2.odds": odds(NU["corrected"]["p"]),
     "nc3.lo": num(min(x["r"] for x in NU["checks"]), 2), "nc3.hi": num(max(x["r"] for x in NU["checks"]), 2),
     "nc3.p_lo": pc(min(x["p"] for x in NU["checks"])), "nc3.p_hi": pc(max(x["p"] for x in NU["checks"])),
+    "nc4.rank": num(NU["scan"]["vasco_rank"]), "nc4.windows": num(NU["scan"]["windows"]),
+    "nc4.rank_share": pc(NU["scan"]["share_slides_rank_as_high"]),
+    "nc4.best": days_from(NU["scan"]["by_size"][2]["best"]), "nc4.best_r": num(NU["scan"]["by_size"][2]["best_r"], 1),
+    "nc4.best_p": num(100 * NU["scan"]["by_size"][2]["best_p_local"], 1),
+    **{f"nc4.g{x['days']}": pc(x["p_global"]) for x in NU["scan"]["by_size"]},
     "nc3.all": num(next(x["r"] for x in NU["checks"] if x["label"] == "All of them together"), 2),
     "nb.plates": num(NB_["plates_near"]), "nb.nights": num(NB_["nights_near"]), "nb.runs": word(len(NB_["runs"])),
     "nb.raw": num(NB_["raw"], 2), "nb.within": num(NB_["within_runs"], 2), "nb.r": num(NB_["within_runs_expected"], 2),

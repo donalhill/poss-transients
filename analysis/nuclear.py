@@ -149,6 +149,50 @@ for sname, g_ in shots.groupby("series"):
     if (m0 & ~np.isin(day, (t_[:, None] + np.array([-1, 0, 1])[None, :]).ravel())).any():
         out["checks"].append(check("Test series left out", f"Without Operation {sname}", e=E, tests=t_))
 
+# every window of consecutive days [a, b] within 14 days of a test, each scored as above against the same slid
+# calendars: where VASCO's window ranks among them, and how often the best window does as well by chance
+R = 14
+OFF = np.arange(-R, R + 1)
+
+
+def offsets(shift):
+    """Plates x offsets: whether the plate was taken that many days from a (shifted) test; cumulated over offsets."""
+    H = np.isin(day[:, None] - OFF[None, :], TESTS + shift)
+    return np.c_[np.zeros(len(day), int), np.cumsum(H, 1)]
+
+
+WIN = [(a_, b_) for a_ in OFF for b_ in OFF if b_ >= a_]
+ia, ib = np.array([a_ + R for a_, _ in WIN]), np.array([b_ + R + 1 for _, b_ in WIN])
+Y, Et = y_raw.sum(), E.sum()
+
+
+def scan(shift):
+    M = (offsets(shift)[:, ib] - offsets(shift)[:, ia] > 0).T.astype(float)             # windows x plates
+    n1, e1, k = M @ y_raw, M @ E, M.sum(1)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        return np.where(k >= 5, (n1 / e1) / ((Y - n1) / (Et - e1)), np.nan)
+
+
+real_w = scan(0)
+null_w = np.array([scan(SHIFTS[i]) for i in keep])
+use = np.isfinite(real_w)
+loc = np.array([(np.sum(null_w[:, j] >= real_w[j]) + 1) / (np.isfinite(null_w[:, j]).sum() + 1) if use[j] else np.nan for j in range(len(WIN))])
+# each slide's own local p for every window, by ranking it among the slides
+nw = np.where(np.isfinite(null_w), null_w, -np.inf)
+rank = (np.sum(nw[None, :, :] >= nw[:, None, :], 1)) / (len(keep) + 1)                  # slides x windows
+iV = WIN.index((-1, 1))
+span = np.array([max(abs(a_), abs(b_)) for a_, b_ in WIN])
+out["scan"] = {"windows": int(use.sum()), "vasco_r": r3(real_w[iV]), "vasco_p_local": r3(loc[iV]),
+               "vasco_rank": int(np.sum(loc[use] <= loc[iV])),
+               "share_slides_rank_as_high": r3(np.mean([np.sum(rank[t, use] <= rank[t, iV]) <= np.sum(loc[use] <= loc[iV]) for t in range(len(keep))])),
+               "grid": [{"a": int(a_), "b": int(b_), "r": r3(real_w[j]), "p": r3(loc[j]), "z": round(float(np.clip(norm.isf(loc[j]), -4, 4)), 2)}
+                        for j, (a_, b_) in enumerate(WIN) if use[j]], "by_size": []}
+for d_ in (3, 7, 14):
+    c_ = np.flatnonzero(use & (span <= d_)); best = c_[np.nanargmin(loc[c_])]
+    pg = (np.sum(rank[:, c_].min(1) <= loc[best]) + 1) / (len(keep) + 1)
+    out["scan"]["by_size"].append({"days": d_, "windows": len(c_), "best": [int(WIN[best][0]), int(WIN[best][1])], "best_r": r3(real_w[best]),
+                                   "best_p_local": r3(loc[best]), "p_global": r3(pg)})
+
 b_ = np.abs(P.b.values)
 out["pointing"] = {"median_low": float(np.median(y_raw[b_ < 10])), "median_high": float(np.median(y_raw[b_ > 40])),
                    "expected_near_over_other": r3(E[m0].mean() / E[~m0].mean()), "slides": len(keep),

@@ -661,12 +661,40 @@ function drawNucChecks(D, id) {
   });
 }
 
+/* ---------- nuclear: every window of days around the tests, each cell one window [first day, last day], coloured by how
+   rarely slid test calendars match it; VASCO's window outlined ---------- */
+function drawNucMap(D, id) {
+  const N = D.nuc_scan, s = svg(id); if (!N) return;
+  const G = N.grid, W = 760, H = 470, m = { l: 70, r: 120, t: 16, b: 56 }, n = 29;
+  const c = Math.min((W - m.l - m.r) / n, (H - m.t - m.b) / n);
+  const x = a => m.l + (a + 14) * c, y = b => m.t + (14 - b) * c;
+  const col = d3.scaleSequential(d3.interpolateYlOrRd).domain([0, 3]).clamp(true);
+  s.append("g").selectAll("rect").data(G).join("rect").attr("class", "hov").attr("x", d => x(d.a)).attr("y", d => y(d.b)).attr("width", c - 0.6).attr("height", c - 0.6)
+    .attr("fill", d => col(Math.max(d.z, 0)))
+    .call(sel => hov(sel, d => `Days ${d.a} to ${d.b} from a test<br>ratio ${d.r.toFixed(2)}×<br>slid calendars match it ${Math.round(d.p * 1000) / 10}% of the time`));
+  const v = G.find(d => d.a === -1 && d.b === 1);
+  if (v) s.append("rect").attr("x", x(-1) - 1.5).attr("y", y(1) - 1.5).attr("width", c + 2.4).attr("height", c + 2.4).attr("fill", "none").attr("stroke", V("--ours")).attr("stroke-width", 2.5);
+  const ax = d3.scaleLinear().domain([-14.5, 14.5]).range([m.l, m.l + n * c]), ay = d3.scaleLinear().domain([14.5, -14.5]).range([m.t, m.t + n * c]);
+  s.append("g").attr("transform", `translate(0,${m.t + n * c + 4})`).call(d3.axisBottom(ax).tickValues([-14, -7, 0, 7, 14]).tickSize(3)).call(axisStyle);
+  s.append("g").attr("transform", `translate(${m.l - 4},0)`).call(d3.axisLeft(ay).tickValues([-14, -7, 0, 7, 14]).tickSize(3)).call(axisStyle);
+  s.append("text").attr("x", m.l + n * c / 2).attr("y", H - 10).attr("text-anchor", "middle").text("First day of the window (days from the test)");
+  s.append("text").attr("transform", `translate(16,${m.t + n * c / 2}) rotate(-90)`).attr("text-anchor", "middle").text("Last day of the window");
+  s.append("text").attr("class", "ann").attr("x", x(-1) + c + 8).attr("y", y(1) + c / 2 + 4).style("fill", V("--ours")).style("font-weight", 600).text("VASCO’s window");
+  const bx = m.l + n * c + 40, bh = n * c * 0.6, ly = d3.scaleLinear().domain([0, 3]).range([m.t + bh, m.t]), gid = `${id}-grad`;
+  s.append("defs").append("linearGradient").attr("id", gid).attr("x1", 0).attr("x2", 0).attr("y1", 1).attr("y2", 0)
+    .selectAll("stop").data(d3.range(0, 1.001, 0.1)).join("stop").attr("offset", t => t).attr("stop-color", t => col(t * 3));
+  s.append("rect").attr("x", bx).attr("y", m.t).attr("width", 12).attr("height", bh).attr("fill", `url(#${gid})`);
+  s.append("g").attr("transform", `translate(${bx + 12},0)`).call(d3.axisRight(ly).tickValues([0, 1, 2, 3]).tickFormat(d => `${d}σ`).tickSize(3)).call(axisStyle);
+  s.append("text").attr("x", bx - 4).attr("y", m.t + bh + 22).style("fill", V("--ink-2")).style("font-size", "12px").text("Local significance");
+}
+
+
 let DATA = null;
 function render() {
   if (!DATA) return;
   drawSky(DATA, "c-sky0", false); drawSpread(DATA); drawSky(DATA, "c-sky", true); drawChance(DATA); drawPerm(DATA, "c-perm-any", "raw", "VASCO’s test");
   drawPerm(DATA, "c-nuc-corr", "corrected", "Per photograph, allowing for pointing", { line: "Plates near tests", trials: "Slid calendars",
-    xlab: "Transients per photograph near the chosen dates, against pointing, relative to the rest", ylab: "Share of slid calendars" }); drawNucChecks(DATA, "c-nuc-checks");
+    xlab: "Transients per photograph near the chosen dates, against pointing, relative to the rest", ylab: "Share of slid calendars" }); drawNucChecks(DATA, "c-nuc-checks"); drawNucMap(DATA, "c-nuc-map");
   drawFan(DATA); drawTracks(DATA); drawCompare(DATA, "c-compare"); drawTail(DATA, "tail-gallery"); drawWidths(DATA, "c-widths"); drawTrail(DATA, "c-trail"); fillDates(DATA); drawRadialMap(DATA); drawRadial(DATA); drawCrowd(DATA);
   drawPlates(DATA, "c-plates"); drawForest(DATA, "c-ratio-vasco"); drawRatioNull(DATA, "c-ratio-null");
 }
