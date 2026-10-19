@@ -388,11 +388,18 @@ footer li { margin-bottom: 0.45rem; }
   <div class="step">
     <div class="step-copy"><div class="step-h"><span class="step-n">2</span><h3>{{nuc-corr-title|inline}}</h3></div><div class="step-text">{{nuc-corr-text}}</div></div>
     <div class="chart">
-      <div class="legend"><span><i class="sw" style="background:var(--ink-3);opacity:0.45"></i>Middle 68% of slid test calendars</span>
-        <span><i class="sw" style="background:var(--ink-3);opacity:0.22"></i>Middle 95%</span>
-        <span><i class="sw" style="background:var(--emulsion);border-radius:50%"></i>The real test calendar</span></div>
-      <svg id="c-nuc-corr" viewBox="0 0 760 270" role="img" aria-label="The excess near tests per night, per photograph, and per photograph allowing for pointing, each against the test calendar slid by years"></svg>
+      <div class="legend"><span><i class="sw" style="background:var(--ink-3);opacity:0.45"></i>Test calendar slid by 1 to 5 years</span>
+        <span><i class="sw" style="background:var(--ink-3)"></i>Slides that match or beat the real calendar</span>
+        <span><i class="sw line" style="background:var(--emulsion)"></i>The real test calendar</span></div>
+      <svg id="c-nuc-corr" viewBox="0 0 760 250" role="img" aria-label="The corrected ratio for plates near tests against the test calendar slid by years"></svg>
       <div class="cap">{{nuc-corr-caption|inline}}</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-copy"><div class="step-h"><span class="step-n">3</span><h3>{{nuc-checks-title|inline}}</h3></div><div class="step-text">{{nuc-checks-text}}</div></div>
+    <div class="chart">
+      <svg id="c-nuc-checks" viewBox="0 0 760 520" role="img" aria-label="The corrected ratio under each further check: plate properties, what counts as a transient, and each test series left out"></svg>
+      <div class="cap">{{nuc-checks-caption|inline}}</div>
     </div>
   </div>
 </div></section>

@@ -612,11 +612,12 @@ function drawCrowd(D) {
 }
 
 /* ---------- nuclear: VASCO's random-night test, the nights near tests against random sets of nights ---------- */
-function drawPerm(D, id, key, lab) {
+function drawPerm(D, id, key, lab, o = {}) {
   const q = D.perm[key], s = svg(id), W = 760, H = 250, m = { l: 52, r: 16, t: 34, b: 44 }, bw = 0.05;
+  const line = o.line || "Nights near tests", trials = o.trials || "Random sets", xlab = o.xlab || "Transients on the chosen nights relative to all other nights";
   const x = d3.scaleLinear().domain([0, 3]).range([m.l, W - m.r]);
   const top = m.t, bot = H - m.b, tot = d3.sum(q.hist);
-  const y = d3.scaleLinear().domain([0, 0.12]).range([bot, top + 8]);
+  const y = d3.scaleLinear().domain([0, Math.max(0.12, d3.max(q.hist) / tot * 1.05)]).range([bot, top + 8]);
   s.append("g").attr("transform", `translate(${m.l},0)`).call(d3.axisLeft(y).tickValues([0, 0.05, 0.1]).tickFormat(d3.format(".0%")).tickSize(3)).call(axisStyle);
   // the bars, and the part of them at or beyond the real value drawn darker, split exactly at the red line
   const bars = (g, op) => g.selectAll("rect").data(q.hist).join("rect").attr("x", (c, j) => x(j * bw) + 0.75).attr("width", x(bw) - x(0) - 1.5)
@@ -627,42 +628,43 @@ function drawPerm(D, id, key, lab) {
   s.append("line").attr("x1", x(q.real)).attr("x2", x(q.real)).attr("y1", top).attr("y2", bot).attr("stroke", V("--emulsion")).attr("stroke-width", 2.5);
   s.append("text").attr("class", "ann").attr("x", m.l).attr("y", 16).style("font-weight", 600).text(lab);
   const sd = `${q.sigma.toFixed(1)} standard deviation${q.sigma.toFixed(1) === "1.0" ? "" : "s"}`;
-  s.append("text").attr("class", "ann").attr("x", x(q.real) + 8).attr("y", top + 14).style("fill", V("--emulsion")).text(`Nights near tests: ${q.real.toFixed(2)}×`);
-  s.append("text").attr("class", "ann").attr("x", x(q.real) + 8).attr("y", top + 30).style("fill", V("--emulsion")).text(`Random sets reach it 1 time in ${Math.round(1 / q.p)} (${sd})`);
+  s.append("text").attr("class", "ann").attr("x", x(q.real) + 8).attr("y", top + 14).style("fill", V("--emulsion")).text(`${line}: ${q.real.toFixed(2)}×`);
+  s.append("text").attr("class", "ann").attr("x", x(q.real) + 8).attr("y", top + 30).style("fill", V("--emulsion")).text(`${trials} reach it 1 time in ${Math.round(1 / q.p)} (${sd})`);
   s.append("g").attr("transform", `translate(0,${bot})`).call(d3.axisBottom(x).ticks(6).tickFormat(d => d + "×").tickSizeOuter(0)).call(axisStyle);
-  s.append("text").attr("x", (m.l + W - m.r) / 2).attr("y", H - 8).attr("text-anchor", "middle").text("Transients on the chosen nights relative to all other nights");
-  s.append("text").attr("transform", `translate(12,${(top + bot) / 2}) rotate(-90)`).attr("text-anchor", "middle").text("Share of random sets");
+  s.append("text").attr("x", (m.l + W - m.r) / 2).attr("y", H - 8).attr("text-anchor", "middle").text(xlab);
+  s.append("text").attr("transform", `translate(12,${(top + bot) / 2}) rotate(-90)`).attr("text-anchor", "middle").text(o.ylab || "Share of random sets");
 }
 
-/* ---------- nuclear: the excess under each correction, against the test calendar slid by years (68% and 95% of slid
-   calendars shaded) ---------- */
-function drawNucCorr(D, id) {
-  const C = D.nuc_corr, s = svg(id); if (!C) return;
-  const W = 760, rowH = 62, m = { l: 250, r: 150, t: 34, b: 50 }, H = m.t + C.length * rowH + m.b;
-  s.attr("viewBox", `0 0 ${W} ${H}`);
-  const x = d3.scaleLog().domain([0.5, 3]).range([m.l, W - m.r]).clamp(true), y = i => m.t + (i + 0.5) * rowH;
-  s.append("g").attr("transform", `translate(0,${H - m.b})`).call(d3.axisBottom(x).tickValues([0.5, 0.75, 1, 1.5, 2, 3]).tickFormat(d => d + "×").tickSizeOuter(0)).call(axisStyle);
-  s.append("text").attr("x", (m.l + W - m.r) / 2).attr("y", H - 10).attr("text-anchor", "middle").text("Transients near tests relative to the rest");
-  s.append("line").attr("x1", x(1)).attr("x2", x(1)).attr("y1", m.t - 8).attr("y2", H - m.b).attr("stroke", V("--ink")).attr("stroke-width", 1.2);
+/* ---------- nuclear: the corrected ratio under everything else checked, each against its own slid calendars ---------- */
+function drawNucChecks(D, id) {
+  const C = D.nuc_checks, s = svg(id); if (!C) return;
+  const W = 760, rowH = 26, m = { l: 270, r: 120, t: 34, b: 50 }, gap = 14;
+  let yy = m.t; const pos = [];
+  C.rows.forEach((r, i) => { if (i === 0 || C.rows[i - 1].group !== r.group) { yy += i ? gap : 0; pos.push({ head: r.group, y: yy }); yy += 20; } pos.push({ row: r, y: yy }); yy += rowH; });
+  const H = yy + m.b; s.attr("viewBox", `0 0 ${W} ${H}`);
+  const x = d3.scaleLog().domain([0.8, 1.6]).range([m.l, W - m.r]).clamp(true);
+  s.append("g").attr("transform", `translate(0,${H - m.b + 8})`).call(d3.axisBottom(x).tickValues([0.8, 1, 1.2, 1.4, 1.6]).tickFormat(d => d + "×").tickSizeOuter(0)).call(axisStyle);
+  s.append("text").attr("x", (m.l + W - m.r) / 2).attr("y", H - 6).attr("text-anchor", "middle").text("Transients per photograph near tests, against pointing, relative to the rest");
+  s.append("line").attr("x1", x(1)).attr("x2", x(1)).attr("y1", m.t - 8).attr("y2", H - m.b + 8).attr("stroke", V("--ink")).attr("stroke-width", 1.2);
   s.append("text").attr("class", "ann").attr("x", x(1)).attr("y", m.t - 14).attr("text-anchor", "middle").style("fill", V("--ink-2")).text("No difference");
-  C.forEach((c, i) => {
-    const n = c.calendar_null, yy = y(i);
-    s.append("rect").attr("x", x(n.q025)).attr("width", x(n.q975) - x(n.q025)).attr("y", yy - 9).attr("height", 18).attr("fill", V("--ink-3")).attr("fill-opacity", 0.22);
-    s.append("rect").attr("x", x(n.q16)).attr("width", x(n.q84) - x(n.q16)).attr("y", yy - 9).attr("height", 18).attr("fill", V("--ink-3")).attr("fill-opacity", 0.45);
-    s.append("line").attr("x1", x(n.median)).attr("x2", x(n.median)).attr("y1", yy - 9).attr("y2", yy + 9).attr("stroke", V("--ink-2")).attr("stroke-width", 1.5);
-    s.append("circle").attr("class", "hov").attr("cx", x(c.r)).attr("cy", yy).attr("r", 6).attr("fill", V("--emulsion"))
-      .call(sel => hov(sel, () => `<b>${c.measure}</b><br>${c.r.toFixed(2)}× near tests<br>slid calendars: typical ${n.median.toFixed(2)}×, middle 68% ${n.q16.toFixed(2)} to ${n.q84.toFixed(2)}<br>` +
-        `matched ${Math.round(n.p * 100)}% of the time (VASCO’s null: ${Math.round(c.vasco_null.p * 100)}%)`));
-    s.append("text").attr("x", m.l - 14).attr("y", yy + 4).attr("text-anchor", "end").style("fill", V("--ink-2")).text(c.measure);
-    s.append("text").attr("class", "ann").attr("x", W - m.r + 14).attr("y", yy - 2).style("fill", V("--emulsion")).style("font-weight", 600).text(`${c.r.toFixed(2)}×`);
-    s.append("text").attr("class", "ann").attr("x", W - m.r + 14).attr("y", yy + 14).style("fill", V("--ink-2")).style("font-size", "12px").text(`chance ${Math.round(n.p * 100)}%`);
+  s.append("line").attr("x1", x(C.base)).attr("x2", x(C.base)).attr("y1", m.t - 8).attr("y2", H - m.b + 8).attr("stroke", V("--emulsion")).attr("stroke-width", 1.2).attr("stroke-dasharray", "4 3");
+  s.append("text").attr("class", "ann").attr("x", x(C.base)).attr("y", m.t - 14).attr("text-anchor", "middle").style("fill", V("--emulsion")).text(`Corrected result ${C.base.toFixed(2)}×`);
+  pos.forEach(p_ => {
+    if (p_.head) { s.append("text").attr("x", 10).attr("y", p_.y + 6).style("font-weight", 600).text(p_.head); return; }
+    const r = p_.row;
+    s.append("text").attr("x", m.l - 12).attr("y", p_.y + 4).attr("text-anchor", "end").style("fill", V("--ink-2")).text(r.label);
+    s.append("circle").attr("cx", x(r.r)).attr("cy", p_.y).attr("r", 5).attr("fill", V("--emulsion"));
+    s.append("text").attr("class", "ann").attr("x", W - m.r + 10).attr("y", p_.y + 4).style("fill", V("--ink-2"))
+      .text(`${r.r.toFixed(2)}×, chance ${Math.round(r.p * 100)}%`);
   });
 }
 
 let DATA = null;
 function render() {
   if (!DATA) return;
-  drawSky(DATA, "c-sky0", false); drawSpread(DATA); drawSky(DATA, "c-sky", true); drawChance(DATA); drawPerm(DATA, "c-perm-any", "raw", "VASCO’s test"); drawNucCorr(DATA, "c-nuc-corr");
+  drawSky(DATA, "c-sky0", false); drawSpread(DATA); drawSky(DATA, "c-sky", true); drawChance(DATA); drawPerm(DATA, "c-perm-any", "raw", "VASCO’s test");
+  drawPerm(DATA, "c-nuc-corr", "corrected", "Per photograph, allowing for pointing", { line: "Plates near tests", trials: "Slid calendars",
+    xlab: "Transients per photograph near the chosen dates, against pointing, relative to the rest", ylab: "Share of slid calendars" }); drawNucChecks(DATA, "c-nuc-checks");
   drawFan(DATA); drawTracks(DATA); drawCompare(DATA, "c-compare"); drawTail(DATA, "tail-gallery"); drawWidths(DATA, "c-widths"); drawTrail(DATA, "c-trail"); fillDates(DATA); drawRadialMap(DATA); drawRadial(DATA); drawCrowd(DATA);
   drawPlates(DATA, "c-plates"); drawForest(DATA, "c-ratio-vasco"); drawRatioNull(DATA, "c-ratio-null");
 }

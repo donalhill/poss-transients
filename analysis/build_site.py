@@ -94,7 +94,8 @@ NU = json.loads((ROOT / "data/nuclear.json").read_text())
 NF = json.loads((ROOT / "data/nuclear_fit.json").read_text())
 NC = json.loads((ROOT / "data/nuclear_checks.json").read_text())
 site["perm"] = NU["perm"]
-site["nuc_corr"] = NU["corrections"]
+site["perm"]["corrected"] = NU["corrected"]
+site["nuc_checks"] = {"base": NU["corrected"]["real"], "rows": NU["checks"]}
 NB_ = json.loads((ROOT / "data/nuclear_basic.json").read_text())
 # the nuclear measurement from the ground up (nuclear_basic.py), with the full model fit (nuclear_fit.py) as a cross-check
 lro = {x["run"]: x["r"] for x in NB_["leave_run_out"]}
@@ -478,7 +479,10 @@ numbers.update({
     "nc2.empty_near": word(ST["empty_window"]), "nc2.empty_other": num(ST["empty_other"]), "nc2.nights_other": num(ST["nights_other"]),
     "nc2.med_low": num(NU["pointing"]["median_low"]), "nc2.med_high": num(NU["pointing"]["median_high"]),
     "nc2.exp_pct": num(round(100 * (NU["pointing"]["expected_near_over_other"] - 1))), "nc2.spring": pc(NU["pointing"]["near_spring"]),
-    "nc2.slides": num(NU["pointing"]["slides"]),
+    "nc2.slides": num(NU["pointing"]["slides"]), "nc2.sig": num(NU["corrected"]["sigma"], 1), "nc2.odds": odds(NU["corrected"]["p"]),
+    "nc3.lo": num(min(x["r"] for x in NU["checks"]), 2), "nc3.hi": num(max(x["r"] for x in NU["checks"]), 2),
+    "nc3.p_lo": pc(min(x["p"] for x in NU["checks"])), "nc3.p_hi": pc(max(x["p"] for x in NU["checks"])),
+    "nc3.all": num(next(x["r"] for x in NU["checks"] if x["label"] == "All of them together"), 2),
     "nb.plates": num(NB_["plates_near"]), "nb.nights": num(NB_["nights_near"]), "nb.runs": word(len(NB_["runs"])),
     "nb.raw": num(NB_["raw"], 2), "nb.within": num(NB_["within_runs"], 2), "nb.r": num(NB_["within_runs_expected"], 2),
     "nb.p": pc(NB_["null_runs"]["p"]), "nb.odds": odds(NB_["null_runs"]["p"]), "nb.sig": num(NB_["null_runs"]["sigma"], 1),

@@ -150,6 +150,178 @@
    }
   }
  ],
+ "corrected": {
+  "real": 1.231,
+  "p": 0.18,
+  "sigma": 0.9,
+  "median": 1.013,
+  "hist": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   1,
+   5,
+   11,
+   16,
+   29,
+   32,
+   34,
+   44,
+   32,
+   35,
+   25,
+   18,
+   11,
+   9,
+   9,
+   2,
+   5,
+   1,
+   4,
+   3,
+   4,
+   2,
+   1,
+   1,
+   1,
+   3,
+   0,
+   2,
+   2,
+   2,
+   2,
+   0,
+   1,
+   1,
+   2,
+   0,
+   3,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0,
+   0
+  ]
+ },
+ "checks": [
+  {
+   "group": "Plate properties",
+   "label": "How deep the plate goes",
+   "r": 1.231,
+   "p": 0.18
+  },
+  {
+   "group": "Plate properties",
+   "label": "How sharp its stars are",
+   "r": 1.222,
+   "p": 0.183
+  },
+  {
+   "group": "Plate properties",
+   "label": "Exposure time",
+   "r": 1.215,
+   "p": 0.197
+  },
+  {
+   "group": "Plate properties",
+   "label": "Height above the horizon",
+   "r": 1.246,
+   "p": 0.177
+  },
+  {
+   "group": "Plate properties",
+   "label": "Moon above the horizon",
+   "r": 1.231,
+   "p": 0.18
+  },
+  {
+   "group": "Plate properties",
+   "label": "Distance from the Moon",
+   "r": 1.227,
+   "p": 0.192
+  },
+  {
+   "group": "Plate properties",
+   "label": "VASCO\u2019s plate-quality flag",
+   "r": 1.244,
+   "p": 0.166
+  },
+  {
+   "group": "Plate properties",
+   "label": "All of them together",
+   "r": 1.221,
+   "p": 0.183
+  },
+  {
+   "group": "What counts as a transient",
+   "label": "2\u2032 cells holding a transient",
+   "r": 1.228,
+   "p": 0.183
+  },
+  {
+   "group": "What counts as a transient",
+   "label": "Central 5 \u00d7 5\u00b0 of each plate",
+   "r": 1.238,
+   "p": 0.18
+  },
+  {
+   "group": "What counts as a transient",
+   "label": "No other transient within 5\u2032",
+   "r": 1.174,
+   "p": 0.13
+  },
+  {
+   "group": "What counts as a transient",
+   "label": "Central, with no other within 5\u2032",
+   "r": 1.195,
+   "p": 0.115
+  },
+  {
+   "group": "Test series left out",
+   "label": "Without Operation Buster",
+   "r": 1.267,
+   "p": 0.161
+  },
+  {
+   "group": "Test series left out",
+   "label": "Without Operation Castle",
+   "r": 1.147,
+   "p": 0.282
+  },
+  {
+   "group": "Test series left out",
+   "label": "Without Operation Greenhouse",
+   "r": 1.233,
+   "p": 0.186
+  },
+  {
+   "group": "Test series left out",
+   "label": "Without Operation Teapot",
+   "r": 1.232,
+   "p": 0.211
+  },
+  {
+   "group": "Test series left out",
+   "label": "Without Operation Tumbler",
+   "r": 1.257,
+   "p": 0.183
+  }
+ ],
  "pointing": {
   "median_low": 35.0,
   "median_high": 189.0,

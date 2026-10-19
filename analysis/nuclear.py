@@ -103,6 +103,50 @@ for lab, f_real, f_vasco, f_cal in (
         ("Per photograph, allowing for pointing", lambda: ratio(m0, E), lambda idx: ratio(on_nights(idx), E), lambda i: ratio(slid_plates[i], E))):
     r = f_real(); V = np.array([f_vasco(idx) for idx in random_nights]); C = np.array([f_cal(i) for i in keep])
     out["corrections"].append({"measure": lab, "r": r3(r), "vasco_null": summ(V[np.isfinite(V)], r), "calendar_null": summ(C[np.isfinite(C)], r)})
+# the corrected measure against the slid calendars, in full, for the chart
+r_c = ratio(m0, E); C = np.array([ratio(slid_plates[i], E) for i in keep])
+out["corrected"] = {"real": r3(r_c), "p": r3((np.sum(C >= r_c) + 1) / (len(C) + 1)), "sigma": round(float(norm.isf((np.sum(C >= r_c) + 1) / (len(C) + 1))), 1),
+                    "median": r3(np.median(C)), "hist": np.histogram(C, np.arange(0, 3.01, 0.05))[0].tolist()}
+
+
+# everything else checked, each on top of the corrected measure: every other plate property, other definitions of a
+# transient, and each test series left out; each against its own slid calendars
+def expected(y, terms=()):
+    X_ = np.asarray(patsy.dmatrix(" + ".join(["bs(b, df=4)", "lebv", "ecl_lat", *terms]), PP.standardised(P))); a_ = 0.5
+    for _ in range(4):
+        mu = np.asarray(sm.GLM(y, X_, family=sm.families.NegativeBinomial(alpha=a_)).fit().fittedvalues)
+        a_ = float(np.sum(((y - mu) ** 2 - mu) / mu ** 2) / (len(y) - X_.shape[1]))
+    return mu
+
+
+def check(group, label, y=y_raw, e=None, tests=TESTS):
+    e = expected(y) if e is None else e
+    w_ = lambda s: np.isin(day, (tests[:, None] + s + np.array([-1, 0, 1])[None, :]).ravel())
+    gone = m0 & ~w_(0)                                                   # plates near a left-out series: in neither group
+    rt = lambda m: (y[m & ~gone].sum() / e[m & ~gone].sum()) / (y[~m & ~gone].sum() / e[~m & ~gone].sum())
+    r = rt(w_(0)); Cs = np.array([rt(w_(SHIFTS[i])) for i in keep])
+    return {"group": group, "label": label, "r": r3(r), "p": r3((np.sum(Cs >= r) + 1) / (len(Cs) + 1))}
+
+
+from scipy.spatial import cKDTree                                             # noqa: E402
+from nuclear_model import cat as pcat, shots, y_cells, y_inner               # noqa: E402
+iso = np.zeros(len(pcat), bool)
+for _, idx in pcat.groupby("plate").indices.items():
+    xy = np.c_[pcat.xi.values[idx], pcat.eta.values[idx]] * 60
+    iso[idx] = cKDTree(xy).query(xy, k=2)[0][:, 1] >= 5 if len(xy) > 1 else True
+central = (np.maximum(pcat.xi.abs(), pcat.eta.abs()) < 2.5).values
+count = lambda k: pcat[k].groupby("plate").size().reindex(P.index).fillna(0).values.astype(float)
+props = {"depth": "How deep the plate goes", "fwhm": "How sharp its stars are", "exp": "Exposure time", "airmass": "Height above the horizon",
+         "moon_up": "Moon above the horizon", "moon_sep": "Distance from the Moon", "quality_bad": "VASCO’s plate-quality flag"}
+out["checks"] = [check("Plate properties", lab, e=expected(y_raw, (t,))) for t, lab in props.items()]
+out["checks"].append(check("Plate properties", "All of them together", e=expected(y_raw, tuple(props))))
+out["checks"] += [check("What counts as a transient", "2′ cells holding a transient", y=y_cells), check("What counts as a transient", "Central 5 × 5° of each plate", y=y_inner),
+                  check("What counts as a transient", "No other transient within 5′", y=count(iso)), check("What counts as a transient", "Central, with no other within 5′", y=count(iso & central))]
+for sname, g_ in shots.groupby("series"):
+    t_ = np.setdiff1d(TESTS, g_.day.values)
+    if (m0 & ~np.isin(day, (t_[:, None] + np.array([-1, 0, 1])[None, :]).ravel())).any():
+        out["checks"].append(check("Test series left out", f"Without Operation {sname}", e=E, tests=t_))
+
 b_ = np.abs(P.b.values)
 out["pointing"] = {"median_low": float(np.median(y_raw[b_ < 10])), "median_high": float(np.median(y_raw[b_ > 40])),
                    "expected_near_over_other": r3(E[m0].mean() / E[~m0].mean()), "slides": len(keep),

@@ -241,7 +241,7 @@ Do transients cluster around nuclear tests?
 ### nuclear-intro
 During the sky survey, the United States tested nuclear weapons in Nevada and the Pacific. VASCO’s two papers (Scientific Reports, 2025 and 2026) report that observing nights within a day of a US test held more transients than other nights, at a chance of about one in forty (p = 0.024) in the 2026 paper. The authors fixed this window before looking at the data, and read the sharpness of the association in time as a sign that it is genuine.
 
-We repeated their measurement, first on their own construction and then on the full catalogue with corrected plate dates. Both show the same excess.
+We find the same excess. Most of it, however, comes from the photographs themselves: the nights near tests held more photographs, pointed at parts of the sky that yield more transients. Once the comparison allows for this, the remaining excess is not statistically significant.
 
 ### nuc-vasco-title
 VASCO’s test, as they ran it
@@ -255,17 +255,30 @@ On VASCO’s own construction, with the archive dates and their list of nights, 
 The excess of transients on the {n:nuc.nights} nights within a day of a US test (red line), against the same number of nights drawn at random from the survey, 20,000 times (grey). Every catalogue plate, on corrected dates.
 
 ### nuc-corr-title
-Per photograph, and where it pointed
+Counting photographs, and where they pointed
 
 ### nuc-corr-text
-Counting by night mixes in how many photographs were taken. The nights near tests averaged {n:nuc.plates_window} plates, against {n:nuc.plates_other} on other nights. Nights with no photographs count as zero transients, although nothing was observed: {n:nc2.empty_near} of the {n:nuc.nights} nights near tests, and {n:nc2.empty_other} of the {n:nc2.nights_other} other nights. Counted per photograph, plates within a day of a test hold {n:nc2.photo_r} times as many transients as other plates.
+VASCO’s test counts transients per night, but a night’s transients come from its photographs. The {n:nuc.nights} nights near nuclear tests averaged {n:nuc.plates_window} plates a night, against {n:nuc.plates_other} on other nights. Only {n:nc2.empty_near} of them have no plates in the catalogue, against {n:nc2.empty_other} of the other {n:nc2.nights_other}; a night with no plates counts as zero transients, although nothing was observed. Counted per plate rather than per night, the excess falls from {n:nc2.night_r} to {n:nc2.photo_r}.
 
-Where a plate points matters too. VASCO keep only transients with no known star nearby, so plates crowded with stars near the Milky Way hold few: a median of {n:nc2.med_low} within 10 degrees of it, against {n:nc2.med_high} more than 40 degrees away. Of the plates near tests, {n:nc2.spring}% were taken between February and June, when the night sky faces away from the Milky Way, so they pointed at sky that yields about {n:nc2.exp_pct}% more transients anyway. Measured against what their pointing predicts, plates near tests hold {n:nc2.point_r} times as many transients as other plates.
+The sky above Palomar changes through the year as Earth orbits the Sun. On spring nights, the telescope faced away from the Milky Way, where there are fewer stars to rule transients out. Plates within 10 degrees of the Milky Way hold a median of {n:nc2.med_low} transients, against {n:nc2.med_high} more than 40 degrees away. Of the plates near nuclear tests, {n:nc2.spring}% were taken between February and June, which on its own would give them about {n:nc2.exp_pct}% more transients.
 
-VASCO’s null draws random nights from anywhere in the seven-year survey. The nights near tests are not like that: tests came in series, so those nights bunch into a few seasons, and a bunched set of nights varies more than a scattered one. Sliding the real test calendar by 1 to 5 years and up to 20 days keeps each test’s season and its spacing from the others. Against {n:nc2.slides} slid calendars, {n:nc2.point_r} times is matched {n:nc2.point_pc}% of the time, about one time in {n:nc2.point_odds}. VASCO’s null gives {n:nc2.point_pv}%.
+A like-for-like comparison is the number of transients each plate should hold, given where the telescope pointed. A curve fitted to all {n:cat.plates} plates gives every plate an expected count from its distance from the Milky Way, with the dust in front of it and its distance from the ecliptic. Measured against expected counts, plates near nuclear tests hold {n:nc2.point_r} times their expected number, rather than {n:nc2.night_r}.
+
+Random nights drawn from across the survey are not a like-for-like comparison either. The tests came in series, so the nights near them bunch into a few seasons, and a bunched set of nights varies more than a scattered one. Sliding the real test calendar by 1 to 5 years and up to 20 days keeps each test’s season and its spacing from the others. Slid calendars do as well as the real one about one time in {n:nc2.odds} ({n:nc2.sig} standard deviations), which is not statistically significant.
 
 ### nuc-corr-caption
-The ratio of transients near tests to the rest, as VASCO count it (per night), per photograph, and per photograph against what its pointing predicts (red), each against the same measure for the test calendar slid by 1 to 5 years (grey). Slid calendars come out at {n:nc2.photo_cal_median} per photograph, because they keep the spring sky; allowing for pointing brings them to {n:nc2.point_cal_median}.
+Once the number of photographs and the telescope pointing are accounted for, the plates near nuclear tests sit in the body of {n:nc2.slides} slid test calendars. About one in {n:nc2.odds} does as well.
+
+### nuc-checks-title
+Nothing else moves the result
+
+### nuc-checks-text
+We also allowed for every other property we can measure on each plate: how deep it goes (the share of faint Gaia stars it records), how sharp its stars are, exposure time, height above the horizon, the Moon, and VASCO’s plate-quality flag. None moves the result by more than a few per cent; with all of them together, it is {n:nc3.all}.
+
+Nor does what counts as a transient. Counting 2-arcminute cells rather than transients, keeping only the central part of each plate, or keeping only transients with no other within 5 arcminutes all give similar results. Neither does leaving out any one series of tests. Every version lies between {n:nc3.lo} and {n:nc3.hi} times, and slid calendars do as well between {n:nc3.p_lo}% and {n:nc3.p_hi}% of the time.
+
+### nuc-checks-caption
+The ratio for plates near nuclear tests, per photograph and against pointing (dashed line), under each further check, each against its own slid test calendars.
 
 ### align-h2
 Do transients form geometric patterns?
@@ -437,7 +450,7 @@ Plates differ so much that the shortfall happens by chance about one time in {n:
 Do transients cluster around nuclear tests?
 
 ### card-2-ours
-Run VASCO’s way, we measure the same excess. On their construction, nights near tests hold {n:nuc.vasco_ratio} times the usual number of transients, which random nights match about one time in {n:nuc.vasco_odds}; with every plate on its corrected date, {n:nuc.ratio} times, about one time in {n:nuc.odds}.
+The nights near tests held more photographs, pointed at parts of the sky that yield more transients. Counted per photograph, and allowing for where the telescope pointed, the excess is {n:nc2.point_r} times, which slid test calendars match about one time in {n:nc2.odds}.
 
 ### card-3-question
 Do transients form linear patterns?
