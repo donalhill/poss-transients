@@ -1,0 +1,58 @@
+{
+ "blue": {
+  "plates": 594,
+  "plates_near": 29,
+  "red": {
+   "r": 0.869,
+   "count_lo": 0.784,
+   "count_hi": 0.964,
+   "p_runs": 0.933,
+   "specks_per_plate": 34.7
+  },
+  "blue": {
+   "r": 1.058,
+   "count_lo": 0.94,
+   "count_hi": 1.191,
+   "p_runs": 0.524,
+   "specks_per_plate": 27.9
+  },
+  "catalogue": {
+   "r": 1.607,
+   "p_runs": 0.027
+  }
+ },
+ "prediction": [
+  {
+   "feature": "VASCO's window",
+   "plates": 33,
+   "nights_held_out": 280,
+   "gain": 0.953,
+   "random_median": -3.749,
+   "p": 0.04
+  },
+  {
+   "feature": "the day before",
+   "plates": 9,
+   "nights_held_out": 280,
+   "gain": -1.36,
+   "random_median": -4.207,
+   "p": 0.254
+  },
+  {
+   "feature": "the test's date",
+   "plates": 19,
+   "nights_held_out": 280,
+   "gain": -1.965,
+   "random_median": -3.195,
+   "p": 0.274
+  },
+  {
+   "feature": "the day after",
+   "plates": 13,
+   "nights_held_out": 280,
+   "gain": 3.625,
+   "random_median": -1.83,
+   "p": 0.015
+  }
+ ]
+}

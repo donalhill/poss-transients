@@ -85,3 +85,8 @@ day after) was fixed by the authors before they looked at the data. They read th
   of that fit and refits the run levels, r and the scatter (a negative binomial fit vectorised over trials). On
   random windows it agrees with full refits to within 1-2.5%. Trials raised to 2,000 per null and 500 per injected
   effect, which this makes cheap.
+- Tracks, specified after the blue-plate and prediction results and before this one: the outcome is each plate's
+  number of straight track candidates (alignments.py's track score at 1 in 10 or better, and separately 1 in 100 or
+  better; each transient in at most one track, best first), with the plate's own number of transients as a further
+  covariate, so the question is whether transients near tests line up more often than their numbers imply. Same
+  within-run model and null (a).
