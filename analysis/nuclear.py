@@ -185,29 +185,21 @@ loc = np.array([(np.sum(null_w[:, j] >= real_w[j]) + 1) / (np.isfinite(null_w[:,
 nw = np.where(np.isfinite(null_w), null_w, -np.inf)
 rank = (np.sum(nw[None, :, :] >= nw[:, None, :], 1)) / (len(keep) + 1)                  # slides x windows
 iV = WIN.index((-1, 1))
-span = np.array([max(abs(a_), abs(b_)) for a_, b_ in WIN])
-out["scan"] = {"windows": int(use.sum()), "vasco_r": r3(real_w[iV]), "vasco_p_local": r3(loc[iV]),
-               "vasco_rank": int(np.sum(loc[use] <= loc[iV])),
-               "share_slides_rank_as_high": r3(np.mean([np.sum(rank[t, use] <= rank[t, iV]) <= np.sum(loc[use] <= loc[iV]) for t in range(len(keep))])),
-               "grid": [{"a": int(a_), "b": int(b_), "r": r3(real_w[j]), "p": r3(loc[j]), "z": round(float(np.clip(norm.isf(loc[j]), -4, 4)), 2)}
-                        for j, (a_, b_) in enumerate(WIN) if use[j]], "by_size": []}
-for d_ in (3, 7, 14):
-    c_ = np.flatnonzero(use & (span <= d_)); best = c_[np.nanargmin(loc[c_])]
-    pg = (np.sum(rank[:, c_].min(1) <= loc[best]) + 1) / (len(keep) + 1)
-    out["scan"]["by_size"].append({"days": d_, "windows": len(c_), "best": [int(WIN[best][0]), int(WIN[best][1])], "best_r": r3(real_w[best]),
-                                   "best_p_local": r3(loc[best]), "p_global": r3(pg)})
+# the windows that include the test day, set by how many days before and after it they reach: where VASCO's ranks, and
+# how often the best of them does at least as well as VASCO's, or as the best in the data, by chance
+def family(D):
+    idx = [j for j, (a_, b_) in enumerate(WIN) if use[j] and -D <= a_ <= 0 <= b_ <= D]
+    best_slides = rank[:, idx].min(1); jb = idx[int(np.argmin(loc[idx]))]
+    return idx, {"windows": len(idx), "vasco_rank": 1 + int(np.sum(loc[idx] < loc[iV])),
+                 "chance_vs_vasco": r3(np.mean(best_slides <= loc[iV])),
+                 "best": {"before": int(-WIN[jb][0]), "after": int(WIN[jb][1]), "r": r3(real_w[jb]), "p_local": r3(loc[jb]),
+                          "p_global": r3((np.sum(best_slides <= loc[jb]) + 1) / (len(keep) + 1))}}
 
-# local to global: each slid calendar's best window over the whole scan, as a local significance
-best_slide = norm.isf(rank[:, use].min(1)); jb = np.flatnonzero(use)[np.nanargmin(loc[use])]
-pg = out["scan"]["by_size"][2]["p_global"]
-out["global"] = {"best_local_sigma": r3(norm.isf(loc[jb])), "vasco_local_sigma": r3(norm.isf(loc[iV])), "p_global": pg, "global_sigma": r3(norm.isf(pg)),
-                 "median_best_sigma": r3(np.median(best_slide)), "best_local_p": r3(loc[jb]), "vasco_local_p": r3(loc[iV]),
-                 "curve": [{"sigma": r3(z_), "p_best": r3((np.sum(best_slide >= z_) + 1) / (len(best_slide) + 1))}
-                           for z_ in np.arange(0, norm.isf(5 / (len(keep) + 1)), 0.05)]}            # while the slides resolve it
-bw = out["scan"]["by_size"][2]["best"]; inb = np.isin(day, (TESTS[:, None] + np.arange(bw[0], bw[1] + 1)[None, :]).ravel())
-top = np.argmax(np.where(inb, y_raw - E * (Y - y_raw[inb].sum()) / (Et - E[inb].sum()), -np.inf))
-out["scan"]["best_plate"] = {"plate": P.index[top], "date": str(P.date.iloc[top].date()), "n": int(y_raw[top]), "expected": round(float(E[top])),
-                             "share_of_window": r3(y_raw[top] / y_raw[inb].sum()), "share_of_catalogue": r3(y_raw[top] / Y)}
+
+idx7, fam = family(7)
+fam["cells"] = [{"before": int(-WIN[j][0]), "after": int(WIN[j][1]), "r": r3(real_w[j]), "p": r3(loc[j]), "z": round(float(np.clip(norm.isf(loc[j]), -4, 4)), 2)} for j in idx7]
+fam["vasco_p"], fam["chance_vs_vasco_14"] = r3(loc[iV]), family(14)[1]["chance_vs_vasco"]
+out["windows"] = fam
 
 b_ = np.abs(P.b.values)
 out["pointing"] = {"median_low": float(np.median(y_raw[b_ < 10])), "median_high": float(np.median(y_raw[b_ > 40])),

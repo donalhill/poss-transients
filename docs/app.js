@@ -661,59 +661,32 @@ function drawNucChecks(D, id) {
   });
 }
 
-/* ---------- nuclear: every window of days around the tests, ranked by local significance against slid calendars;
-   VASCO's window picked out ---------- */
-function drawNucRanked(D, id) {
-  const N = D.nuc_scan, s = svg(id); if (!N) return;
-  // VASCO's window at the pipeline's rank (windows at least as rare by chance, ties counted), the rest by rarity
-  const isV = d => d.a === -1 && d.b === 1, G = N.grid.filter(d => !isV(d)).sort((a, b) => a.p - b.p || b.z - a.z);
-  G.splice(N.rank - 1, 0, N.grid.find(isV));
-  const W = 760, H = 300, m = { l: 52, r: 16, t: 40, b: 46 };
-  const x = d3.scaleBand().domain(d3.range(G.length)).range([m.l, W - m.r]).paddingInner(0.15);
-  const y = d3.scaleLinear().domain([Math.min(-1, d3.min(G, d => d.z)), Math.max(3, d3.max(G, d => d.z))]).range([H - m.b, m.t]);
-  const iV = N.rank - 1, V_ = G[iV];
-  s.append("g").attr("transform", `translate(${m.l},0)`).call(d3.axisLeft(y).ticks(5).tickFormat(d => `${String(d).replace("-", "−")}σ`).tickSize(3)).call(axisStyle);
-  s.append("line").attr("x1", m.l).attr("x2", W - m.r).attr("y1", y(0)).attr("y2", y(0)).attr("stroke", V("--ink-3"));
-  s.append("g").selectAll("rect").data(G).join("rect").attr("class", "hov")
-    .attr("x", (d, i) => x(i)).attr("width", x.bandwidth()).attr("y", d => Math.min(y(0), y(d.z))).attr("height", d => Math.abs(y(d.z) - y(0)))
-    .attr("fill", (d, i) => i === iV ? V("--emulsion") : V("--ink-3")).attr("fill-opacity", (d, i) => i === iV ? 1 : 0.6)
-    .call(sel => hov(sel, d => `Days ${d.a} to ${d.b} from a test<br>${d.r.toFixed(2)}× per photograph, against pointing<br>slid calendars match it ${Math.round(d.p * 1000) / 10}% of the time`));
-  const xv = x(iV) + x.bandwidth() / 2;
-  s.append("line").attr("x1", xv).attr("x2", xv).attr("y1", m.t - 6).attr("y2", y(V_.z)).attr("stroke", V("--emulsion")).attr("stroke-width", 1.2).attr("stroke-dasharray", "3 3");
-  s.append("text").attr("class", "ann").attr("x", xv + 8).attr("y", m.t + 2).style("fill", V("--emulsion")).style("font-weight", 600)
-    .text(`VASCO’s window: ${iV + 1} of ${G.length}`);
-  s.append("text").attr("x", (m.l + W - m.r) / 2).attr("y", H - 12).attr("text-anchor", "middle").text("Every window of days within two weeks of a test, from most to least striking");
-  s.append("text").attr("transform", `translate(14,${(m.t + H - m.b) / 2}) rotate(-90)`).attr("text-anchor", "middle").text("Local significance");
-}
-
-/* ---------- nuclear: from local to global significance; the chance of reaching a local significance with one window
-   chosen in advance, and with the best of every window (from the slid calendars) ---------- */
-function drawNucGlobal(D, id) {
-  const G = D.nuc_global, s = svg(id); if (!G) return;
-  const W = 760, H = 330, m = { l: 70, r: 24, t: 24, b: 50 };
-  const x = d3.scaleLinear().domain([0, 3.3]).range([m.l, W - m.r]), y = d3.scaleLog().domain([0.001, 1]).range([H - m.b, m.t]).clamp(true);
-  const sf = z => 0.5 * (1 - erf(z / Math.SQRT2));
-  s.append("g").attr("transform", `translate(0,${H - m.b})`).call(d3.axisBottom(x).tickValues([0, 1, 2, 3]).tickFormat(d => `${d}σ`).tickSizeOuter(0)).call(axisStyle);
-  s.append("g").attr("transform", `translate(${m.l},0)`).call(d3.axisLeft(y).tickValues([1, 0.1, 0.01, 0.001]).tickFormat(d => d === 1 ? "Always" : `1 in ${Math.round(1 / d).toLocaleString("en-GB")}`).tickSize(3)).call(axisStyle);
-  s.append("text").attr("x", (m.l + W - m.r) / 2).attr("y", H - 10).attr("text-anchor", "middle").text("Local significance of a window");
-  s.append("text").attr("transform", `translate(14,${(m.t + H - m.b) / 2}) rotate(-90)`).attr("text-anchor", "middle").text("How often chance does as well");
-  const one = d3.range(0, 3.06, 0.05).map(z => [z, sf(z)]);
-  const line = d3.line().x(d => x(d[0])).y(d => y(Math.max(d[1], 0.001)));
-  s.append("path").attr("d", line(one)).attr("fill", "none").attr("stroke", V("--ink-3")).attr("stroke-width", 2).attr("stroke-dasharray", "5 4");
-  s.append("path").attr("d", line(G.curve.map(c => [c.sigma, c.p_best]))).attr("fill", "none").attr("stroke", V("--ink-2")).attr("stroke-width", 2.2);
-  const lab = (z, p_, t, anchor, dy) => s.append("text").attr("class", "ann").attr("x", x(z)).attr("y", y(p_) + dy).attr("text-anchor", anchor).style("fill", V("--ink-2")).text(t);
-  lab(1.6, sf(1.6), "One window, chosen in advance", "end", 26);
-  lab(1.05, G.curve.find(c => c.sigma >= 1.05).p_best, "Best of every window, after looking", "start", -10);
-  // VASCO's window on the first curve; the best window on both, with the drop between them
-  const pt = (z, p_, c) => s.append("circle").attr("cx", x(z)).attr("cy", y(p_)).attr("r", 6).attr("fill", c);
-  pt(G.vasco_local_sigma, G.vasco_local_p, V("--emulsion"));
-  s.append("text").attr("class", "ann").attr("x", x(G.vasco_local_sigma) - 10).attr("y", y(G.vasco_local_p) + 20).attr("text-anchor", "end").style("fill", V("--emulsion")).style("font-weight", 600)
-    .text(`VASCO’s window: 1 in ${Math.round(1 / G.vasco_local_p)}`);
-  const zb = G.best_local_sigma;
-  s.append("line").attr("x1", x(zb)).attr("x2", x(zb)).attr("y1", y(G.best_local_p)).attr("y2", y(G.p_global)).attr("stroke", V("--ink"));
-  pt(zb, G.best_local_p, V("--ink-3")); pt(zb, G.p_global, V("--ink"));
-  s.append("text").attr("class", "ann").attr("x", x(zb) - 12).attr("y", y(G.best_local_p) + 5).attr("text-anchor", "end").style("fill", V("--ink-2")).text(`Best window on its own: 1 in ${Math.round(1 / G.best_local_p)}`);
-  s.append("text").attr("class", "ann").attr("x", x(zb) + 12).attr("y", y(G.p_global) - 12).style("fill", V("--ink")).style("font-weight", 600).text(`Allowing for the search: 1 in ${Math.round(1 / G.p_global)}`);
+/* ---------- nuclear: every window that includes the test day, by how many days before and after it reaches, coloured by
+   how rarely slid calendars match it; VASCO's window outlined ---------- */
+function drawNucWindows(D, id) {
+  const F = D.nuc_windows, s = svg(id); if (!F) return;
+  const n = 8, c = 46, W = 760, m = { l: 90, t: 16, b: 56 }, H = m.t + n * c + m.b;
+  s.attr("viewBox", `0 0 ${W} ${H}`);
+  const x = d => m.l + d * c, y = d => m.t + (n - 1 - d) * c;
+  const col = d3.scaleSequential(d3.interpolateYlOrRd).domain([0, 3]).clamp(true);
+  F.cells.forEach(d => {
+    const g = s.append("g").attr("class", "hov").call(sel => hov(sel, () => `${d.before} day${d.before === 1 ? "" : "s"} before to ${d.after} day${d.after === 1 ? "" : "s"} after<br>${d.r.toFixed(2)}× per photograph, against pointing<br>slid calendars match it ${Math.round(d.p * 100)}% of the time`));
+    g.append("rect").attr("x", x(d.before)).attr("y", y(d.after)).attr("width", c - 2).attr("height", c - 2).attr("fill", col(Math.max(d.z, 0)));
+    g.append("text").attr("x", x(d.before) + (c - 2) / 2).attr("y", y(d.after) + c / 2 + 3).attr("text-anchor", "middle").style("font-size", "11px")
+      .style("fill", d.z > 2 ? "#fff" : "#222").text(d.r.toFixed(2));
+  });
+  s.append("rect").attr("x", x(1) - 2).attr("y", y(1) - 2).attr("width", c + 2).attr("height", c + 2).attr("fill", "none").attr("stroke", V("--ours")).attr("stroke-width", 3);
+  s.append("text").attr("class", "ann").attr("x", x(n) + 10).attr("y", y(1) + c / 2 + 4).style("fill", V("--ours")).style("font-weight", 600).text("← VASCO’s window");
+  s.append("g").attr("transform", `translate(0,${m.t + n * c + 2})`).call(d3.axisBottom(d3.scaleBand().domain(d3.range(n)).range([m.l, m.l + n * c])).tickSize(0).tickPadding(6)).call(axisStyle);
+  s.append("g").attr("transform", `translate(${m.l - 4},0)`).call(d3.axisLeft(d3.scaleBand().domain(d3.range(n - 1, -1, -1)).range([m.t, m.t + n * c])).tickSize(0).tickPadding(6)).call(axisStyle);
+  s.append("text").attr("x", m.l + n * c / 2).attr("y", H - 14).attr("text-anchor", "middle").text("Days before the test included");
+  s.append("text").attr("transform", `translate(${m.l - 40},${m.t + n * c / 2}) rotate(-90)`).attr("text-anchor", "middle").text("Days after the test included");
+  const bx = m.l + n * c + 170, bh = n * c * 0.7, ly = d3.scaleLinear().domain([0, 3]).range([m.t + bh, m.t]), gid = `${id}-grad`;
+  s.append("defs").append("linearGradient").attr("id", gid).attr("x1", 0).attr("x2", 0).attr("y1", 1).attr("y2", 0)
+    .selectAll("stop").data(d3.range(0, 1.001, 0.1)).join("stop").attr("offset", t => t).attr("stop-color", t => col(t * 3));
+  s.append("rect").attr("x", bx).attr("y", m.t).attr("width", 12).attr("height", bh).attr("fill", `url(#${gid})`);
+  s.append("g").attr("transform", `translate(${bx + 12},0)`).call(d3.axisRight(ly).tickValues([0, 1, 2, 3]).tickFormat(d => `${d}σ`).tickSize(3)).call(axisStyle);
+  s.append("text").attr("x", bx - 4).attr("y", m.t + bh + 22).style("fill", V("--ink-2")).style("font-size", "12px").text("Local significance");
 }
 
 let DATA = null;
@@ -721,7 +694,7 @@ function render() {
   if (!DATA) return;
   drawSky(DATA, "c-sky0", false); drawSpread(DATA); drawSky(DATA, "c-sky", true); drawChance(DATA); drawPerm(DATA, "c-perm-any", "raw", "VASCO’s test");
   drawPerm(DATA, "c-nuc-corr", "corrected", "Per photograph, allowing for pointing", { line: "Plates near tests", trials: "Slid calendars",
-    xlab: "Transients per photograph near the chosen dates, against pointing, relative to the rest", ylab: "Share of slid calendars" }); drawNucChecks(DATA, "c-nuc-checks"); drawNucRanked(DATA, "c-nuc-rank"); drawNucGlobal(DATA, "c-nuc-global");
+    xlab: "Transients per photograph near the chosen dates, against pointing, relative to the rest", ylab: "Share of slid calendars" }); drawNucChecks(DATA, "c-nuc-checks"); drawNucWindows(DATA, "c-nuc-windows");
   drawFan(DATA); drawTracks(DATA); drawCompare(DATA, "c-compare"); drawTail(DATA, "tail-gallery"); drawWidths(DATA, "c-widths"); drawTrail(DATA, "c-trail"); fillDates(DATA); drawRadialMap(DATA); drawRadial(DATA); drawCrowd(DATA);
   drawPlates(DATA, "c-plates"); drawForest(DATA, "c-ratio-vasco"); drawRatioNull(DATA, "c-ratio-null");
 }

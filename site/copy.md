@@ -280,29 +280,18 @@ Nor does what counts as a transient. Counting 2-arcminute cells rather than tran
 ### nuc-checks-caption
 How far each further check moves the ratio for plates near nuclear tests, from {n:nc2.point_r} times per photograph allowing for pointing. Each version is measured against its own slid test calendars.
 
-### nuc-window-title
-Is VASCO’s window special?
-
-### nuc-window-text
-VASCO fixed their window, a test’s date and a day either side, before looking at the data, so its chance needs no allowance for other windows. The 2026 paper also reads the sharpness of the association in time as a sign that it is genuine. That claim compares windows, so we scored every window of consecutive days within two weeks of a test in the same way: per photograph, against pointing, and against the same slid calendars.
-
-VASCO’s window ranks {n:nc4.rank} of {n:nc4.windows}, so about half of all windows are more striking. The most striking are single days a week or two from a test, led by {n:nc4.best} at {n:nc4.best_r} times, which slid calendars match {n:nc4.best_p}% of the time. Of that window’s transients, {n:nc4.plate_share}% are on one plate, {n:nc4.plate}, taken on {n:nc4.plate_date}, which holds {n:nc4.plate_n} transients where its pointing predicts about {n:nc4.plate_e}.
-
-### nuc-window-caption
-Every window of consecutive days within two weeks of a US test that holds at least 5 plates, ranked by how rarely slid test calendars match it (grey), with VASCO’s window in red.
-
 ### nuc-global-title
-From one window to many
+Why a day either side?
 
 ### nuc-global-text
-A window’s local significance says how often chance does as well as that one window. VASCO chose their window in advance, so its local figure is the one that counts: {n:nc5.vasco_sigma} standard deviations, about one time in {n:nc2.odds}.
+The 2026 paper describes the association as highly specific in time, and reads this as a sign of a physical link. But the test day and a day either side is one of many windows that would have been just as natural to choose: any number of days before the test, and any number after.
 
-The most striking of all {n:nc4.windows} windows, {n:nc4.best}, reaches {n:nc5.best_sigma} standard deviations on its own: chance does as well {n:nc5.best_p}% of the time. But it was picked as the best of many, after looking. Running the same search on every slid calendar shows what picking the best does: the typical best window reaches {n:nc5.median_best} standard deviations by chance alone, and one at least as striking as ours turns up {n:nc5.global_p}% of the time. That is its global significance, {n:nc5.global_sigma} standard deviations.
+Allowing up to a week on each side gives {n:nc4.windows} such windows, each scored the same way. VASCO’s ranks {n:nc4.rank} of them. The most striking is the test day alone, at {n:nc4.best_r} times, and even that is matched by chance {n:nc4.best_global}% of the time once its choice from {n:nc4.windows} is allowed for.
 
-A window this striking is what a search of this many windows usually finds. It is not evidence that anything happened {n:nc4.best}.
+VASCO fixed their window before looking at the data, so on its own its chance of about one in {n:nc2.odds} needs no allowance for other windows. But had a researcher tried all {n:nc4.windows} and reported the best, chance would give a result at least as strong as VASCO’s {n:nc4.chance}% of the time. Allowing up to two weeks on each side, {n:nc4.chance14}%.
 
 ### nuc-global-caption
-How often chance reaches a given local significance: for one window chosen in advance (dashed), and for the best of all {n:nc4.windows} windows, from the same search run on every slid test calendar (solid).
+Every window that includes a US test day, by how many days before and after it reaches, coloured by how rarely slid test calendars match it, with the ratio for plates near tests in each cell. VASCO’s window is outlined.
 
 ### align-h2
 Do transients form geometric patterns?
