@@ -95,7 +95,7 @@ NF = json.loads((ROOT / "data/nuclear_fit.json").read_text())
 NC = json.loads((ROOT / "data/nuclear_checks.json").read_text())
 site["perm"] = NU["perm"]
 site["perm"]["corrected"] = NU["corrected"]
-site["nuc_checks"] = {"base": NU["corrected"]["real"], "rows": NU["checks"]}
+site["nuc_checks"] = {"base": NU["corrected"]["real"], "rows": [x for x in NU["checks"] if x["label"] != "All of them together"]}
 NB_ = json.loads((ROOT / "data/nuclear_basic.json").read_text())
 # the nuclear measurement from the ground up (nuclear_basic.py), with the full model fit (nuclear_fit.py) as a cross-check
 lro = {x["run"]: x["r"] for x in NB_["leave_run_out"]}
