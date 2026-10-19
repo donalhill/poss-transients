@@ -264,7 +264,7 @@ The sky above Palomar changes through the year as Earth orbits the Sun. On sprin
 
 A like-for-like comparison is the number of transients each plate should hold, given where the telescope pointed. A curve fitted to all {n:cat.plates} plates gives every plate an expected count from its distance from the Milky Way, with the dust in front of it and its distance from the ecliptic. Measured against expected counts, plates near nuclear tests hold {n:nc2.point_r} times their expected number, rather than {n:nc2.night_r}.
 
-Random nights drawn from across the survey are not a like-for-like comparison either. The tests came in series, so the nights near them bunch into a few seasons, and a bunched set of nights varies more than a scattered one. Sliding the real test calendar by 1 to 5 years and up to 20 days keeps each test’s season and its spacing from the others. Slid calendars do as well as the real one about one time in {n:nc2.odds} ({n:nc2.sig} standard deviations), which is not statistically significant.
+Random nights drawn from across the survey are not a like-for-like comparison either. The tests came in series, so the nights near them bunch into a few seasons, and a bunched set of nights varies more than a scattered one. Sliding the real test calendar by 1 to 5 years and up to two months keeps each test’s time of year and its spacing from the others. Slid calendars do as well as the real one about one time in {n:nc2.odds} ({n:nc2.sig} standard deviations), which is not statistically significant.
 
 ### nuc-corr-caption
 Once the number of photographs and the telescope pointing are accounted for, the plates near nuclear tests sit in the body of {n:nc2.slides} slid test calendars. About one in {n:nc2.odds} does as well.

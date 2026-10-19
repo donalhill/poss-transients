@@ -75,11 +75,13 @@ out["steps"] = {"nights": len(nights), "nights_with_plates": int((npl > 0).sum()
 # corrections with physical reasons, one at a time: transients per photograph, then against what each photograph's
 # pointing predicts (VASCO keep only transients with no known star nearby, so crowded fields near the Milky Way hold
 # few). Each against two nulls: VASCO's random nights from the whole survey, and the real test calendar slid by 1 to 5
-# years and up to 20 days, which keeps each test's season and the bunching of tests into series.
+# years and up to two months, which keeps each test's time of year and the bunching of tests into series.
 import patsy                                                                  # noqa: E402
 import statsmodels.api as sm                                                  # noqa: E402
 import plate_properties as PP                                                 # noqa: E402
-from nuclear_model import P, SHIFTS, day, y_raw                               # noqa: E402
+from nuclear_model import P, day, y_raw                                       # noqa: E402
+
+SHIFTS = [365 * k + d for k in (-5, -4, -3, -2, -1, 1, 2, 3, 4, 5) for d in range(-60, 61)]
 
 X = np.asarray(patsy.dmatrix("bs(b, df=4) + lebv + ecl_lat", PP.standardised(P))); a = 0.5
 for _ in range(4):
