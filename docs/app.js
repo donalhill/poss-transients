@@ -639,7 +639,7 @@ function drawPerm(D, id, key, lab, o = {}) {
    side of it ---------- */
 function drawNucChecks(D, id) {
   const C = D.nuc_checks, s = svg(id); if (!C) return;
-  const W = 760, rowH = 26, m = { l: 250, r: 215, t: 40, b: 50 }, gap = 14, base = C.base;
+  const W = 760, rowH = 26, m = { l: 270, r: 90, t: 40, b: 50 }, gap = 14, base = C.base;
   let yy = m.t; const pos = [];
   C.rows.forEach((r, i) => { if (i === 0 || C.rows[i - 1].group !== r.group) { yy += i ? gap : 0; pos.push({ head: r.group, y: yy }); yy += 20; } pos.push({ row: r, y: yy }); yy += rowH; });
   const H = yy + m.b; s.attr("viewBox", `0 0 ${W} ${H}`);
@@ -657,7 +657,7 @@ function drawNucChecks(D, id) {
     s.append("rect").attr("x", Math.min(x(0), x(d))).attr("width", Math.max(1.5, Math.abs(x(d) - x(0)))).attr("y", p_.y - 7).attr("height", 14)
       .attr("fill", V("--emulsion")).attr("fill-opacity", 0.8);
     s.append("text").attr("class", "ann").attr("x", W - m.r + 12).attr("y", p_.y + 4).style("fill", V("--ink-2"))
-      .text(`${r.r.toFixed(2)}× (${sg(d)}), chance ${Math.round(r.p * 100)}%`);
+      .text(sg(d));
   });
 }
 
