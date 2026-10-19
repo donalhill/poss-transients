@@ -8,6 +8,9 @@
    plate, the held-out night's run level comes from its run's other nights, and its plates are predicted with and
    without the test-date feature. The gain in held-out log-likelihood is compared with the gain from the same feature
    given to random nights within runs.
+3. Tracks. Each plate's number of straight track candidates (alignments.py's track score at 1 in 10, and at 1 in 100,
+   or better; each transient in at most one track, best first), with the plate's number of transients as a further
+   covariate: do transients near tests line up more often than their numbers imply?
 
 python analysis/nuclear_checks.py -> data/nuclear_checks.json"""
 import json
@@ -68,6 +71,41 @@ for name, S in features.items():
         gain += (nb_ll(y_raw[test][:, None], with_f, a[None, :]) - nb_ll(y_raw[test], without, a0[0])[:, None]).sum(0)
     out["prediction"].append({"feature": name, "plates": int(S.sum()), "nights_held_out": n_nights, "gain": r3(gain[0]),
                               "random_median": r3(np.median(gain[1:])), "p": r3(pk(gain[1:], gain[0]))})
+
+# 3. tracks per plate
+import alignments as AL                                                       # noqa: E402
+from scipy.spatial import cKDTree                                             # noqa: E402
+
+
+def tracks(level):
+    """Each plate's straight track candidates scoring 10**level or better, each transient in at most one, best first."""
+    n = pd.Series(0, index=P.index)
+    for plate, g in AL.cat.groupby("plate"):
+        Q = np.ascontiguousarray(np.c_[g.x.values, g.y.values])
+        if len(Q) < 3:
+            continue
+        tree = cKDTree(Q); pairs = tree.query_pairs(AL.LMAX, output_type="ndarray")
+        if len(pairs) == 0:
+            continue
+        nb = tree.query_ball_point(Q, AL.LMAX)
+        ptr = np.zeros(len(nb) + 1, np.int64); ptr[1:] = np.cumsum([len(x) for x in nb])
+        idx = np.fromiter((k for x in nb for k in x), np.int64, ptr[-1])
+        order = np.argsort(Q[:, 0], kind="stable"); m = len(pairs) * 4
+        oi, of, om = np.zeros((m, 4), np.int64), np.zeros((m, 5)), np.zeros((m, 6), np.int64)
+        k = AL.plate_kernel(Q, order, Q[order, 0].copy(), pairs.astype(np.int64), ptr, idx, AL.MINSEP, AL.HMAX, AL.HMAX_V, AL.RISO, AL.CHI2MAX, oi, of, om)
+        llam = of[:k, 4]; sel = np.flatnonzero(np.isfinite(llam) & (llam <= level))
+        n[plate] = int(AL.arbitrate(sel[np.argsort(llam[sel], kind="stable")], om[:k], oi[:k, 0], len(Q)).sum())
+    return n.values.astype(float)
+
+
+out["tracks"] = []
+logn = np.log(np.maximum(y_raw, 1))[:, None]
+for level, lab in ((-1, "1 in 10"), (-2, "1 in 100")):
+    y = tracks(level)
+    r, se, a, dof, mu = full_fit(y, run0, S0, extra=logn)
+    A = Trials(mu, run0, a, dof).r(reassign(S0, run0, NREP, 13), y)
+    out["tracks"].append({"score": lab, "tracks": int(y.sum()), "tracks_near": int(y[S0 == 1].sum()), "r": r3(r),
+                          "count_lo": r3(r * np.exp(-se)), "count_hi": r3(r * np.exp(se)), "p_runs": r3(pk(A, r))})
 
 (ROOT / "data/nuclear_checks.json").write_text(json.dumps(out, indent=1))
 print(json.dumps(out, indent=1))

@@ -54,5 +54,25 @@
    "random_median": -1.83,
    "p": 0.015
   }
+ ],
+ "tracks": [
+  {
+   "score": "1 in 10",
+   "tracks": 837,
+   "tracks_near": 47,
+   "r": 0.631,
+   "count_lo": 0.493,
+   "count_hi": 0.809,
+   "p_runs": 0.929
+  },
+  {
+   "score": "1 in 100",
+   "tracks": 128,
+   "tracks_near": 2,
+   "r": 0.334,
+   "count_lo": 0.117,
+   "count_hi": 0.957,
+   "p_runs": 0.934
+  }
  ]
 }

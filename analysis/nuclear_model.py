@@ -53,13 +53,14 @@ def hours(lo, hi, shift_days=0):
     return ((d >= lo) & (d < hi)).any(1).astype(float)
 
 
-def full_fit(y, run, S, iters=4, keep=None):
+def full_fit(y, run, S, iters=4, keep=None, extra=None):
     """The full fit on the data: plate properties, a level for each run, and r; the scatter alpha from the residuals.
     Returns r, its counting error, alpha, the model's degrees of freedom, and each plate's expected count with no effect
     (for the plates in keep, if given)."""
     k = np.ones(len(y), bool) if keep is None else keep
     Z = PP.standardised(P).assign(run=run.astype(str))[k]
-    X = np.c_[np.asarray(patsy.dmatrix(PP.FORMULA.split("~")[1].replace(" + bs(t, df=16)", "") + " + C(run)", Z)), S[k]]
+    X = np.asarray(patsy.dmatrix(PP.FORMULA.split("~")[1].replace(" + bs(t, df=16)", "") + " + C(run)", Z))
+    X = np.c_[X, np.asarray(extra)[k], S[k]] if extra is not None else np.c_[X, S[k]]       # extra: further covariates
     X = X[:, np.abs(X).sum(0) > 0]; y, S = y[k], S[k]
     a = 0.5
     for _ in range(iters):
