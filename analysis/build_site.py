@@ -95,7 +95,7 @@ NF = json.loads((ROOT / "data/nuclear_fit.json").read_text())
 NC = json.loads((ROOT / "data/nuclear_checks.json").read_text())
 site["perm"] = NU["perm"]
 site["perm"]["corrected"] = NU["corrected"]
-site["nuc_scan"] = {"grid": NU["scan"]["grid"]}
+site["nuc_scan"] = {"grid": NU["scan"]["grid"], "rank": NU["scan"]["vasco_rank"]}
 site["nuc_checks"] = {"base": NU["corrected"]["real"], "rows": [x for x in NU["checks"] if x["label"] != "All of them together"]}
 NB_ = json.loads((ROOT / "data/nuclear_basic.json").read_text())
 # the nuclear measurement from the ground up (nuclear_basic.py), with the full model fit (nuclear_fit.py) as a cross-check
@@ -485,6 +485,9 @@ numbers.update({
     "nc2.slides": num(NU["pointing"]["slides"]), "nc2.sig": num(NU["corrected"]["sigma"], 1), "nc2.odds": odds(NU["corrected"]["p"]),
     "nc3.lo": num(min(x["r"] for x in NU["checks"]), 2), "nc3.hi": num(max(x["r"] for x in NU["checks"]), 2),
     "nc3.p_lo": pc(min(x["p"] for x in NU["checks"])), "nc3.p_hi": pc(max(x["p"] for x in NU["checks"])),
+    "nc4.plate": NU["scan"]["best_plate"]["plate"], "nc4.plate_date": longdate(NU["scan"]["best_plate"]["date"]),
+    "nc4.plate_n": num(NU["scan"]["best_plate"]["n"]), "nc4.plate_e": num(round(NU["scan"]["best_plate"]["expected"], -1)),
+    "nc4.plate_share": pc(NU["scan"]["best_plate"]["share_of_window"]),
     "nc4.rank": num(NU["scan"]["vasco_rank"]), "nc4.windows": num(NU["scan"]["windows"]),
     "nc4.rank_share": pc(NU["scan"]["share_slides_rank_as_high"]),
     "nc4.best": days_from(NU["scan"]["by_size"][2]["best"]), "nc4.best_r": num(NU["scan"]["by_size"][2]["best_r"], 1),

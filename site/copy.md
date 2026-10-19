@@ -264,7 +264,7 @@ The sky above Palomar changes through the year as Earth orbits the Sun. On sprin
 
 A like-for-like comparison is the number of transients each plate should hold, given where the telescope pointed. A curve fitted to all {n:cat.plates} plates gives every plate an expected count from its distance from the Milky Way, with the dust in front of it and its distance from the ecliptic. Measured against expected counts, plates near nuclear tests hold {n:nc2.point_r} times their expected number, rather than {n:nc2.night_r}.
 
-Random nights drawn from across the survey are not a like-for-like comparison either. The tests came in series, so the nights near them bunch into a few seasons, and a bunched set of nights varies more than a scattered one. Sliding the real test calendar by 1 to 5 years and up to two months keeps each test’s time of year and its spacing from the others. Slid calendars do as well as the real one about one time in {n:nc2.odds} ({n:nc2.sig} standard deviations), which is not statistically significant.
+Random nights drawn from across the survey are not a like-for-like comparison either. The tests came in series, so the nights near them bunch into a few seasons, and a bunched set of nights varies more than a scattered one. Sliding the real test calendar by 1 to 5 years and up to two months keeps each test’s time of year and its spacing from the others; the slid calendars leave out every plate taken within two weeks of a real test. Slid calendars do as well as the real one about one time in {n:nc2.odds} ({n:nc2.sig} standard deviations), which is not statistically significant.
 
 ### nuc-corr-caption
 Once the number of photographs and the telescope pointing are accounted for, the plates near nuclear tests hold {n:nc2.point_r} times their expected number of transients. Of {n:nc2.slides} slid test calendars, about one in {n:nc2.odds} does as well or better.
@@ -286,10 +286,10 @@ Is VASCO’s window special?
 ### nuc-window-text
 VASCO fixed their window, a test’s date and a day either side, before looking at the data, so its chance needs no allowance for other windows. The 2026 paper also reads the sharpness of the association in time as a sign that it is genuine. That claim compares windows, so we scored every window of consecutive days within two weeks of a test in the same way: per photograph, against pointing, and against the same slid calendars.
 
-VASCO’s window ranks {n:nc4.rank} of {n:nc4.windows}, so about half of all windows are more striking. The most striking are single days a week or two from a test, led by {n:nc4.best} at {n:nc4.best_r} times, which slid calendars match {n:nc4.best_p}% of the time. Slid calendars produce a best window at least that striking {n:nc4.g14}% of the time, so none of the windows stands out.
+VASCO’s window ranks {n:nc4.rank} of {n:nc4.windows}, so about half of all windows are more striking. The most striking are single days a week or two from a test, led by {n:nc4.best} at {n:nc4.best_r} times, which slid calendars match {n:nc4.best_p}% of the time. Of that window’s transients, {n:nc4.plate_share}% are on one plate, {n:nc4.plate}, taken on {n:nc4.plate_date}, which holds {n:nc4.plate_n} transients where its pointing predicts about {n:nc4.plate_e}. Allowing for all {n:nc4.windows} windows, slid calendars produce a best window at least that striking {n:nc4.g14}% of the time.
 
 ### nuc-window-caption
-Every window of consecutive days within two weeks of a US test that holds at least 5 plates, by its first and last day, coloured by how rarely slid test calendars match it. VASCO’s window is outlined.
+Every window of consecutive days within two weeks of a US test that holds at least 5 plates, ranked by how rarely slid test calendars match it (grey), with VASCO’s window in red.
 
 ### align-h2
 Do transients form geometric patterns?

@@ -75,7 +75,8 @@ out["steps"] = {"nights": len(nights), "nights_with_plates": int((npl > 0).sum()
 # corrections with physical reasons, one at a time: transients per photograph, then against what each photograph's
 # pointing predicts (VASCO keep only transients with no known star nearby, so crowded fields near the Milky Way hold
 # few). Each against two nulls: VASCO's random nights from the whole survey, and the real test calendar slid by 1 to 5
-# years and up to two months, which keeps each test's time of year and the bunching of tests into series.
+# years and up to two months, which keeps each test's time of year and the bunching of tests into series; slid
+# calendars leave out plates taken within two weeks of a real test.
 import patsy                                                                  # noqa: E402
 import statsmodels.api as sm                                                  # noqa: E402
 import plate_properties as PP                                                 # noqa: E402
@@ -90,9 +91,12 @@ for _ in range(4):
 m0 = near(day)
 per_night = lambda lab: values[lab].mean() / values[~lab].mean()
 ratio = lambda m, e: (y_raw[m].sum() / e[m].sum()) / (y_raw[~m].sum() / e[~m].sum())
-slid_nights = [near(days, tuple(np.array([-1, 0, 1]) + s)) for s in SHIFTS]
-slid_plates = [near(day, tuple(np.array([-1, 0, 1]) + s)) for s in SHIFTS]
-keep = [i for i, m in enumerate(slid_plates) if m.sum() >= 5 and (m & m0).sum() < 0.2 * m.sum()]
+# a slid calendar never counts a plate (or night) taken within two weeks of a real test, so the null holds none of them
+CLEAR = 14
+clear_plates, clear_nights = ~near(day, tuple(range(-CLEAR, CLEAR + 1))), ~near(days, tuple(range(-CLEAR, CLEAR + 1)))
+slid_nights = [near(days, tuple(np.array([-1, 0, 1]) + s)) & clear_nights for s in SHIFTS]
+slid_plates = [near(day, tuple(np.array([-1, 0, 1]) + s)) & clear_plates for s in SHIFTS]
+keep = [i for i, m in enumerate(slid_plates) if m.sum() >= 5]
 rng = np.random.default_rng(43)
 random_nights = [rng.choice(len(nights), int(w.sum()), replace=False) for _ in range(NRAND)]
 on_nights = lambda idx: np.isin(day, days[idx])
@@ -123,7 +127,7 @@ def expected(y, terms=()):
 
 def check(group, label, y=y_raw, e=None, tests=TESTS):
     e = expected(y) if e is None else e
-    w_ = lambda s: np.isin(day, (tests[:, None] + s + np.array([-1, 0, 1])[None, :]).ravel())
+    w_ = lambda s: np.isin(day, (tests[:, None] + s + np.array([-1, 0, 1])[None, :]).ravel()) & (clear_plates if s else True)
     gone = m0 & ~w_(0)                                                   # plates near a left-out series: in neither group
     rt = lambda m: (y[m & ~gone].sum() / e[m & ~gone].sum()) / (y[~m & ~gone].sum() / e[~m & ~gone].sum())
     r = rt(w_(0)); Cs = np.array([rt(w_(SHIFTS[i])) for i in keep])
@@ -157,7 +161,7 @@ OFF = np.arange(-R, R + 1)
 
 def offsets(shift):
     """Plates x offsets: whether the plate was taken that many days from a (shifted) test; cumulated over offsets."""
-    H = np.isin(day[:, None] - OFF[None, :], TESTS + shift)
+    H = np.isin(day[:, None] - OFF[None, :], TESTS + shift) & (clear_plates[:, None] if shift else True)
     return np.c_[np.zeros(len(day), int), np.cumsum(H, 1)]
 
 
@@ -167,7 +171,7 @@ Y, Et = y_raw.sum(), E.sum()
 
 
 def scan(shift):
-    M = (offsets(shift)[:, ib] - offsets(shift)[:, ia] > 0).T.astype(float)             # windows x plates
+    C = offsets(shift); M = (C[:, ib] - C[:, ia] > 0).T.astype(float)                  # windows x plates
     n1, e1, k = M @ y_raw, M @ E, M.sum(1)
     with np.errstate(divide="ignore", invalid="ignore"):
         return np.where(k >= 5, (n1 / e1) / ((Y - n1) / (Et - e1)), np.nan)
@@ -192,6 +196,11 @@ for d_ in (3, 7, 14):
     pg = (np.sum(rank[:, c_].min(1) <= loc[best]) + 1) / (len(keep) + 1)
     out["scan"]["by_size"].append({"days": d_, "windows": len(c_), "best": [int(WIN[best][0]), int(WIN[best][1])], "best_r": r3(real_w[best]),
                                    "best_p_local": r3(loc[best]), "p_global": r3(pg)})
+
+bw = out["scan"]["by_size"][2]["best"]; inb = np.isin(day, (TESTS[:, None] + np.arange(bw[0], bw[1] + 1)[None, :]).ravel())
+top = np.argmax(np.where(inb, y_raw - E * (Y - y_raw[inb].sum()) / (Et - E[inb].sum()), -np.inf))
+out["scan"]["best_plate"] = {"plate": P.index[top], "date": str(P.date.iloc[top].date()), "n": int(y_raw[top]), "expected": round(float(E[top])),
+                             "share_of_window": r3(y_raw[top] / y_raw[inb].sum()), "share_of_catalogue": r3(y_raw[top] / Y)}
 
 b_ = np.abs(P.b.values)
 out["pointing"] = {"median_low": float(np.median(y_raw[b_ < 10])), "median_high": float(np.median(y_raw[b_ > 40])),
