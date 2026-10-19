@@ -115,3 +115,9 @@ day after) was fixed by the authors before they looked at the data. They read th
   the stars themselves. The share of star-like transients, plates near tests against the other plates of their runs
   (Mantel-Haenszel odds over runs), calibrated by within-run reassignment. Glints imaged by the telescope predict more
   star-like transients near tests; flaws in the emulsion fewer.
+- Diagnostic, found after the shape results (19 October 2026; nuclear_basic.py, item 8): the plates near tests ranked
+  by their transients over expected (expected at the level of their run's other plates), and the within-run ratio with
+  the top one and two left out. With them, the within-run ratio under other run gaps (2, 6 and 10 empty nights), the
+  two other outcomes of the frozen design (2' cells, the central 5 x 5 deg), and each test series left out, each with
+  its own within-run reassignment null. The two plates were picked by looking, so the ratio without them is a
+  description of where the excess sits, not a test.

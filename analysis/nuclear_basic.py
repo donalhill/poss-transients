@@ -20,6 +20,9 @@ Each run is also shown on its own, with a range from the scatter between plates 
    the other plates of their runs. Anything that acts on a whole plate cancels; a sky signal would favour central,
    isolated, star-like objects, plate damage the edges, crowds, and shapes unlike stars.
 
+8. The plates near tests that carry the excess, and the ratio without them; and the ratio under other choices: runs
+   defined by other gaps, other outcomes, each test series left out.
+
 python analysis/nuclear_basic.py -> data/nuclear_basic.json"""
 import json
 
@@ -30,7 +33,7 @@ import statsmodels.api as sm
 from scipy.stats import norm
 
 import plate_properties as PP
-from nuclear_model import DAY0, GAP, P, ROOT, SHIFTS, day, hours, pk, r3, reassign, runs, window, y_raw
+from nuclear_model import DAY0, GAP, P, ROOT, SHIFTS, TESTS, day, hours, pk, r3, reassign, runs, shots, window, y_cells, y_inner, y_raw
 
 NREP = 20000
 R = 14
@@ -46,14 +49,15 @@ for _ in range(4):
     mu = sm.GLM(y_raw, X, family=sm.families.NegativeBinomial(alpha=a)).fit().fittedvalues
     a = float(np.sum(((y_raw - mu) ** 2 - mu) / mu ** 2) / (len(y_raw) - X.shape[1]))
 e_props = np.asarray(mu)
-G = (run0[None, :] == np.unique(run0)[:, None]).astype(float)           # runs x plates
+groups = lambda run: (run[None, :] == np.unique(run)[:, None]).astype(float)   # runs x plates
+G = groups(run0)
 
 
-def mh(S, e):
+def mh(S, e, y=y_raw, G=G):
     """The Mantel-Haenszel rate ratio over runs, for each column of S: within each run, transients on plates in the
     window against those on the run's other plates, each over its expected count (e)."""
     S = np.atleast_2d(np.asarray(S, float).T).T
-    a1, b1 = G @ (y_raw[:, None] * S), G @ (y_raw[:, None] * (1 - S))
+    a1, b1 = G @ (y[:, None] * S), G @ (y[:, None] * (1 - S))
     t1, t0 = G @ (e[:, None] * S), G @ (e[:, None] * (1 - S))
     t = t1 + t0
     num = np.sum(np.divide(a1 * t0, t, out=np.zeros_like(t), where=t > 0), 0)
@@ -183,6 +187,45 @@ odds = lambda f: f / (1 - f)
 out["shapes_if_excess"] = {"all_star_like": r3(odds((1 - extra) * f_star + extra) / odds(f_star)), "none_star_like": r3(odds((1 - extra) * f_star) / odds(f_star))}
 out["shapes"] = {"measured": int(len(sh)), "plates": int(sh.plate.nunique()), "near": int(sh.plate.isin(P.index[S0 == 1]).sum()),
                  **{c.replace("-", "_"): int((sh["class"] == c).sum()) for c in ("star-like", "wider", "narrower")}}
+
+# 8. the plates near tests that carry the excess (a diagnostic, found after the results): each plate near a test against
+# its expected count at the level of its run's other plates; r without the richest
+rich = []
+for i in np.flatnonzero(S0 == 1):
+    o = (run0 == run0[i]) & (S0 == 0)
+    if o.any():
+        lev = y_raw[o].sum() / e_props[o].sum()
+        rich.append({"plate": P.index[i], "date": date(day[i]), "n": int(y_raw[i]), "expected": round(float(lev * e_props[i]), 1),
+                     "ratio": r3(y_raw[i] / (lev * e_props[i]))})
+rich.sort(key=lambda x: x["n"] - x["expected"], reverse=True)
+out["plates"] = rich
+
+
+def check(lab, S=S0, e=e_props, y=y_raw, run=run0, seed=71):
+    """The within-run ratio and its chance under within-run reassignment, for one variation of the analysis."""
+    G_ = groups(run); r = float(mh(S, e, y, G_)[0]); A_ = mh(reassign(S, run, 5000, seed), e, y, G_)
+    return {"check": lab, "r": r3(r), "p": r3(pk(A_, r))}
+
+
+def without(plates):
+    k = ~P.index.isin(plates)
+    return {"S": S0 * k, "e": e_props * k, "y": y_raw * k}
+
+
+def expected(y):
+    return np.asarray(sm.GLM(y, X, family=sm.families.NegativeBinomial(alpha=a)).fit().fittedvalues)
+
+
+top = [x["plate"] for x in rich[:2]]
+out["robust"] = [check(f"without {top[0]}", **without(top[:1])), check(f"without {top[1]}", **without(top[1:2])),
+                 check(f"without {top[0]} and {top[1]}", **without(top))]
+out["robust"] += [check(f"runs split after {g} empty nights", run=runs(g), seed=72 + g) for g in (2, 6, 10)]
+out["robust"] += [check("2' cells holding a transient", y=y_cells, e=expected(y_cells)),
+                  check("central 5 x 5 deg only", y=y_inner, e=expected(y_inner))]
+for sname, g_ in shots.groupby("series"):
+    S_ = window(tests=np.setdiff1d(TESTS, g_.day.values))
+    if S_.sum() < S0.sum():
+        out["robust"].append({**check(f"without {sname}", S=S_), "plates_dropped": int(S0.sum() - S_.sum())})
 
 (ROOT / "data/nuclear_basic.json").write_text(json.dumps(out, allow_nan=False))
 print(json.dumps({k: v for k, v in out.items() if k not in ("scan",)} | {"scan": {k: v for k, v in out["scan"].items() if k != "grid"}},
