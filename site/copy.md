@@ -303,7 +303,7 @@ What the extra transients are not
 ### nuc-what-text
 If the excess near tests came from objects in orbit, as VASCO propose, the extra transients should look like them: points of light anywhere on the plate, on their own or in straight lines. We tested five predictions, each fixed before we looked.
 
-On each plate, the transients near the centre and those near the edges, where defects collect, were counted separately, and likewise those with and without another transient within 5 arcminutes. Comparing these shares within a plate cancels anything that affects the whole plate. Near tests, the share in the central plate is unchanged ({n:nb.central} times the share on other plates), and the share of transients standing on their own is lower ({n:nb.isolated} times; chance gives a shift this large {n:nb.isolated_p}% of the time). The extra transients come in close groups more often than other transients do.
+On each plate, the transients near the centre and those near the edges, where defects collect, were counted separately, and likewise those with and without another transient within 5 arcminutes. Comparing these shares within a plate cancels anything that affects the whole plate. Near tests, the odds that a transient lies in the central plate are unchanged ({n:nb.central} times those on other plates), and the odds that it stands on its own are lower ({n:nb.isolated} times; chance gives a shift this large {n:nb.isolated_p}% of the time). The extra transients come in close groups more often than other transients do.
 
 Glints from a tumbling object fall in lines. Allowing for how many transients each plate holds, transients near tests form straight track candidates less often than elsewhere: {n:nc.tracks10_r} times as often for tracks scoring 1 in 10 or better ({n:nc.tracks10_near} tracks), and {n:nc.tracks100_r} times for 1 in 100 or better ({n:nc.tracks100_near} tracks).
 
@@ -312,7 +312,7 @@ Glints focused by the telescope would be as sharp as the stars around them; flaw
 Something acting on whole plates near tests, such as contamination or handling, would add specks across them. On our own scans of the same {n:nc.plates} fields, red plates near tests hold {n:nc.red_r} times as many sources with no star behind them as the rest of their runs, and the blue plates taken the same nights {n:nc.blue_r} times. This check is too coarse to see VASCO’s transients themselves, but it rules out a general excess of specks.
 
 ### nuc-what-caption
-Plates near tests against the other plates of their observing runs, under each measure, with ranges where shown. Red: VASCO’s transients. Blue: which transients they are, sources with no star behind them on our scans of the same plates, and straight track candidates.
+Plates near tests against the other plates of their observing runs, under each measure, with ranges where shown. Red: VASCO’s transients. Blue: the odds of each kind of transient, sources with no star behind them on our scans of the same plates, and straight track candidates.
 
 ### nuclear-verdict-title
 A modest excess, not specific to the tests

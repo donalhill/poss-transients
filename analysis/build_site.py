@@ -103,9 +103,9 @@ site["nuc"] = {"r": NB_["within_runs_expected"], "runs": NB_["runs"], "null": NB
     {"label": "Without the November 1951 run", "r": lro["1951-11-03"], "group": "catalogue"},
     {"label": "Without the late-March 1955 run", "r": lro["1955-03-19"], "group": "catalogue"},
     {"label": "Full model fit (cross-check)", "r": NF["fit"]["r"], "lo": NF["fit"]["count_lo"], "hi": NF["fit"]["count_hi"], "group": "catalogue"},
-    {"label": "Share in the central plate", "r": abcd["edge against central"]["odds_ratio"], "group": "which"},
-    {"label": "Share with no neighbour within 5′", "r": abcd["crowded against isolated"]["odds_ratio"], "group": "which"},
-    {"label": "Share shaped like the stars", "r": abcd["shaped like stars or not"]["odds_ratio"], "group": "which"},
+    {"label": "In the central plate", "r": abcd["edge against central"]["odds_ratio"], "group": "which"},
+    {"label": "No neighbour within 5′", "r": abcd["crowded against isolated"]["odds_ratio"], "group": "which"},
+    {"label": "Shaped like the stars", "r": abcd["shaped like stars or not"]["odds_ratio"], "group": "which"},
     {"label": "Red-plate specks", "r": NC["blue"]["red"]["r"], "lo": NC["blue"]["red"]["count_lo"], "hi": NC["blue"]["red"]["count_hi"], "group": "scans"},
     {"label": "Blue-plate specks, same nights", "r": NC["blue"]["blue"]["r"], "lo": NC["blue"]["blue"]["count_lo"], "hi": NC["blue"]["blue"]["count_hi"], "group": "scans"},
     *[{"label": f"Tracks scoring {t['score']} or better", "r": t["r"], "lo": t["count_lo"], "hi": t["count_hi"], "group": "tracks"} for t in NC["tracks"]]]}
