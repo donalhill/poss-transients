@@ -81,3 +81,7 @@ day after) was fixed by the authors before they looked at the data. They read th
 - Fix, after the first frozen run stopped on a numerical failure and before any of its results were read: a trial
   whose window holds no plate sharing a run with an unexposed plate leaves r undetermined; such trials are dropped
   and the number kept is reported. Nothing else changed.
+- Speed, before any results were read: the data are fitted once in full; every trial keeps the plate-property slopes
+  of that fit and refits the run levels, r and the scatter (a negative binomial fit vectorised over trials). On
+  random windows it agrees with full refits to within 1-2.5%. Trials raised to 2,000 per null and 500 per injected
+  effect, which this makes cheap.
