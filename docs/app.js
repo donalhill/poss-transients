@@ -634,10 +634,35 @@ function drawPerm(D, id, key, lab) {
   s.append("text").attr("transform", `translate(12,${(top + bot) / 2}) rotate(-90)`).attr("text-anchor", "middle").text("Share of random sets");
 }
 
+/* ---------- nuclear: the excess under each correction, against the test calendar slid by years (68% and 95% of slid
+   calendars shaded) ---------- */
+function drawNucCorr(D, id) {
+  const C = D.nuc_corr, s = svg(id); if (!C) return;
+  const W = 760, rowH = 62, m = { l: 250, r: 150, t: 34, b: 50 }, H = m.t + C.length * rowH + m.b;
+  s.attr("viewBox", `0 0 ${W} ${H}`);
+  const x = d3.scaleLog().domain([0.5, 3]).range([m.l, W - m.r]).clamp(true), y = i => m.t + (i + 0.5) * rowH;
+  s.append("g").attr("transform", `translate(0,${H - m.b})`).call(d3.axisBottom(x).tickValues([0.5, 0.75, 1, 1.5, 2, 3]).tickFormat(d => d + "×").tickSizeOuter(0)).call(axisStyle);
+  s.append("text").attr("x", (m.l + W - m.r) / 2).attr("y", H - 10).attr("text-anchor", "middle").text("Transients near tests relative to the rest");
+  s.append("line").attr("x1", x(1)).attr("x2", x(1)).attr("y1", m.t - 8).attr("y2", H - m.b).attr("stroke", V("--ink")).attr("stroke-width", 1.2);
+  s.append("text").attr("class", "ann").attr("x", x(1)).attr("y", m.t - 14).attr("text-anchor", "middle").style("fill", V("--ink-2")).text("No difference");
+  C.forEach((c, i) => {
+    const n = c.calendar_null, yy = y(i);
+    s.append("rect").attr("x", x(n.q025)).attr("width", x(n.q975) - x(n.q025)).attr("y", yy - 9).attr("height", 18).attr("fill", V("--ink-3")).attr("fill-opacity", 0.22);
+    s.append("rect").attr("x", x(n.q16)).attr("width", x(n.q84) - x(n.q16)).attr("y", yy - 9).attr("height", 18).attr("fill", V("--ink-3")).attr("fill-opacity", 0.45);
+    s.append("line").attr("x1", x(n.median)).attr("x2", x(n.median)).attr("y1", yy - 9).attr("y2", yy + 9).attr("stroke", V("--ink-2")).attr("stroke-width", 1.5);
+    s.append("circle").attr("class", "hov").attr("cx", x(c.r)).attr("cy", yy).attr("r", 6).attr("fill", V("--emulsion"))
+      .call(sel => hov(sel, () => `<b>${c.measure}</b><br>${c.r.toFixed(2)}× near tests<br>slid calendars: typical ${n.median.toFixed(2)}×, middle 68% ${n.q16.toFixed(2)} to ${n.q84.toFixed(2)}<br>` +
+        `matched ${Math.round(n.p * 100)}% of the time (VASCO’s null: ${Math.round(c.vasco_null.p * 100)}%)`));
+    s.append("text").attr("x", m.l - 14).attr("y", yy + 4).attr("text-anchor", "end").style("fill", V("--ink-2")).text(c.measure);
+    s.append("text").attr("class", "ann").attr("x", W - m.r + 14).attr("y", yy - 2).style("fill", V("--emulsion")).style("font-weight", 600).text(`${c.r.toFixed(2)}×`);
+    s.append("text").attr("class", "ann").attr("x", W - m.r + 14).attr("y", yy + 14).style("fill", V("--ink-2")).style("font-size", "12px").text(`chance ${Math.round(n.p * 100)}%`);
+  });
+}
+
 let DATA = null;
 function render() {
   if (!DATA) return;
-  drawSky(DATA, "c-sky0", false); drawSpread(DATA); drawSky(DATA, "c-sky", true); drawChance(DATA); drawPerm(DATA, "c-perm-any", "raw", "VASCO’s test");
+  drawSky(DATA, "c-sky0", false); drawSpread(DATA); drawSky(DATA, "c-sky", true); drawChance(DATA); drawPerm(DATA, "c-perm-any", "raw", "VASCO’s test"); drawNucCorr(DATA, "c-nuc-corr");
   drawFan(DATA); drawTracks(DATA); drawCompare(DATA, "c-compare"); drawTail(DATA, "tail-gallery"); drawWidths(DATA, "c-widths"); drawTrail(DATA, "c-trail"); fillDates(DATA); drawRadialMap(DATA); drawRadial(DATA); drawCrowd(DATA);
   drawPlates(DATA, "c-plates"); drawForest(DATA, "c-ratio-vasco"); drawRatioNull(DATA, "c-ratio-null");
 }

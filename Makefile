@@ -87,7 +87,7 @@ $(DEPTH): $(A)/plate_depth.py $(A)/stars.py $(A)/geometry.py $(SAMPLE)
 $(BLUE): $(A)/plate_blue.py $(A)/geometry.py $(SAMPLE)
 	$(PY) $<
 
-$(NUCLEAR): $(A)/nuclear.py $(SAMPLE)
+$(NUCLEAR): $(A)/nuclear.py $(A)/nuclear_model.py $(SAMPLE) $(PROPS) $(D)/us_shot_times.csv
 	$(PY) $<
 
 $(NUCFIT): $(A)/nuclear_fit.py $(A)/nuclear_model.py $(SAMPLE) $(PROPS) $(D)/us_shot_times.csv

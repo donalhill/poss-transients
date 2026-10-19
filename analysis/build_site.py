@@ -94,6 +94,7 @@ NU = json.loads((ROOT / "data/nuclear.json").read_text())
 NF = json.loads((ROOT / "data/nuclear_fit.json").read_text())
 NC = json.loads((ROOT / "data/nuclear_checks.json").read_text())
 site["perm"] = NU["perm"]
+site["nuc_corr"] = NU["corrections"]
 NB_ = json.loads((ROOT / "data/nuclear_basic.json").read_text())
 # the nuclear measurement from the ground up (nuclear_basic.py), with the full model fit (nuclear_fit.py) as a cross-check
 lro = {x["run"]: x["r"] for x in NB_["leave_run_out"]}
@@ -469,6 +470,15 @@ numbers.update({
     "nuc.nights": num(ST["nights_window"]), "nuc.ratio": num(NU["perm"]["raw"]["real"], 2), "nuc.odds": odds(NU["perm"]["raw"]["p"]),
     "nuc.sig": num(NU["perm"]["raw"]["sigma"], 1), "nuc.plates_window": num(ST["plates_window"], 1), "nuc.plates_other": num(ST["plates_other"], 1),
     "nuc.per_plate": num(ST["per_plate"], 2),
+    **{f"nc2.{k}_r": num(x["r"], 2) for k, x in zip(("night", "photo", "point"), NU["corrections"])},
+    **{f"nc2.{k}_pv": pc(x["vasco_null"]["p"]) for k, x in zip(("night", "photo", "point"), NU["corrections"])},
+    **{f"nc2.{k}_pc": pc(x["calendar_null"]["p"]) for k, x in zip(("night", "photo", "point"), NU["corrections"])},
+    "nc2.point_odds": odds(NU["corrections"][2]["calendar_null"]["p"]),
+    "nc2.photo_cal_median": num(NU["corrections"][1]["calendar_null"]["median"], 2), "nc2.point_cal_median": num(NU["corrections"][2]["calendar_null"]["median"], 2),
+    "nc2.empty_near": word(ST["empty_window"]), "nc2.empty_other": num(ST["empty_other"]), "nc2.nights_other": num(ST["nights_other"]),
+    "nc2.med_low": num(NU["pointing"]["median_low"]), "nc2.med_high": num(NU["pointing"]["median_high"]),
+    "nc2.exp_pct": num(round(100 * (NU["pointing"]["expected_near_over_other"] - 1))), "nc2.spring": pc(NU["pointing"]["near_spring"]),
+    "nc2.slides": num(NU["pointing"]["slides"]),
     "nb.plates": num(NB_["plates_near"]), "nb.nights": num(NB_["nights_near"]), "nb.runs": word(len(NB_["runs"])),
     "nb.raw": num(NB_["raw"], 2), "nb.within": num(NB_["within_runs"], 2), "nb.r": num(NB_["within_runs_expected"], 2),
     "nb.p": pc(NB_["null_runs"]["p"]), "nb.odds": odds(NB_["null_runs"]["p"]), "nb.sig": num(NB_["null_runs"]["sigma"], 1),

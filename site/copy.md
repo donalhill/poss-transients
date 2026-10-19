@@ -254,6 +254,19 @@ On VASCO’s own construction, with the archive dates and their list of nights, 
 ### nuc-vasco-caption
 The excess of transients on the {n:nuc.nights} nights within a day of a US test (red line), against the same number of nights drawn at random from the survey, 20,000 times (grey). Every catalogue plate, on corrected dates.
 
+### nuc-corr-title
+Per photograph, and where it pointed
+
+### nuc-corr-text
+Counting by night mixes in how many photographs were taken. The nights near tests averaged {n:nuc.plates_window} plates, against {n:nuc.plates_other} on other nights. Nights with no photographs count as zero transients, although nothing was observed: {n:nc2.empty_near} of the {n:nuc.nights} nights near tests, and {n:nc2.empty_other} of the {n:nc2.nights_other} other nights. Counted per photograph, plates within a day of a test hold {n:nc2.photo_r} times as many transients as other plates.
+
+Where a plate points matters too. VASCO keep only transients with no known star nearby, so plates crowded with stars near the Milky Way hold few: a median of {n:nc2.med_low} within 10 degrees of it, against {n:nc2.med_high} more than 40 degrees away. Of the plates near tests, {n:nc2.spring}% were taken between February and June, when the night sky faces away from the Milky Way, so they pointed at sky that yields about {n:nc2.exp_pct}% more transients anyway. Measured against what their pointing predicts, plates near tests hold {n:nc2.point_r} times as many transients as other plates.
+
+VASCO’s null draws random nights from anywhere in the seven-year survey. The nights near tests are not like that: tests came in series, so those nights bunch into a few seasons, and a bunched set of nights varies more than a scattered one. Sliding the real test calendar by 1 to 5 years and up to 20 days keeps each test’s season and its spacing from the others. Against {n:nc2.slides} slid calendars, {n:nc2.point_r} times is matched {n:nc2.point_pc}% of the time, about one time in {n:nc2.point_odds}. VASCO’s null gives {n:nc2.point_pv}%.
+
+### nuc-corr-caption
+The ratio of transients near tests to the rest, as VASCO count it (per night), per photograph, and per photograph against what its pointing predicts (red), each against the same measure for the test calendar slid by 1 to 5 years (grey). Slid calendars come out at {n:nc2.photo_cal_median} per photograph, because they keep the spring sky; allowing for pointing brings them to {n:nc2.point_cal_median}.
+
 ### align-h2
 Do transients form geometric patterns?
 

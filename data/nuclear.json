@@ -87,5 +87,74 @@
   "empty_window": 2,
   "empty_other": 62,
   "nights_other": 356
+ },
+ "corrections": [
+  {
+   "measure": "Per night, as VASCO",
+   "r": 1.546,
+   "vasco_null": {
+    "p": 0.064,
+    "median": 0.953,
+    "q16": 0.706,
+    "q84": 1.274,
+    "q025": 0.518,
+    "q975": 1.886
+   },
+   "calendar_null": {
+    "p": 0.13,
+    "median": 1.052,
+    "q16": 0.792,
+    "q84": 1.499,
+    "q025": 0.621,
+    "q975": 2.765
+   }
+  },
+  {
+   "measure": "Per photograph",
+   "r": 1.346,
+   "vasco_null": {
+    "p": 0.078,
+    "median": 0.958,
+    "q16": 0.78,
+    "q84": 1.19,
+    "q025": 0.635,
+    "q975": 1.745
+   },
+   "calendar_null": {
+    "p": 0.18,
+    "median": 1.121,
+    "q16": 0.884,
+    "q84": 1.403,
+    "q025": 0.745,
+    "q975": 2.415
+   }
+  },
+  {
+   "measure": "Per photograph, allowing for pointing",
+   "r": 1.231,
+   "vasco_null": {
+    "p": 0.117,
+    "median": 0.954,
+    "q16": 0.798,
+    "q84": 1.169,
+    "q025": 0.675,
+    "q975": 1.817
+   },
+   "calendar_null": {
+    "p": 0.18,
+    "median": 1.013,
+    "q16": 0.844,
+    "q84": 1.271,
+    "q025": 0.719,
+    "q975": 2.12
+   }
+  }
+ ],
+ "pointing": {
+  "median_low": 35.0,
+  "median_high": 189.0,
+  "expected_near_over_other": 1.094,
+  "slides": 354,
+  "near_spring": 0.667
  }
 }
