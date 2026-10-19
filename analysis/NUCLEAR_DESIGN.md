@@ -108,9 +108,10 @@ day after) was fixed by the authors before they looked at the data. They read th
   their runs (Mantel-Haenszel over runs), calibrated by the same within-run reassignment; (ii) a 95% upper limit on the
   Mantel-Haenszel ratio, from effects injected into the within-run reassignments.
 - Shapes, specified before any were measured (plate_shapes.py, nuclear_basic.py): on every plate of the eight runs that
-  hold plates near tests and other plates, up to 60 transients picked at random (seeded) get a 4' DSS cutout; each is
+  hold plates near tests and other plates, up to 60 transients picked at random (seeded) get a 6' DSS cutout; each is
   fitted with an elliptical Gaussian, as are the stars on the same cutout, and its width is compared with the median
-  width of stars of similar peak brightness (0.5 to 2 times). Star-like: within the 10-90% range of the same ratio for
+  width of stars of similar peak brightness (0.4 to 2.5 times; widened from 4' and 0.5-2 after a test on three
+  transients found too few matching stars, before any were measured). Star-like: within the 10-90% range of the same ratio for
   the stars themselves. The share of star-like transients, plates near tests against the other plates of their runs
   (Mantel-Haenszel odds over runs), calibrated by within-run reassignment. Glints imaged by the telescope predict more
   star-like transients near tests; flaws in the emulsion fewer.

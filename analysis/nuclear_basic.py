@@ -15,9 +15,10 @@
 Each run is also shown on its own, with a range from the scatter between plates (not just counting).
 
 6. A 95% upper limit on the ratio in 3, from effects injected into the trials of 4.
-7. ABCD within plates: each plate's transients split into two classes (edge or central; crowded or isolated), and the
-   ratio of class shares on plates in the window against the other plates of their runs. Anything that acts on a whole
-   plate cancels; a sky signal would favour central, isolated objects, plate damage the edges and crowds.
+7. ABCD within plates: each plate's transients split into two classes (edge or central; crowded or isolated; shaped
+   like the stars around them or not, plate_shapes.py), and the ratio of class shares on plates in the window against
+   the other plates of their runs. Anything that acts on a whole plate cancels; a sky signal would favour central,
+   isolated, star-like objects, plate damage the edges, crowds, and shapes unlike stars.
 
 python analysis/nuclear_basic.py -> data/nuclear_basic.json"""
 import json
@@ -152,20 +153,36 @@ for _, idx in cat.groupby("plate").indices.items():
     if len(xy) > 1:
         d, _ = cKDTree(xy).query(xy, k=2); crowd[idx] = d[:, 1] < 5
 pidx = pd.Series(np.arange(len(P)), index=P.index)[cat.plate].values
+
+
+def share_ratio(ns, nb, S):
+    """Mantel-Haenszel over runs of the odds that a transient is signal-like, plates in the window against the rest."""
+    S = np.atleast_2d(np.asarray(S, float).T).T
+    A_, B_ = G @ (ns[:, None] * S), G @ (nb[:, None] * S); C_, D_ = G @ (ns[:, None] * (1 - S)), G @ (nb[:, None] * (1 - S))
+    tot = A_ + B_ + C_ + D_
+    num = np.sum(np.divide(A_ * D_, tot, out=np.zeros_like(tot), where=tot > 0), 0)
+    den = np.sum(np.divide(B_ * C_, tot, out=np.zeros_like(tot), where=tot > 0), 0)
+    return np.divide(num, den, out=np.full(S.shape[1], np.nan), where=den > 0)
+
+
+# the measured shapes: star-like transients signal-like, wider or narrower ones not
+sh = pd.read_csv(ROOT / "data/plate_shapes.csv")
+star = sh.groupby("plate")["class"].agg(lambda c: (c == "star-like").sum()).reindex(P.index, fill_value=0).values.astype(float)
+other = sh.groupby("plate").size().reindex(P.index, fill_value=0).values - star
+splits = [(lab, y_raw - (b_ := np.bincount(pidx, weights=cls, minlength=len(P))), b_)
+          for lab, cls in (("edge against central", edge), ("crowded against isolated", crowd))]
+splits.append(("shaped like stars or not", star, other))
 out["abcd"] = []
-for lab, cls in (("edge against central", edge), ("crowded against isolated", crowd)):
-    nb = np.bincount(pidx, weights=cls, minlength=len(P)); ns = y_raw - nb    # background-like, signal-like per plate
-    def share_ratio(S):
-        """Mantel-Haenszel over runs of the odds that a transient is signal-like, plates in the window against the rest."""
-        S = np.atleast_2d(np.asarray(S, float).T).T
-        A_, B_ = G @ (ns[:, None] * S), G @ (nb[:, None] * S); C_, D_ = G @ (ns[:, None] * (1 - S)), G @ (nb[:, None] * (1 - S))
-        tot = A_ + B_ + C_ + D_
-        num = np.sum(np.divide(A_ * D_, tot, out=np.zeros_like(tot), where=tot > 0), 0)
-        den = np.sum(np.divide(B_ * C_, tot, out=np.zeros_like(tot), where=tot > 0), 0)
-        return np.divide(num, den, out=np.full(S.shape[1], np.nan), where=den > 0)
-    rv = float(share_ratio(S0)[0]); Av = share_ratio(T)
-    out["abcd"].append({"split": lab, "share_signal_like": r3(ns.sum() / y_raw.sum()), "odds_ratio": r3(rv),
-                        "p_more_signal_like": r3(pk(Av, rv)), "p_less_signal_like": r3(pk(-Av, -rv)), "trials_median": r3(np.nanmedian(Av))})
+for lab, ns, nb in splits:
+    rv = float(share_ratio(ns, nb, S0)[0]); Av = share_ratio(ns, nb, T)
+    out["abcd"].append({"split": lab, "transients": int(ns.sum() + nb.sum()), "share_signal_like": r3(ns.sum() / (ns.sum() + nb.sum())),
+                        "odds_ratio": r3(rv), "p_more_signal_like": r3(pk(Av, rv)), "p_less_signal_like": r3(pk(-Av, -rv)),
+                        "trials_median": r3(np.nanmedian(Av)), "trials_q05": r3(np.nanquantile(Av, 0.05)), "trials_q95": r3(np.nanquantile(Av, 0.95))})
+f_star = star.sum() / (star.sum() + other.sum()); extra = 1 - 1 / r_hat               # share of transients near tests that are extra
+odds = lambda f: f / (1 - f)
+out["shapes_if_excess"] = {"all_star_like": r3(odds((1 - extra) * f_star + extra) / odds(f_star)), "none_star_like": r3(odds((1 - extra) * f_star) / odds(f_star))}
+out["shapes"] = {"measured": int(len(sh)), "plates": int(sh.plate.nunique()), "near": int(sh.plate.isin(P.index[S0 == 1]).sum()),
+                 **{c.replace("-", "_"): int((sh["class"] == c).sum()) for c in ("star-like", "wider", "narrower")}}
 
 (ROOT / "data/nuclear_basic.json").write_text(json.dumps(out, allow_nan=False))
 print(json.dumps({k: v for k, v in out.items() if k not in ("scan",)} | {"scan": {k: v for k, v in out["scan"].items() if k != "grid"}},

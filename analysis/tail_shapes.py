@@ -23,7 +23,9 @@ called wider: focused on the stars, the telescope spreads a point at distance L 
 taken here to add to the stars' width in quadrature.
 
 python analysis/tail_shapes.py -> data/tail_shapes.json"""
+import hashlib
 import json
+import pickle
 import sys
 from pathlib import Path
 
@@ -66,14 +68,29 @@ def dss(c, size, q, name=None):
     return h, fits.getdata(f).astype(float)
 
 
+FIT_CODE = hashlib.md5((Path(__file__).parent / "stars.py").read_bytes()).hexdigest()[:8]
+
+
 def field(q, c, size, targets_sky, name=None):
     """Fit the targets and the stars in one cutout; return the targets' fits, the stars' fits, the image, and the positions
-    of every source found and every catalogue transient (to keep neighbours out of a transient's stamp)."""
+    of every source found and every catalogue transient (to keep neighbours out of a transient's stamp). The fits are
+    cached next to the cutout with the image's background, keyed by the targets and the fitting code."""
     h, R = dss(c, size, q, name); w = WCS(h)
+    tx, ty = w.world_to_pixel(targets_sky)
+    cache = CUT / f"{name or f'{q}_poss1_red_{size:g}'}.fits.{FIT_CODE}.{hashlib.md5(np.round(np.r_[tx, ty], 3).tobytes()).hexdigest()[:8]}.pkl"
+    if cache.exists():
+        out, stars, others, bg = pickle.loads(cache.read_bytes())
+        return out, stars, R - bg, others
+    out, stars, im, others = _field(q, h, R, w, tx, ty)
+    bg = R - im; assert np.array_equal(bg, bg.astype(np.int16))         # a median of whole numbers: stored exactly
+    cache.write_bytes(pickle.dumps((out, stars, others, bg.astype(np.int16))))
+    return out, stars, im, others
+
+
+def _field(q, h, R, w, tx, ty):
     im = R - median_filter(R, size=31)
     _, med, sd = sigma_clipped_stats(im)
     found = DAOStarFinder(fwhm=2.5, threshold=5 * sd, sharplo=0.0, sharphi=3.0, roundlo=-3.0, roundhi=3.0)(im - med)   # no shape cuts on the stars
-    tx, ty = w.world_to_pixel(targets_sky)
     # every catalogue transient in the cutout is left out of the stars
     g = cat[cat.plate == q]; ra_, dec_ = deproject(g.xi.values, g.eta.values, pl.loc[q].ra_c, pl.loc[q].dec_c)
     ax, ay = w.world_to_pixel(SkyCoord(ra_ * u.deg, dec_ * u.deg))

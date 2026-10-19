@@ -19,6 +19,7 @@ NUCFIT   := $(D)/nuclear_fit.json
 NUCCHECK := $(D)/nuclear_checks.json
 NUCBASIC := $(D)/nuclear_basic.json
 BLUE     := $(D)/plate_blue.csv
+PSHAPES  := $(D)/plate_shapes.csv
 PROPS    := $(A)/plate_properties.py $(DUST) $(DEPTH) $(D)/xe_headers.parquet
 ALIGN    := $(D)/alignments.json
 VCAND    := $(D)/vasco_candidates.json
@@ -92,7 +93,10 @@ $(NUCLEAR): $(A)/nuclear.py $(SAMPLE)
 $(NUCFIT): $(A)/nuclear_fit.py $(A)/nuclear_model.py $(SAMPLE) $(PROPS) $(D)/us_shot_times.csv
 	$(PY) $<
 
-$(NUCBASIC): $(A)/nuclear_basic.py $(A)/nuclear_model.py $(SAMPLE) $(PROPS) $(D)/us_shot_times.csv
+$(PSHAPES): $(A)/plate_shapes.py $(A)/stars.py $(A)/nuclear_model.py $(SAMPLE) $(PROPS) $(D)/us_shot_times.csv
+	$(PY) $<
+
+$(NUCBASIC): $(A)/nuclear_basic.py $(A)/nuclear_model.py $(SAMPLE) $(PROPS) $(PSHAPES) $(D)/us_shot_times.csv
 	$(PY) $<
 
 $(NUCCHECK): $(A)/nuclear_checks.py $(A)/nuclear_model.py $(A)/alignments.py $(SAMPLE) $(PROPS) $(BLUE) $(D)/us_shot_times.csv

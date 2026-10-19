@@ -301,11 +301,13 @@ Every window of consecutive days within two weeks of a US test that holds at lea
 What the extra transients are not
 
 ### nuc-what-text
-If the excess near tests came from objects in orbit, as VASCO propose, the extra transients should look like them: points of light anywhere on the plate, on their own or in straight lines. We tested four predictions, each fixed before we looked.
+If the excess near tests came from objects in orbit, as VASCO propose, the extra transients should look like them: points of light anywhere on the plate, on their own or in straight lines. We tested five predictions, each fixed before we looked.
 
 On each plate, the transients near the centre and those near the edges, where defects collect, were counted separately, and likewise those with and without another transient within 5 arcminutes. Comparing these shares within a plate cancels anything that affects the whole plate. Near tests, the share in the central plate is unchanged ({n:nb.central} times the share on other plates), and the share of transients standing on their own is lower ({n:nb.isolated} times; chance gives a shift this large {n:nb.isolated_p}% of the time). The extra transients come in close groups more often than other transients do.
 
 Glints from a tumbling object fall in lines. Allowing for how many transients each plate holds, transients near tests form straight track candidates less often than elsewhere: {n:nc.tracks10_r} times as often for tracks scoring 1 in 10 or better ({n:nc.tracks10_near} tracks), and {n:nc.tracks100_r} times for 1 in 100 or better ({n:nc.tracks100_near} tracks).
+
+Glints focused by the telescope would be as sharp as the stars around them; flaws in the emulsion often are not. For {n:nb.shapes} transients, up to 60 picked at random from each plate of the runs that hold plates near tests, we fitted the transient and the stars of similar brightness on the same scan: {n:nb.starlike}% are as sharp as those stars and {n:nb.wider}% are wider. Near tests, the odds that a transient is shaped like the stars are {n:nb.shape_r} times those on the other plates of their runs, where chance gives between {n:nb.shape_q05} and {n:nb.shape_q95} nine times in ten. Had the whole excess been shaped like stars, the figure would be about {n:nb.shape_if_star}; had none of it been, about {n:nb.shape_if_none}. The extra transients are shaped like stars as often as the rest.
 
 Something acting on whole plates near tests, such as contamination or handling, would add specks across them. On our own scans of the same {n:nc.plates} fields, red plates near tests hold {n:nc.red_r} times as many sources with no star behind them as the rest of their runs, and the blue plates taken the same nights {n:nc.blue_r} times. This check is too coarse to see VASCO’s transients themselves, but it rules out a general excess of specks.
 
@@ -318,7 +320,7 @@ A modest excess, not specific to the tests
 ### nuclear-verdict
 Compared with photographs taken in the same observing runs, and allowing for everything we can measure about each plate, plates taken within a day of a US nuclear test hold about {n:nb.r} times as many transients. Chance does as well about one time in {n:nb.odds}, and the excess comes almost entirely from two runs, each led by one unusually rich night.
 
-It is not specific to the tests: windows with no reason to matter are as striking. And the extra transients do not behave like objects in orbit: they gather in close groups and form straight lines less often than other transients. The data cannot rule out an excess of VASCO’s size; an independent test would need plates the analysis has not yet touched, such as the survey’s southern plates.
+It is not specific to the tests: windows with no reason to matter are as striking. And the extra transients do not behave like objects in orbit: they gather in close groups, form straight lines less often than other transients, and are no more often shaped like stars. The data cannot rule out an excess of VASCO’s size; an independent test would need plates the analysis has not yet touched, such as the survey’s southern plates.
 
 ### align-h2
 Do transients form geometric patterns?
