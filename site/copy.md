@@ -278,7 +278,7 @@ We also allowed for every other property we can measure on each plate: how deep 
 Nor does what counts as a transient. Counting 2-arcminute cells rather than transients, keeping only the central part of each plate, or keeping only transients with no other within 5 arcminutes all give similar results. Neither does leaving out any one series of tests. Every version lies between {n:nc3.lo} and {n:nc3.hi} times, and slid calendars do as well between {n:nc3.p_lo}% and {n:nc3.p_hi}% of the time.
 
 ### nuc-checks-caption
-The ratio for plates near nuclear tests, per photograph and against pointing (dashed line), under each further check, each against its own slid test calendars.
+How far each further check moves the ratio for plates near nuclear tests, from {n:nc2.point_r} times per photograph allowing for pointing. Each version is measured against its own slid test calendars.
 
 ### align-h2
 Do transients form geometric patterns?

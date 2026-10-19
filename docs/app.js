@@ -635,27 +635,29 @@ function drawPerm(D, id, key, lab, o = {}) {
   s.append("text").attr("transform", `translate(12,${(top + bot) / 2}) rotate(-90)`).attr("text-anchor", "middle").text(o.ylab || "Share of random sets");
 }
 
-/* ---------- nuclear: the corrected ratio under everything else checked, each against its own slid calendars ---------- */
+/* ---------- nuclear: how far each further check moves the ratio per photograph allowing for pointing, as bars either
+   side of it ---------- */
 function drawNucChecks(D, id) {
   const C = D.nuc_checks, s = svg(id); if (!C) return;
-  const W = 760, rowH = 26, m = { l: 270, r: 120, t: 34, b: 50 }, gap = 14;
+  const W = 760, rowH = 26, m = { l: 250, r: 215, t: 40, b: 50 }, gap = 14, base = C.base;
   let yy = m.t; const pos = [];
   C.rows.forEach((r, i) => { if (i === 0 || C.rows[i - 1].group !== r.group) { yy += i ? gap : 0; pos.push({ head: r.group, y: yy }); yy += 20; } pos.push({ row: r, y: yy }); yy += rowH; });
   const H = yy + m.b; s.attr("viewBox", `0 0 ${W} ${H}`);
-  const x = d3.scaleLog().domain([0.8, 1.6]).range([m.l, W - m.r]).clamp(true);
-  s.append("g").attr("transform", `translate(0,${H - m.b + 8})`).call(d3.axisBottom(x).tickValues([0.8, 1, 1.2, 1.4, 1.6]).tickFormat(d => d + "×").tickSizeOuter(0)).call(axisStyle);
-  s.append("text").attr("x", (m.l + W - m.r) / 2).attr("y", H - 6).attr("text-anchor", "middle").text("Transients per photograph near tests, against pointing, relative to the rest");
-  s.append("line").attr("x1", x(1)).attr("x2", x(1)).attr("y1", m.t - 8).attr("y2", H - m.b + 8).attr("stroke", V("--ink")).attr("stroke-width", 1.2);
-  s.append("text").attr("class", "ann").attr("x", x(1)).attr("y", m.t - 14).attr("text-anchor", "middle").style("fill", V("--ink-2")).text("No difference");
-  s.append("line").attr("x1", x(C.base)).attr("x2", x(C.base)).attr("y1", m.t - 8).attr("y2", H - m.b + 8).attr("stroke", V("--emulsion")).attr("stroke-width", 1.2).attr("stroke-dasharray", "4 3");
-  s.append("text").attr("class", "ann").attr("x", x(C.base)).attr("y", m.t - 14).attr("text-anchor", "middle").style("fill", V("--emulsion")).text(`Corrected result ${C.base.toFixed(2)}×`);
+  const x = d3.scaleLinear().domain([-0.2, 0.2]).range([m.l, W - m.r]).clamp(true);
+  const sg = v => { v = Math.round(v * 100) / 100; return (v > 0 ? "+" : v < 0 ? "−" : "±") + Math.abs(v).toFixed(2); };
+  s.append("g").attr("transform", `translate(0,${H - m.b + 8})`).call(d3.axisBottom(x).tickValues([-0.2, -0.1, 0, 0.1, 0.2]).tickFormat(sg).tickSizeOuter(0)).call(axisStyle);
+  s.append("text").attr("x", (m.l + W - m.r) / 2).attr("y", H - 6).attr("text-anchor", "middle").text(`Change from ${base.toFixed(2)}×`);
+  s.append("line").attr("x1", x(0)).attr("x2", x(0)).attr("y1", m.t - 10).attr("y2", H - m.b + 8).attr("stroke", V("--emulsion")).attr("stroke-width", 1.5);
+  s.append("text").attr("class", "ann").attr("x", x(0)).attr("y", m.t - 16).attr("text-anchor", "middle").style("fill", V("--emulsion"))
+    .text(`Per photograph, allowing for pointing: ${base.toFixed(2)}×`);
   pos.forEach(p_ => {
     if (p_.head) { s.append("text").attr("x", 10).attr("y", p_.y + 6).style("font-weight", 600).text(p_.head); return; }
-    const r = p_.row;
+    const r = p_.row, d = r.r - base;
     s.append("text").attr("x", m.l - 12).attr("y", p_.y + 4).attr("text-anchor", "end").style("fill", V("--ink-2")).text(r.label);
-    s.append("circle").attr("cx", x(r.r)).attr("cy", p_.y).attr("r", 5).attr("fill", V("--emulsion"));
-    s.append("text").attr("class", "ann").attr("x", W - m.r + 10).attr("y", p_.y + 4).style("fill", V("--ink-2"))
-      .text(`${r.r.toFixed(2)}×, chance ${Math.round(r.p * 100)}%`);
+    s.append("rect").attr("x", Math.min(x(0), x(d))).attr("width", Math.max(1.5, Math.abs(x(d) - x(0)))).attr("y", p_.y - 7).attr("height", 14)
+      .attr("fill", V("--emulsion")).attr("fill-opacity", 0.8);
+    s.append("text").attr("class", "ann").attr("x", W - m.r + 12).attr("y", p_.y + 4).style("fill", V("--ink-2"))
+      .text(`${r.r.toFixed(2)}× (${sg(d)}), chance ${Math.round(r.p * 100)}%`);
   });
 }
 
