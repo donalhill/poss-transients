@@ -70,3 +70,11 @@ day after) was fixed by the authors before they looked at the data. They read th
   null, leave-one-run-out, leave-one-series-out, the 5 x 5 deg cut within runs, and the blue-plate test.
 - Seen before freezing: within runs, with the earlier depth measure, r was about 1.7 at a local p of about 0.006,
   and a global p of 0.04, 0.08 and 0.26 for windows within 3, 7 and 14 days.
+
+## Addendum, specified after the freeze and before its result existed (19 October 2026)
+- Prediction out of sample: each observing night held out in turn; its plates predicted from the within-run model
+  fitted to every other night (the run's level from its other nights). Held-out negative binomial log-likelihood
+  with and without the test-date feature (VASCO's window as one feature; and the day before, the day and the day
+  after as three). The gain is calibrated against the same feature assigned to random nights within runs.
+- The blue-plate measurement (plate_blue.py) was taken while the frozen run was going; its comparison of exposed and
+  unexposed nights is run only after the frozen results.
