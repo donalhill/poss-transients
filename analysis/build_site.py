@@ -103,6 +103,7 @@ site["nucfit"]["measures"] = [
     {"label": "Counting 2′ cells, not transients", "r": rob["2' cells holding a transient"]["r"], "group": "catalogue"},
     {"label": "Central 5 × 5 degrees only", "r": rob["central 5 x 5 deg only"]["r"], "group": "catalogue"},
     {"label": "Without the 1955 Teapot tests", "r": teapot["r"], "group": "catalogue"},
+    {"label": "Without its two richest nights", "r": NC["rich_nights"]["r_without"], "group": "catalogue"},
     {"label": "Red-plate specks", "r": NC["blue"]["red"]["r"], "lo": NC["blue"]["red"]["count_lo"], "hi": NC["blue"]["red"]["count_hi"], "group": "scans"},
     {"label": "Blue-plate specks, same nights", "r": NC["blue"]["blue"]["r"], "lo": NC["blue"]["blue"]["count_lo"], "hi": NC["blue"]["blue"]["count_hi"], "group": "scans"},
     *[{"label": f"Tracks scoring {t['score']} or better", "r": t["r"], "lo": t["count_lo"], "hi": t["count_hi"], "group": "tracks"} for t in NC["tracks"]]]
@@ -473,6 +474,16 @@ numbers.update({
     "nc.pred_nights": num(pred["VASCO's window"]["nights_held_out"]),
     "nc.tracks10_r": num(NC["tracks"][0]["r"], 2), "nc.tracks100_r": num(NC["tracks"][1]["r"], 2),
     "nc.tracks10_near": num(NC["tracks"][0]["tracks_near"]), "nc.tracks100_near": word(NC["tracks"][1]["tracks_near"])})
+RN = NC["rich_nights"]
+longdate = lambda d: pd.Timestamp(d).strftime("%-d %B %Y")
+numbers.update({
+    "nr.top1": longdate(RN["top_near"][0]["date"]), "nr.top1_r": num(RN["top_near"][0]["ratio"], 1),
+    "nr.top2": longdate(RN["top_near"][1]["date"]), "nr.top2_r": num(RN["top_near"][1]["ratio"], 1),
+    "nr.threshold": num(RN["threshold"], 1), "nr.rich": word(RN["rich"]), "nr.rich_near": word(RN["rich_near"]),
+    "nr.p_chance": pc(RN["p_chance"]), "nr.r_without": num(RN["r_without"], 2), "nr.p_without": pc(RN["p_without"]),
+    "nr.typical": num(RN["typical"]["median"], 2), "nr.typical_trials": num(RN["typical"]["trials_median"], 2),
+    "nr.typical_p": pc(RN["typical"]["p"]), "nr.typical2": num(RN["typical_without_two"]["median"], 2),
+    "nr.typical2_p": num(100 * RN["typical_without_two"]["p"], 1)})
 site["numbers"] = numbers
 
 (OUT / "data/site.json").write_text(json.dumps(site, separators=(",", ":"), allow_nan=False))

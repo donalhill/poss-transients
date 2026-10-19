@@ -74,5 +74,52 @@
    "count_hi": 0.957,
    "p_runs": 0.934
   }
- ]
+ ],
+ "rich_nights": {
+  "top_near": [
+   {
+    "date": "1951-11-05",
+    "ratio": 3.037,
+    "n": 911,
+    "plates": [
+     "XE296",
+     "XE478"
+    ]
+   },
+   {
+    "date": "1955-03-23",
+    "ratio": 2.798,
+    "n": 1527,
+    "plates": [
+     "XE317",
+     "XE368",
+     "XE429",
+     "XE482"
+    ]
+   }
+  ],
+  "threshold": 2.5,
+  "nights": 309,
+  "nights_near": 15,
+  "rich": 5,
+  "rich_near": 2,
+  "rich_elsewhere": [
+   "1952-07-20",
+   "1952-08-18",
+   "1954-07-06"
+  ],
+  "p_chance": 0.02,
+  "r_without": 1.223,
+  "p_without": 0.147,
+  "typical": {
+   "median": 1.328,
+   "trials_median": 0.936,
+   "p": 0.048
+  },
+  "typical_without_two": {
+   "median": 1.307,
+   "trials_median": 0.885,
+   "p": 0.026
+  }
+ }
 }

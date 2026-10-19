@@ -281,6 +281,8 @@ Injecting effects into these trials gives the range of true ratios the data allo
 
 The result holds when each observing run is left out in turn ({n:nf.loo_lo} to {n:nf.loo_hi}), when runs are drawn differently ({n:nf.gap_r_lo} to {n:nf.gap_r_hi}), when clumps of transients are counted once ({n:nf.cells_r}), and when only the central 5 by 5 degrees of each plate is used ({n:nf.inner_r}). It leans most on one test series: without the {n:nf.teapot_plates} plates near the Teapot tests of March 1955, the ratio falls to {n:nf.teapot_r}.
 
+Most of the total excess comes from two nights: {n:nr.top1}, when the plates hold {n:nr.top1_r} times their expected number, and {n:nr.top2}, at {n:nr.top2_r} times. Nights this rich are rare but not unique to tests: {n:nr.rich} nights in the survey hold {n:nr.threshold} times their expected number or more, and {n:nr.rich_near} of them fall within a day of a test, which chance would arrange {n:nr.p_chance}% of the time. Without those two nights the ratio falls to {n:nr.r_without}, which random nights match {n:nr.p_without}% of the time. The lean is broader than those two nights, however. The typical night near a test, the median, holds {n:nr.typical} times its expected number, which random nights within the same runs reach {n:nr.typical_p}% of the time; leaving out the two richest nights, {n:nr.typical2} times ({n:nr.typical2_p}%). We looked at this measure after seeing the nights in the chart above.
+
 ### nuc-chance-caption
 The fitted ratio with VASCO’s window moved to random nights of the same observing runs (grey), against the real window (red).
 
@@ -291,6 +293,8 @@ Is VASCO’s window special?
 VASCO read the sharpness of the association in time as evidence that it is real. A window of the test day and a day either side is one of many that could have been chosen. The chart shows every window of consecutive days within two weeks of the tests, each fitted like VASCO’s and coloured by how rarely random calendars match it.
 
 Of the {n:nf.windows} windows, VASCO’s is among the {n:nf.rank} most significant, a ranking chance would give it {n:nf.rank_p}% of the time. But windows with no reason to matter are as striking: the most striking of all runs from {n:nf.g14_best} days, before the tests, at {n:nf.g14_best_r} times the expected number. Allowing for every window within 3 days of the tests, chance matches the best of them {n:nf.g3}% of the time ({n:nf.g3_sig} standard deviations); within 7 days, {n:nf.g7}% ({n:nf.g7_sig}); and within 14 days, {n:nf.g14}% ({n:nf.g14_sig}).
+
+The map has structure, and much of it is the same two nights. Each lies a day from one shot and two weeks before another shot of the same series, so the same nights light up VASCO’s window and the windows two weeks before the tests.
 
 Measured in hours from each detonation, plates exposed in the day after a shot hold {n:nf.after_r} times the expected number ({n:nf.after_plates} plates), plates in the day before a shot {n:nf.before_r} times ({n:nf.before_plates} plates), and plates 24 to 48 hours after a shot {n:nf.after2_r} times.
 

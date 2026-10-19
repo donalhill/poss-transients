@@ -90,3 +90,11 @@ day after) was fixed by the authors before they looked at the data. They read th
   better; each transient in at most one track, best first), with the plate's own number of transients as a further
   covariate, so the question is whether transients near tests line up more often than their numbers imply. Same
   within-run model and null (a).
+- Diagnostic, found after the frozen results (from the map of every window): the hot cells at days -14 and -6 and
+  VASCO's window are the same two nights, 5 November 1951 and 23 March 1955, each at day 0 from one shot and 14 days
+  before another of the same series. Reported: each night's transients over expected; how many nights in the survey
+  are as rich, and how many of them fall near tests (with the hypergeometric chance); r without the two nights.
+- Diagnostic, found after the frozen results (from the chart of nights near tests): the median, over the nights near
+  tests, of each night's transients over expected, with the run levels fitted with the window as a factor in the data
+  and in every trial alike; also with each set's two richest nights left out. The statistic was chosen after seeing
+  the chart.

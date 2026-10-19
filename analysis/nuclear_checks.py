@@ -11,6 +11,10 @@
 3. Tracks. Each plate's number of straight track candidates (alignments.py's track score at 1 in 10, and at 1 in 100,
    or better; each transient in at most one track, best first), with the plate's number of transients as a further
    covariate: do transients near tests line up more often than their numbers imply?
+4. The richest nights (a diagnostic found after the frozen results): each night's transients over what the model
+   expects of them; how many nights are as rich as the richest near tests, and how many of those fall near tests; and
+   r without the two richest nights near tests; and the typical night near a test (the median of the nights'
+   ratios), with and without the two richest.
 
 python analysis/nuclear_checks.py -> data/nuclear_checks.json"""
 import json
@@ -18,8 +22,9 @@ import json
 import numpy as np
 import pandas as pd
 from scipy.special import gammaln
+from scipy.stats import hypergeom
 
-from nuclear_model import GAP, P, ROOT, Trials, day, full_fit, pk, r3, reassign, runs, window, y_raw
+from nuclear_model import DAY0, GAP, P, ROOT, Trials, day, full_fit, pk, r3, reassign, runs, window, y_raw
 
 NREP, NRAND = 2000, 200
 run0 = runs(GAP)
@@ -106,6 +111,38 @@ for level, lab in ((-1, "1 in 10"), (-2, "1 in 100")):
     A = Trials(mu, run0, a, dof).r(reassign(S0, run0, NREP, 13), y)
     out["tracks"].append({"score": lab, "tracks": int(y.sum()), "tracks_near": int(y[S0 == 1].sum()), "r": r3(r),
                           "count_lo": r3(r * np.exp(-se)), "count_hi": r3(r * np.exp(se)), "p_runs": r3(pk(A, r))})
+
+# 4. the richest nights
+r0, _, a0, dof0, mu0w = full_fit(y_raw, run0, S0)
+N = pd.DataFrame({"day": day, "n": y_raw, "e": mu0w, "S": S0}).groupby("day").agg(n=("n", "sum"), e=("e", "sum"), S=("S", "max"))
+N["ratio"] = N.n / N.e
+top2 = N[N.S == 1].sort_values("ratio", ascending=False).head(2)
+cut = round(float(top2.ratio.min()), 1) - 0.3                         # nights about as rich as the second-richest near tests
+rich = N[N.ratio >= cut]
+keep2 = ~np.isin(day, top2.index.values)
+rk, sek, ak, dofk, muk = full_fit(y_raw, run0, S0, keep=keep2)
+o = np.ones(len(y_raw)); o[keep2] = muk
+Ak = Trials(o, run0, ak, dofk, keep=keep2).r(reassign(S0 * keep2, run0, NREP, 17), y_raw)
+date = lambda d: str((DAY0 + pd.Timedelta(days=int(d))).date())
+out["rich_nights"] = {"top_near": [{"date": date(d), "ratio": r3(r_.ratio), "n": int(r_.n), "plates": list(P.index[day == d])} for d, r_ in top2.iterrows()],
+                      "threshold": cut, "nights": int(len(N)), "nights_near": int(N.S.sum()), "rich": int(len(rich)), "rich_near": int(rich.S.sum()),
+                      "rich_elsewhere": [date(d) for d in rich.index[rich.S == 0]],
+                      "p_chance": r3(hypergeom.sf(int(rich.S.sum()) - 1, len(N), int(N.S.sum()), len(rich))),
+                      "r_without": r3(rk), "p_without": r3(pk(Ak, rk))}
+# the typical night: the median over the nights in the window of each night's transients over expected, the run levels
+# fitted with the window (or the trial's window) as a factor
+TR0 = Trials(mu0w, run0, a0, dof0)
+T = np.c_[S0, reassign(S0, run0, 4000, 23)]
+_, lam, _ = TR0.r(T, y_raw, levels=True)
+bkg = mu0w[:, None] * np.exp(lam[TR0.ri])
+ud, di = np.unique(day, return_inverse=True); Nn = np.bincount(di, weights=y_raw)
+for drop, key in ((0, "typical"), (2, "typical_without_two")):
+    st = []
+    for j in range(T.shape[1]):
+        rs = np.sort((Nn / np.bincount(di, weights=bkg[:, j]))[np.unique(di[T[:, j] == 1])])
+        st.append(np.median(rs[:len(rs) - drop]))
+    st = np.array(st)
+    out["rich_nights"][key] = {"median": r3(st[0]), "trials_median": r3(np.median(st[1:])), "p": r3(pk(st[1:], st[0]))}
 
 (ROOT / "data/nuclear_checks.json").write_text(json.dumps(out, indent=1))
 print(json.dumps(out, indent=1))
