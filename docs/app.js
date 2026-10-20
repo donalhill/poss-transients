@@ -661,27 +661,29 @@ function drawNucChecks(D, id) {
   });
 }
 
-/* ---------- nuclear: every window that includes the test day, up to a week each side, from the largest ratio to the
-   smallest; VASCO's in red ---------- */
+/* ---------- nuclear: how far each other window that includes the test day (up to a week each side) moves the ratio
+   from VASCO's window, as a histogram ---------- */
 function drawNucWindows(D, id) {
   const F = D.nuc_windows, s = svg(id); if (!F) return;
-  const G = F.cells.slice().sort((a, b) => b.r - a.r), W = 760, H = 300, m = { l: 56, r: 16, t: 40, b: 46 };
-  const x = d3.scaleBand().domain(d3.range(G.length)).range([m.l, W - m.r]).paddingInner(0.2);
-  const y = d3.scaleLinear().domain([0.8, 1.5]).range([H - m.b, m.t]);
-  const iV = G.findIndex(d => d.before === 1 && d.after === 1), V_ = G[iV];
-  const name = d => d.before === 0 && d.after === 0 ? "The test day alone" : `${d.before} day${d.before === 1 ? "" : "s"} before to ${d.after} day${d.after === 1 ? "" : "s"} after`;
-  s.append("g").attr("transform", `translate(${m.l},0)`).call(d3.axisLeft(y).tickValues([0.8, 1, 1.2, 1.4]).tickFormat(d => `${d}×`).tickSize(3)).call(axisStyle);
-  s.append("line").attr("x1", m.l).attr("x2", W - m.r).attr("y1", y(1)).attr("y2", y(1)).attr("stroke", V("--ink-3"));
-  s.append("g").selectAll("rect").data(G).join("rect").attr("class", "hov")
-    .attr("x", (d, i) => x(i)).attr("width", x.bandwidth()).attr("y", d => Math.min(y(1), y(d.r))).attr("height", d => Math.abs(y(d.r) - y(1)))
-    .attr("fill", (d, i) => i === iV ? V("--emulsion") : V("--ink-3")).attr("fill-opacity", (d, i) => i === iV ? 1 : 0.6)
-    .call(sel => hov(sel, d => `<b>${name(d)}</b><br>${d.r.toFixed(2)}× per photograph, against pointing<br>slid calendars match it ${Math.round(d.p * 100)}% of the time`));
-  const xv = x(iV) + x.bandwidth() / 2;
-  s.append("line").attr("x1", xv).attr("x2", xv).attr("y1", m.t - 8).attr("y2", y(V_.r)).attr("stroke", V("--emulsion")).attr("stroke-dasharray", "3 3");
-  s.append("text").attr("class", "ann").attr("x", xv + 8).attr("y", m.t).style("fill", V("--emulsion")).style("font-weight", 600)
-    .text(`VASCO’s window: ${V_.r.toFixed(2)}×, ${iV + 1}${(iV + 1) % 100 >= 11 && (iV + 1) % 100 <= 13 ? "th" : ({ 1: "st", 2: "nd", 3: "rd" }[(iV + 1) % 10] || "th")} of ${G.length}`);
-  s.append("text").attr("x", (m.l + W - m.r) / 2).attr("y", H - 12).attr("text-anchor", "middle").text("Every window including the test day, up to a week either side, from largest to smallest");
-  s.append("text").attr("transform", `translate(14,${(m.t + H - m.b) / 2}) rotate(-90)`).attr("text-anchor", "middle").text("Transients near tests relative to the rest");
+  const V_ = F.cells.find(d => d.before === 1 && d.after === 1), O = F.cells.filter(d => d !== V_).map(d => d.r - V_.r);
+  const W = 760, H = 290, m = { l: 52, r: 16, t: 40, b: 50 }, bw = 0.025;
+  const lo = Math.floor(d3.min(O) / bw) * bw, hi = Math.ceil(d3.max(O) / bw) * bw;
+  const bins = d3.bin().domain([lo, hi]).thresholds(d3.range(lo, hi + 1e-9, bw))(O);
+  const x = d3.scaleLinear().domain([lo - bw, hi + bw]).range([m.l, W - m.r]), y = d3.scaleLinear().domain([0, d3.max(bins, b => b.length) + 1]).range([H - m.b, m.t]);
+  const sg = v => (v > 0 ? "+" : v < 0 ? "−" : "±") + Math.abs(v).toFixed(2);
+  s.append("g").attr("transform", `translate(0,${H - m.b})`).call(d3.axisBottom(x).ticks(8).tickFormat(sg).tickSizeOuter(0)).call(axisStyle);
+  s.append("g").attr("transform", `translate(${m.l},0)`).call(d3.axisLeft(y).ticks(5).tickFormat(d3.format("d")).tickSize(3)).call(axisStyle);
+  s.append("g").selectAll("rect").data(bins).join("rect").attr("x", b => x(b.x0) + 1).attr("width", b => Math.max(0, x(b.x1) - x(b.x0) - 2))
+    .attr("y", b => y(b.length)).attr("height", b => y(0) - y(b.length)).attr("rx", 1.5)
+    .attr("fill", b => b.x0 >= 0 ? V("--emulsion") : V("--ink-3")).attr("fill-opacity", b => b.x0 >= 0 ? 0.75 : 0.6);
+  s.append("line").attr("x1", x(0)).attr("x2", x(0)).attr("y1", m.t - 8).attr("y2", H - m.b).attr("stroke", V("--emulsion")).attr("stroke-width", 2);
+  s.append("text").attr("class", "ann").attr("x", x(0)).attr("y", m.t - 14).attr("text-anchor", "middle").style("fill", V("--emulsion")).style("font-weight", 600)
+    .text(`VASCO’s window, ${V_.r.toFixed(2)}×`);
+  const up = O.filter(v => v > 0).length, dn = O.length - up;
+  s.append("text").attr("class", "ann").attr("x", x(0) + 10).attr("y", m.t + 16).style("fill", V("--ink-2")).text(`${up} windows higher →`);
+  s.append("text").attr("class", "ann").attr("x", x(0) - 10).attr("y", m.t + 16).attr("text-anchor", "end").style("fill", V("--ink-2")).text(`← ${dn} windows lower`);
+  s.append("text").attr("x", (m.l + W - m.r) / 2).attr("y", H - 10).attr("text-anchor", "middle").text("Change in the ratio from VASCO’s window");
+  s.append("text").attr("transform", `translate(14,${(m.t + H - m.b) / 2}) rotate(-90)`).attr("text-anchor", "middle").text("Windows");
 }
 
 let DATA = null;

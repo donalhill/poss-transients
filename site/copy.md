@@ -286,12 +286,12 @@ Why a day either side?
 ### nuc-global-text
 The 2026 paper describes the association as highly specific in time, and reads this as a sign of a physical link. But the test day and a day either side is one of many windows that would have been just as natural to choose: any number of days before the test, and any number after.
 
-Allowing up to a week on each side gives {n:nc4.windows} such windows, each scored the same way. Of the other {n:nc4.others}, {n:nc4.larger} give a larger ratio than VASCO’s. The largest is the test day alone, at {n:nc4.best_r} times, and even that is matched by chance {n:nc4.best_global}% of the time once its choice from {n:nc4.windows} is allowed for.
+Allowing up to a week on each side gives {n:nc4.windows} such windows, each scored the same way. Of the other {n:nc4.others}, {n:nc4.larger} give a larger ratio than VASCO’s and {n:nc4.smaller} a smaller one. The largest is the test day alone, at {n:nc4.best_r} times, and even that is matched by chance {n:nc4.best_global}% of the time once its choice from {n:nc4.windows} is allowed for.
 
 VASCO fixed their window before looking at the data, so on its own its chance of about one in {n:nc2.odds} needs no allowance for other windows. But had a researcher tried all {n:nc4.windows} and reported the best, chance would give a result at least as strong as VASCO’s {n:nc4.chance}% of the time. Allowing up to two weeks on each side, {n:nc4.chance14}%.
 
 ### nuc-global-caption
-Every window that includes a US test day, from the test day alone to a week before and after, by the ratio for plates near tests, from largest to smallest. VASCO’s window, a day either side, in red.
+How far each of the other windows that include a US test day, from the test day alone to a week before and after, moves the ratio for plates near tests away from VASCO’s window, a day either side.
 
 ### align-h2
 Do transients form geometric patterns?
