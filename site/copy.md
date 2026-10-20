@@ -304,14 +304,16 @@ How far each further check moves the ratio for plates near nuclear tests. Each v
 Choice of time window
 
 ### nuc-global-text
-The 2026 paper describes the association as highly specific in time, and reads this as a sign of a physical link. However, one day either side of a test is only one of several windows that could have also been chosen.
+The 2026 paper describes the association as highly specific in time, and reads this as a sign of a physical link. However, one day either side of a test is one of several windows that could equally have been chosen.
 
-Allowing for windows of up to a week on either side gives {n:nc4.windows} such windows, each of which can be analysed in the same way. Results across these windows run from {n:nc4.r_lo} to {n:nc4.r_hi}, with values falling into two distinct groups. This split is caused by a few plates which exhibit unusually high transient levels, which move in and out of the analysis time windows depending on the specific choice:
+Allowing for windows of up to a week on either side gives {n:nc4.windows} such windows, each of which can be analysed in the same way. Results across these windows run from {n:nc4.r_lo} to {n:nc4.r_hi}, with values falling into two distinct groups. The split comes from a few plates with unusually many transients, which fall inside some windows and outside others:
 
 - Plate {n:nc4.rw_plate} ({n:nc4.rw_date}) holds {n:nc4.rw_n} transients, where its pointing predicts around {n:nc4.rw_e}. It was taken {n:nc4.rw_days} days after a test, so every analysis window that reaches this far includes it and lands in the upper group of results.
 - Two plates taken on test days, {n:nc4.rd1} and {n:nc4.rd2}, are also unusually rich. Between them they hold {n:nc4.rd_share}% of the transients on the {n:nc4.rd_plates} plates taken on test days, and {n:nc4.rd_share_v}% of those in VASCO’s window. The narrowest windows therefore also land in the upper group. Each day added to a window brings in more ordinary plates, which dilute these two.
 
-VASCO’s window gives {n:nc4.vasco_r} times, and {n:nc4.larger} of the other {n:nc4.others} windows give more. Because VASCO fixed their window before looking at the data, its result can be judged on its own: chance does as well about one time in {n:nc2.odds} ({n:nc2.sig} standard deviations). But a day either side was one choice among many. A researcher who had tried all {n:nc4.windows} windows and reported the strongest would, by chance alone, find a result at least as strong as VASCO’s {n:nc4.chance}% of the time. Neither the window nor its result stands out.
+VASCO’s time window gives a result of {n:nc4.vasco_r}, and {n:nc4.larger} of the other {n:nc4.others} time windows yield higher values. Because VASCO fixed their window before looking at the data, its result can be judged on its own: chance does as well about one time in {n:nc2.odds} ({n:nc2.sig} standard deviations).
+
+However, one day either side remains one valid choice among many, and results like it are common across those choices. If all {n:nc4.windows} windows were tried and the strongest reported, chance alone would give a result at least as strong as VASCO’s {n:nc4.chance}% of the time. The result therefore does not, by itself, show that the association is specific in time.
 
 ### nuc-global-caption
 The result for each of the {n:nc4.windows} windows that include a US test day, from the test day alone to a week before and after, with VASCO’s window, a day either side, in red. Results run from {n:nc4.r_lo} to {n:nc4.r_hi} times, as single plates enter and leave the window.
