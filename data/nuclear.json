@@ -784,7 +784,8 @@
    }
   ],
   "vasco_p": 0.179,
-  "chance_vs_vasco_14": 0.412
+  "chance_vs_vasco_14": 0.412,
+  "larger_r": 18
  },
  "pointing": {
   "median_low": 35.0,

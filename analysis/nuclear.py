@@ -199,6 +199,7 @@ def family(D):
 idx7, fam = family(7)
 fam["cells"] = [{"before": int(-WIN[j][0]), "after": int(WIN[j][1]), "r": r3(real_w[j]), "p": r3(loc[j]), "z": round(float(np.clip(norm.isf(loc[j]), -4, 4)), 2)} for j in idx7]
 fam["vasco_p"], fam["chance_vs_vasco_14"] = r3(loc[iV]), family(14)[1]["chance_vs_vasco"]
+fam["larger_r"] = int(np.sum(real_w[idx7] > real_w[iV]))                     # windows with a larger ratio than VASCO's
 out["windows"] = fam
 
 b_ = np.abs(P.b.values)

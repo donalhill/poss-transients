@@ -484,7 +484,7 @@ numbers.update({
     "nc2.slides": num(NU["pointing"]["slides"]), "nc2.sig": num(NU["corrected"]["sigma"], 1), "nc2.odds": odds(NU["corrected"]["p"]),
     "nc3.lo": num(min(x["r"] for x in NU["checks"]), 2), "nc3.hi": num(max(x["r"] for x in NU["checks"]), 2),
     "nc3.p_lo": pc(min(x["p"] for x in NU["checks"])), "nc3.p_hi": pc(max(x["p"] for x in NU["checks"])),
-    "nc4.windows": num(NU["windows"]["windows"]), "nc4.rank": ordinal(NU["windows"]["vasco_rank"]), "nc4.chance": pc(NU["windows"]["chance_vs_vasco"]),
+    "nc4.windows": num(NU["windows"]["windows"]), "nc4.others": num(NU["windows"]["windows"] - 1), "nc4.larger": num(NU["windows"]["larger_r"]), "nc4.chance": pc(NU["windows"]["chance_vs_vasco"]),
     "nc4.chance14": pc(NU["windows"]["chance_vs_vasco_14"]), "nc4.best_r": num(NU["windows"]["best"]["r"], 2), "nc4.best_global": pc(NU["windows"]["best"]["p_global"]),
     "nc3.all": num(next(x["r"] for x in NU["checks"] if x["label"] == "All of them together"), 2),
     "nb.plates": num(NB_["plates_near"]), "nb.nights": num(NB_["nights_near"]), "nb.runs": word(len(NB_["runs"])),
