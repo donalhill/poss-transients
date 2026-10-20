@@ -241,33 +241,35 @@ Do transients cluster around nuclear tests?
 ### nuclear-intro
 During the sky survey, the United States tested nuclear weapons in Nevada and the Pacific. In two papers (Scientific Reports, 2025 and 2026), VASCO report that observing nights within a day of a US test held more transients than other nights. The 2026 paper puts the chance of this at about 1 in 40 (p = 0.024). The authors fixed this time window before looking at the data, and read the sharpness of the association in time as a sign that it is genuine.
 
-Repeating their measurement, we find a similar excess. It shrinks to a level consistent with chance once two further factors are taken into account:
+Repeating their measurement, we find a similar excess. It reduces to a level consistent with chance once two further factors are taken into account:
 
 - Nights near tests tended to have more photographs, and each photograph adds its own transients.
-- On nights close to tests, the telescope tended to point away from the Milky Way. Fewer known stars lie there, so fewer points of light are ruled out by a nearby star.
+- On nights close to tests, the telescope tended to point away from the Milky Way. Fewer known stars lie there, so fewer points of light are ruled out by proximity to a star.
 
-The choice of time window matters too. One day either side of a nuclear test is one of several reasonable windows that could also have been chosen. Changing the window moves the result up or down, as individual plates enter or leave the window. We find that the one-day window does not stand out among alternative choices.
+The choice of time window also matters. One day either side of a nuclear test is one of several reasonable windows that could have been chosen. Changing the window moves the result up or down, as individual plates enter or leave the window. We find that the one-day window does not stand out among alternative choices.
 
 ### nuc-vasco-title
-VASCO’s test, as they ran it
+Repeating VASCO’s test
 
 ### nuc-vasco-text
-VASCO’s test counts the transients on each observing night, compares the nights within a day of a US test with all other nights, and asks how often the same number of nights picked at random do as well. We ran it counting each transient once, since VASCO’s machine-learning scores are not public.
+VASCO’s test counts the transients on each observing night, compares the nights within a day of a US test with all other nights, and asks how often the same number of nights selected at random show at least as many transients. We ran the analysis counting each transient once, not weighted by VASCO machine-learning scores, as the scores were not available at the time of analysis.
 
-On VASCO’s own construction, with the archive dates and their list of nights, the {n:nuc.vasco_nights} nights near tests hold {n:nuc.vasco_ratio} times the usual number of transients, and random nights do as well about one time in {n:nuc.vasco_odds} ({n:nuc.vasco_sig} standard deviations), close to VASCO’s one in forty. With every plate in the catalogue on its corrected date, {n:nuc.nights} nights fall within a day of a test. They hold {n:nuc.ratio} times the usual number, and random nights do as well about one time in {n:nuc.odds} ({n:nuc.sig} standard deviations).
+On VASCO’s own construction, using the default archive dates and their list of test nights, the {n:nuc.vasco_nights} nights near tests hold {n:nuc.vasco_ratio} times the usual number of transients. Random nights exhibit at least as many transients around one time in {n:nuc.vasco_odds} ({n:nuc.vasco_sig} standard deviations), close to VASCO’s 1 in 40 result.
+
+When we use our corrected dates (as described above), {n:nuc.nights} nights fall within a day of a test. They hold {n:nuc.ratio} times the usual number of transients, with random nights doing as well about one time in {n:nuc.odds} ({n:nuc.sig} standard deviations).
 
 ### nuc-vasco-caption
-The excess of transients on the {n:nuc.nights} nights within a day of a US test (red line), against the same number of nights drawn at random from the survey, 20,000 times (grey). Every catalogue plate, on corrected dates.
+The excess of transients on the {n:nuc.nights} nights within a day of a US test (red line), compared to the same number of nights drawn at random from the survey, 20,000 times (grey). The analysis is performed using corrected dates.
 
 ### nuc-corr-title
-Counting photographs, and where they pointed
+Counting photographs, and considering telescope pointing
 
 ### nuc-corr-text
-VASCO’s test counts transients per night, but a night’s transients come from its photographs. The {n:nuc.nights} nights near nuclear tests averaged {n:nuc.plates_window} plates a night, against {n:nuc.plates_other} on other nights. Only {n:nc2.empty_near} of them have no plates in the catalogue, against {n:nc2.empty_other} of the other {n:nc2.nights_other}; a night with no plates counts as zero transients, although nothing was observed. Counted per plate rather than per night, the excess falls from {n:nc2.night_r} to {n:nc2.photo_r}.
+VASCO’s test counts transients per night, but a night’s transients come from its photographs. The {n:nuc.nights} nights near nuclear tests averaged {n:nuc.plates_window} plates a night, against {n:nuc.plates_other} on other nights. Only {n:nc2.empty_near} of the nights have no plates in the catalogue, against {n:nc2.empty_other} of the other {n:nc2.nights_other}. A night with no plates counts as zero transients, even though nothing was observed. Counted per plate rather than per night, the excess reduces from {n:nc2.night_r} to {n:nc2.photo_r}.
 
-The sky above Palomar changes through the year as Earth orbits the Sun. On spring nights, the telescope faced away from the Milky Way, where there are fewer stars to rule transients out. Plates within 10 degrees of the Milky Way hold a median of {n:nc2.med_low} transients, against {n:nc2.med_high} more than 40 degrees away. Of the plates near nuclear tests, {n:nc2.spring}% were taken between February and June, which on its own would give them about {n:nc2.exp_pct}% more transients.
+The sky above Palomar changes through the year as Earth orbits the Sun. On spring nights, the telescope faced away from the Milky Way, where there are fewer stars to rule transients out. Plates within 10 degrees of the Milky Way hold a median of {n:nc2.med_low} transients, compared to {n:nc2.med_high} in plates more than 40 degrees away. Of the plates near nuclear tests, {n:nc2.spring}% were taken between February and June, which on their own would contribute around {n:nc2.exp_pct}% more transients.
 
-A like-for-like comparison is the number of transients each plate should hold, given where the telescope pointed. A curve fitted to all {n:cat.plates} plates gives every plate an expected count from its distance from the Milky Way, with the dust in front of it and its distance from the ecliptic. Measured against expected counts, plates near nuclear tests hold {n:nc2.point_r} times their expected number, rather than {n:nc2.night_r}.
+A like-for-like comparison is the number of transients each plate should hold, given where the telescope pointed. A curve fitted to all {n:cat.plates} plates gives every plate an expected count from three things about where it pointed: its distance from the Milky Way, how much dust in our galaxy dims the stars in that direction, and its distance from the ecliptic, the band of sky where asteroids are found. Measured against expected counts, plates near nuclear tests hold {n:nc2.point_r} times their expected number, rather than {n:nc2.night_r}.
 
 Random nights drawn from across the survey are not a like-for-like comparison either. The tests came in series, so the nights near them bunch into a few seasons, and a bunched set of nights varies more than a scattered one. Sliding the real test calendar by 1 to 5 years and up to two months keeps each test’s time of year and its spacing from the others; the slid calendars leave out every plate taken within two weeks of a real test. Slid calendars do as well as the real one about one time in {n:nc2.odds} ({n:nc2.sig} standard deviations), which is not statistically significant.
 
