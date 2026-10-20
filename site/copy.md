@@ -304,14 +304,16 @@ How far each further check moves the ratio for plates near nuclear tests. Each v
 Why a day either side?
 
 ### nuc-global-text
-The 2026 paper describes the association as highly specific in time, and reads this as a sign of a physical link. But the test day and a day either side is one of many windows that would have been just as natural to choose: any number of days before the test, and any number after.
+The 2026 paper describes the association as highly specific in time, and interprets this as a sign of a physical link. Selecting a ±1 day window either side of nuclear tests is a specific analysis choice, but other choices of window could equally well be applied.
+
+But the test day and a day either side is one of many windows that would have been just as natural to choose: any number of days before the test, and any number after.
 
 Allowing up to a week on each side gives {n:nc4.windows} such windows, each scored the same way. Of the other {n:nc4.others}, {n:nc4.larger} give a larger ratio than VASCO’s and {n:nc4.smaller} a smaller one. The largest is the test day alone, at {n:nc4.best_r} times, and even that is matched by chance {n:nc4.best_global}% of the time once its choice from {n:nc4.windows} is allowed for.
 
 VASCO fixed their window before looking at the data, so on its own its chance of about one in {n:nc2.odds} needs no allowance for other windows. But had a researcher tried all {n:nc4.windows} and reported the best, chance would give a result at least as strong as VASCO’s {n:nc4.chance}% of the time. Allowing up to two weeks on each side, {n:nc4.chance14}%.
 
 ### nuc-global-caption
-How far other windows around a US test day move the ratio for plates near tests away from VASCO’s window: windows centred on the test, and windows reaching only before or only after it, up to a week.
+The result for each of the {n:nc4.windows} windows that include a US test day, from the test day alone to a week before and after, with VASCO’s window, a day either side, in red. Results run from {n:nc4.r_lo} to {n:nc4.r_hi} times, as single plates enter and leave the window.
 
 ### align-h2
 Do transients form geometric patterns?

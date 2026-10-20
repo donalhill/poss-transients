@@ -95,14 +95,7 @@ NF = json.loads((ROOT / "data/nuclear_fit.json").read_text())
 NC = json.loads((ROOT / "data/nuclear_checks.json").read_text())
 site["perm"] = NU["perm"]
 site["perm"]["corrected"] = NU["corrected"]
-# the other natural windows around the test day, as changes from VASCO's: centred on the test, and reaching only before
-# or only after it, up to a week
-_cell = {(c["before"], c["after"]): c["r"] for c in NU["windows"]["cells"]}
-_pl = lambda k: f"{k} day{'s' if k > 1 else ''}"
-site["nuc_windows"] = {"base": _cell[(1, 1)], "title": "VASCO’s window, a day either side", "span": 0.3, "rows":
-    [{"group": "Centred on the test", "label": "The test day alone" if k == 0 else f"{_pl(k)} either side", "r": _cell[(k, k)]} for k in range(8) if k != 1] +
-    [{"group": "The test day and days before", "label": f"{_pl(k)} before", "r": _cell[(k, 0)]} for k in range(1, 8)] +
-    [{"group": "The test day and days after", "label": f"{_pl(k)} after", "r": _cell[(0, k)]} for k in range(1, 8)]}
+site["nuc_windows"] = NU["windows"]
 site["nuc_checks"] = {"base": NU["corrected"]["real"], "title": "Per photograph, allowing for pointing", "span": 0.2,
                      "rows": [x for x in NU["checks"] if x["label"] != "All of them together"]}
 NB_ = json.loads((ROOT / "data/nuclear_basic.json").read_text())
@@ -494,7 +487,7 @@ numbers.update({
     "nc3.lo": num(min(x["r"] for x in NU["checks"]), 2), "nc3.hi": num(max(x["r"] for x in NU["checks"]), 2),
     "nc3.p_lo": pc(min(x["p"] for x in NU["checks"])), "nc3.p_hi": pc(max(x["p"] for x in NU["checks"])),
     "nc4.windows": num(NU["windows"]["windows"]), "nc4.others": num(NU["windows"]["windows"] - 1), "nc4.larger": num(NU["windows"]["larger_r"]), "nc4.smaller": num(NU["windows"]["windows"] - 1 - NU["windows"]["larger_r"]), "nc4.chance": pc(NU["windows"]["chance_vs_vasco"]),
-    "nc4.chance14": pc(NU["windows"]["chance_vs_vasco_14"]), "nc4.best_r": num(NU["windows"]["best"]["r"], 2), "nc4.best_global": pc(NU["windows"]["best"]["p_global"]),
+    "nc4.chance14": pc(NU["windows"]["chance_vs_vasco_14"]), "nc4.r_lo": num(min(c["r"] for c in NU["windows"]["cells"]), 2), "nc4.r_hi": num(max(c["r"] for c in NU["windows"]["cells"]), 2), "nc4.best_r": num(NU["windows"]["best"]["r"], 2), "nc4.best_global": pc(NU["windows"]["best"]["p_global"]),
     **{f"nc3.{k}_{f}": v for k, g in (("defs", "What counts as a transient"), ("series", "Test series left out"))
        for f, v in (("lo", num(min(x["r"] for x in NU["checks"] if x["group"] == g), 2)), ("hi", num(max(x["r"] for x in NU["checks"] if x["group"] == g), 2)),
                     ("plo", pc(min(x["p"] for x in NU["checks"] if x["group"] == g))), ("phi", pc(max(x["p"] for x in NU["checks"] if x["group"] == g))))},

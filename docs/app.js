@@ -661,12 +661,33 @@ function drawNucChecks(D, id, key = "nuc_checks") {
   });
 }
 
+/* ---------- nuclear: the result for every window that includes the test day (up to a week each side), as a histogram;
+   VASCO's window marked ---------- */
+function drawNucWindowHist(D, id) {
+  const F = D.nuc_windows, s = svg(id); if (!F) return;
+  const R = F.cells.map(d => d.r), V_ = F.cells.find(d => d.before === 1 && d.after === 1);
+  const W = 760, H = 290, m = { l: 52, r: 16, t: 40, b: 50 }, bw = 0.025;
+  const lo = Math.floor(d3.min(R) / bw) * bw, hi = Math.ceil(d3.max(R) / bw) * bw;
+  const bins = d3.bin().domain([lo, hi]).thresholds(d3.range(lo, hi + 1e-9, bw))(R);
+  const x = d3.scaleLinear().domain([Math.min(0.85, lo), Math.max(1.45, hi)]).range([m.l, W - m.r]), y = d3.scaleLinear().domain([0, d3.max(bins, b => b.length) + 1]).range([H - m.b, m.t]);
+  s.append("g").attr("transform", `translate(0,${H - m.b})`).call(d3.axisBottom(x).ticks(7).tickFormat(d => `${d}×`).tickSizeOuter(0)).call(axisStyle);
+  s.append("g").attr("transform", `translate(${m.l},0)`).call(d3.axisLeft(y).ticks(5).tickFormat(d3.format("d")).tickSize(3)).call(axisStyle);
+  s.append("g").selectAll("rect").data(bins).join("rect").attr("x", b => x(b.x0) + 1).attr("width", b => Math.max(0, x(b.x1) - x(b.x0) - 2))
+    .attr("y", b => y(b.length)).attr("height", b => y(0) - y(b.length)).attr("rx", 1.5).attr("fill", V("--ink-3")).attr("fill-opacity", 0.6);
+  s.append("line").attr("x1", x(1)).attr("x2", x(1)).attr("y1", m.t - 8).attr("y2", H - m.b).attr("stroke", V("--ink")).attr("stroke-width", 1.2);
+  s.append("text").attr("class", "ann").attr("x", x(1)).attr("y", m.t - 14).attr("text-anchor", "middle").style("fill", V("--ink-2")).text("No difference");
+  s.append("line").attr("x1", x(V_.r)).attr("x2", x(V_.r)).attr("y1", m.t - 8).attr("y2", H - m.b).attr("stroke", V("--emulsion")).attr("stroke-width", 2.4);
+  s.append("text").attr("class", "ann").attr("x", x(V_.r) + 8).attr("y", m.t + 4).style("fill", V("--emulsion")).style("font-weight", 600).text(`VASCO’s window: ${V_.r.toFixed(2)}×`);
+  s.append("text").attr("x", (m.l + W - m.r) / 2).attr("y", H - 10).attr("text-anchor", "middle").text("Transients near tests relative to the rest, for each window");
+  s.append("text").attr("transform", `translate(14,${(m.t + H - m.b) / 2}) rotate(-90)`).attr("text-anchor", "middle").text("Windows");
+}
+
 let DATA = null;
 function render() {
   if (!DATA) return;
   drawSky(DATA, "c-sky0", false); drawSpread(DATA); drawSky(DATA, "c-sky", true); drawChance(DATA); drawPerm(DATA, "c-perm-any", "raw", "VASCO’s test");
   drawPerm(DATA, "c-nuc-corr", "corrected", "Per photograph, allowing for pointing", { line: "Plates near tests", trials: "Shifted calendars",
-    xlab: "Transients per photograph near the chosen dates, against pointing, relative to the rest", ylab: "Share of shifted calendars" }); drawNucChecks(DATA, "c-nuc-checks"); drawNucChecks(DATA, "c-nuc-windows", "nuc_windows");
+    xlab: "Transients per photograph near the chosen dates, against pointing, relative to the rest", ylab: "Share of shifted calendars" }); drawNucChecks(DATA, "c-nuc-checks"); drawNucWindowHist(DATA, "c-nuc-windows");
   drawFan(DATA); drawTracks(DATA); drawCompare(DATA, "c-compare"); drawTail(DATA, "tail-gallery"); drawWidths(DATA, "c-widths"); drawTrail(DATA, "c-trail"); fillDates(DATA); drawRadialMap(DATA); drawRadial(DATA); drawCrowd(DATA);
   drawPlates(DATA, "c-plates"); drawForest(DATA, "c-ratio-vasco"); drawRatioNull(DATA, "c-ratio-null");
 }
