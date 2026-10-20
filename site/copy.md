@@ -275,7 +275,14 @@ To judge whether {n:nc2.point_r} times is unusual, it has to be compared with wh
 
 That comparison treats the {n:nuc.nights} nights near tests as independent of one another, and they are not. The tests fell in series, so those nights fall during a few observing runs, close together in time, which share emulsion batches and observing conditions. A clustered set of nights varies more by chance than a scattered one, so random nights understate how often chance can produce at least as many transients.
 
-A fair comparison keeps that clustering. Take the real list of test dates and move every date by the same amount, for example two years and three weeks later. The result is a calendar with the same gaps between tests and the same times of year, but on dates when no tests took place. Moving the dates by one to five years, earlier or later, plus up to two months, gives {n:nc2.slides} such calendars. Each is scored exactly like the real one, and plates from the two weeks around a real test are left out of every calendar. About one in {n:nc2.odds} shifted calendars shows an excess at least as large as the real one ({n:nc2.point_pc}%, or {n:nc2.sig} standard deviations). With either comparison, the excess near nuclear tests is no larger than chance routinely produces.
+A fair comparison keeps that clustering. We build it from the real test calendar:
+
+- Move every test date by the same amount, for example two years and three weeks later. The result has the same gaps between tests and the same times of year, but falls on dates when no tests took place.
+- Repeat for every shift of one to five years, earlier or later, plus up to two months. This gives {n:nc2.slides} shifted calendars.
+- Leave out every plate taken within two weeks of a real test, so that no shifted calendar picks up plates from around the real tests.
+- Score each shifted calendar exactly as the real one: per photograph, against what each plate’s pointing predicts.
+
+About one in {n:nc2.odds} shifted calendars shows an excess at least as large as the real one ({n:nc2.point_pc}%, or {n:nc2.sig} standard deviations). With either comparison, the excess near nuclear tests is no larger than chance routinely produces.
 
 ### nuc-corr-caption
 Once the number of photographs and the telescope pointing are accounted for, the plates near nuclear tests hold {n:nc2.point_r} times their expected number of transients. Of {n:nc2.slides} shifted test calendars, about one in {n:nc2.odds} does as well or better.
