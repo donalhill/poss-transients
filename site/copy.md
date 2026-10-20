@@ -293,9 +293,9 @@ Additional factors do not significantly alter the result
 ### nuc-checks-text
 We also allowed for a number of other measurable properties of each plate: how deep the plate goes (the share of faint Gaia stars it records), how sharp its stars are, exposure time, height above the horizon, position of the Moon, and VASCO’s own plate-quality flag. None of them moves the result by more than a few per cent; with all of them together, the result is {n:nc3.all}.
 
-Changing what counts as a transient makes little difference either. Counting 2-arcminute cells rather than transients, keeping only the central part of each plate, or keeping only transients with no other within 5 arcminutes gives {n:nc3.defs_lo} to {n:nc3.defs_hi} times.
+Changing what counts as a transient makes little difference either. Counting 2-arcminute cells rather than transients, keeping only the central part of each plate, or keeping only transients with no other within 5 arcminutes gives results within the range {n:nc3.defs_lo} to {n:nc3.defs_hi}.
 
-Leaving out any one series of nuclear tests gives {n:nc3.series_lo} to {n:nc3.series_hi} times, and shifted calendars do as well as each of these between {n:nc3.series_plo}% and {n:nc3.series_phi}% of the time.
+Leaving out any one series of nuclear tests gives results within the range {n:nc3.series_lo} to {n:nc3.series_hi}, with similar levels of statistical significance to the {n:nc2.point_r} with every series included.
 
 ### nuc-checks-caption
 How far each further check moves the ratio for plates near nuclear tests. Each version of the analysis is measured against its own shifted test calendars.
