@@ -212,6 +212,15 @@ def rich(offsets, k):
                      "days_from_test": int(off[np.argmin(np.abs(off))])})
     return out_
 fam["rich_week"], fam["rich_day"] = rich(range(-7, 8), 1)[0], rich((-1, 0, 1), 2)
+# every window again without those three plates (left out of both sides): a description, since they were picked by looking
+drop3 = P.index.isin([fam["rich_week"]["plate"]] + [x["plate"] for x in fam["rich_day"]])
+def ratio_without(j):
+    m_ = np.isin(day, (TESTS[:, None] + np.arange(WIN[j][0], WIN[j][1] + 1)[None, :]).ravel()); a_, b_ = m_ & ~drop3, ~m_ & ~drop3
+    return (y_raw[a_].sum() / E[a_].sum()) / (y_raw[b_].sum() / E[b_].sum())
+for c_, j in zip(fam["cells"], idx7):
+    c_["r_without"] = r3(ratio_without(j))
+rw = [c_["r_without"] for c_ in fam["cells"]]
+fam["without"] = {"plates": list(P.index[drop3]), "lo": min(rw), "hi": max(rw), "median": r3(np.median(rw)), "vasco": r3(ratio_without(iV))}
 two = P.index.isin([x["plate"] for x in fam["rich_day"]])
 fam["rich_day_share"] = {"plates_test_day": int(near(day, (0,)).sum()), "test_day": r3(y_raw[two & near(day, (0,))].sum() / y_raw[near(day, (0,))].sum()),
                          "vasco": r3(y_raw[two & m0].sum() / y_raw[m0].sum())}

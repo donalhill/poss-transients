@@ -493,6 +493,8 @@ numbers.update({
     "nc4.vasco_r": num(next(c["r"] for c in NU["windows"]["cells"] if c["before"] == 1 and c["after"] == 1), 2),
     "nc4.rd_plates": num(NU["windows"]["rich_day_share"]["plates_test_day"]), "nc4.rd_share": pc(NU["windows"]["rich_day_share"]["test_day"]),
     "nc4.rd_share_v": pc(NU["windows"]["rich_day_share"]["vasco"]),
+    "nc4.wo_lo": num(NU["windows"]["without"]["lo"], 2), "nc4.wo_hi": num(NU["windows"]["without"]["hi"], 2),
+    "nc4.wo_median": num(NU["windows"]["without"]["median"], 2), "nc4.wo_vasco": num(NU["windows"]["without"]["vasco"], 2),
     "nc4.rd1": NU["windows"]["rich_day"][0]["plate"], "nc4.rd2": NU["windows"]["rich_day"][1]["plate"], "nc4.r_lo": num(min(c["r"] for c in NU["windows"]["cells"]), 2), "nc4.r_hi": num(max(c["r"] for c in NU["windows"]["cells"]), 2), "nc4.best_r": num(NU["windows"]["best"]["r"], 2), "nc4.best_global": pc(NU["windows"]["best"]["p_global"]),
     **{f"nc3.{k}_{f}": v for k, g in (("defs", "What counts as a transient"), ("series", "Test series left out"))
        for f, v in (("lo", num(min(x["r"] for x in NU["checks"] if x["group"] == g), 2)), ("hi", num(max(x["r"] for x in NU["checks"] if x["group"] == g), 2)),
