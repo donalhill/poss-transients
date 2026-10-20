@@ -241,12 +241,12 @@ Do transients cluster around nuclear tests?
 ### nuclear-intro
 During the sky survey, the United States tested nuclear weapons in Nevada and the Pacific. In two papers (Scientific Reports, 2025 and 2026), VASCO report that observing nights within a day of a US test held more transients than other nights. The 2026 paper puts the chance of this at about 1 in 40 (p = 0.024). The authors fixed this time window before looking at the data, and read the sharpness of the association in time as a sign that it is genuine.
 
-Repeating their measurement, we find a similar excess. It shrinks, and becomes consistent with chance, once two further factors are taken into account:
+Repeating their measurement, we find a similar excess. It shrinks to a level consistent with chance once two further factors are taken into account:
 
 - Nights near tests tended to have more photographs, and each photograph adds its own transients.
-- On those nights the telescope tended to point away from the Milky Way. Fewer known stars lie there to rule a point of light out, so more transients survive.
+- On nights close to tests, the telescope tended to point away from the Milky Way. Fewer known stars lie there, so fewer points of light are ruled out by a nearby star.
 
-The choice of time window matters too. A day either side of a test is one of many windows that would have been just as natural to choose. Changing it moves the result up or down as individual plates enter or leave the window, and a day either side does not stand out among the alternatives.
+The choice of time window matters too. One day either side of a nuclear test is one of several reasonable windows that could also have been chosen. Changing the window moves the result up or down, as individual plates enter or leave the window. We find that the one-day window does not stand out among alternative choices.
 
 ### nuc-vasco-title
 VASCO’s test, as they ran it
