@@ -304,18 +304,16 @@ How far each further check moves the ratio for plates near nuclear tests. Each v
 Choice of time window
 
 ### nuc-global-text
-The 2026 VASCO paper describes the association as highly specific in time, and reads this as a sign of a physical link. However, one day either side of a test is one of several windows that could equally well have been chosen.
+The 2026 paper describes the association as highly specific in time, and reads this as a sign of a physical link. But a day either side of a test is one of many windows that could equally have been chosen. Allowing up to a week either side gives {n:nc4.windows}, each measured in the same way.
 
-Allowing for windows of up to a week on either side gives {n:nc4.windows} such windows, each of which can be analysed in the same way. Results across these windows run from {n:nc4.r_lo} to {n:nc4.r_hi}, with values falling into two distinct groups. The split comes from a few plates with unusually many transients, which fall inside some windows and outside others:
+Across these windows the result runs from {n:nc4.r_lo} to {n:nc4.r_hi} times, in two separate groups. The upper group comes from three unusually rich plates moving in and out of the windows:
 
-- Plate {n:nc4.rw_plate} ({n:nc4.rw_date}) holds {n:nc4.rw_n} transients, where its pointing predicts around {n:nc4.rw_e}. It was taken {n:nc4.rw_days} days after a test, so every analysis window that reaches this far includes it and lands in the upper group of results.
-- Two plates taken on test days, {n:nc4.rd1} and {n:nc4.rd2}, are also unusually rich. Between them they hold {n:nc4.rd_share}% of the transients on the {n:nc4.rd_plates} plates taken on test days, and {n:nc4.rd_share_v}% of those in VASCO’s window. The narrowest windows therefore also land in the upper group. Each day added to a window brings in more ordinary plates, which dilute these two.
+- {n:nc4.rw_plate} ({n:nc4.rw_date}) holds {n:nc4.rw_n} transients where its pointing predicts about {n:nc4.rw_e}. It was taken {n:nc4.rw_days} days after a test, so every window that reaches that far includes it.
+- {n:nc4.rd1} and {n:nc4.rd2}, both taken on test days, hold {n:nc4.rd_share}% of the transients on the {n:nc4.rd_plates} test-day plates. They dominate the narrowest windows; wider windows dilute them with ordinary plates.
 
-Leave these three plates out and the two groups merge into one, centred on {n:nc4.wo_median}: all {n:nc4.windows} windows then give between {n:nc4.wo_lo} and {n:nc4.wo_hi} times, and VASCO’s window gives {n:nc4.wo_vasco}. The three plates were picked out by looking at the data, so this describes where the excess comes from rather than testing it.
+Without these three plates, the two groups merge into one centred on {n:nc4.wo_median}, and VASCO’s window gives {n:nc4.wo_vasco}. The plates were picked out by looking at the data, so this describes where the excess comes from rather than testing it.
 
-VASCO’s time window gives a result of {n:nc4.vasco_r}, and {n:nc4.larger} of the other {n:nc4.others} time windows yield higher values. Because VASCO fixed their window before looking at the data, its result can be judged on its own: chance does as well about one time in {n:nc2.odds} ({n:nc2.sig} standard deviations).
-
-However, one day either side remains a single valid choice among many, and results similar to it are common across such choices. If all {n:nc4.windows} windows were tried and the strongest reported, chance alone would give a result at least as strong as VASCO’s {n:nc4.chance}% of the time. By itself, the default result does not indicate a specific association in time.
+VASCO fixed their window in advance, so its result needs no allowance for the others. But results like it are common among the alternatives: had the strongest of the {n:nc4.windows} been reported, chance alone would give a result at least as strong as VASCO’s {n:nc4.chance}% of the time. On its own, the result does not show that the association is specific in time.
 
 ### nuc-global-caption
 The result for each of the {n:nc4.windows} windows that include a US test day, from the test day alone to a week before and after: with every plate (red outline), and without the three unusually rich plates XE524, XE429, and XE296 (grey). VASCO’s window, a day either side, is marked in each.
