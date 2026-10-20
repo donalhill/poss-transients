@@ -318,6 +318,14 @@ VASCO fixed their time window in advance, so their result needs no allowance for
 ### nuc-global-caption
 The result for each of the {n:nc4.windows} windows covering a US test day, ranging from the test day alone to a week before and after.The analysis was run with every plate (red outline), and also without the three unusually rich plates XE524, XE429, and XE296 (grey). The results found using VASCO’s default time window (one day either side) are indicated, under both runs.
 
+### nuclear-verdict-title
+No significant link to the nuclear tests
+
+### nuclear-verdict
+We reproduce VASCO’s excess: nights within a day of a US nuclear test hold more transients than other nights. Counted per photograph, and measured against where the telescope pointed, the excess is {n:nc2.point_r} times, which test calendars shifted to other years match about one time in {n:nc2.odds} ({n:nc2.sig} standard deviations). No other property of the plates changes this.
+
+A day either side of a test is one of many reasonable windows, and results across them depend on a few unusually rich plates entering and leaving the window. Without three such plates, every window sits close to no difference. Had the strongest of {n:nc4.windows} windows been reported, chance alone would give a result at least as strong as VASCO’s {n:nc4.chance}% of the time.
+
 ### align-h2
 Do transients form geometric patterns?
 
@@ -372,7 +380,7 @@ The strongest-scoring tracks, however, sit somewhat above what chance alone woul
 It is important to assess such candidates in detail, to understand their physical characteristics in the plate imagery - we perform such an assessment in {5_circle_symbol}.
 
 ### align-step3-caption
-Track score distributions for all 3-, 4-, 5-, and 6-track candidates in the catalogue. The real data distribution is shown in red, and the expected random background distribution is shown in grey. A small excess of track candidates is found in the low tails, beyond the rate expected purely by chance.
+Track score distributions for all 3-, 4-, 5-, and 6-track candidates in the catalogue. The real data distribution is shown in red, and the expected random background distribution is shown in grey. A small excess of track candidates is found in the low tails, beyond the rate expected purely by chance. Bottom: residual histograms, the real catalogue against the 1,000 copies in each score bin, in standard deviations; bars close to zero show agreement between the data and the random background.
 
 ### align-vasco-title
 Comparing our track score and VASCO’s score
@@ -488,7 +496,7 @@ Plates differ so much that the shortfall happens by chance about one time in {n:
 Do transients cluster around nuclear tests?
 
 ### card-2-ours
-The nights near tests held more photographs, pointed at parts of the sky that yield more transients. Counted per photograph, and allowing for where the telescope pointed, the excess is {n:nc2.point_r} times, which shifted test calendars match about one time in {n:nc2.odds}.
+The nights near tests held more photographs, pointed at parts of the sky that yield more transients. Counted per photograph, and allowing for where the telescope pointed, the excess is {n:nc2.point_r} times, which shifted test calendars match about one time in {n:nc2.odds}. A day either side of a test does not stand out among other reasonable windows: chance would match VASCO’s result with the strongest of them {n:nc4.chance}% of the time.
 
 ### card-3-question
 Do transients form linear patterns?
