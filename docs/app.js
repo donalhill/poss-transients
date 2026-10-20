@@ -665,8 +665,8 @@ let DATA = null;
 function render() {
   if (!DATA) return;
   drawSky(DATA, "c-sky0", false); drawSpread(DATA); drawSky(DATA, "c-sky", true); drawChance(DATA); drawPerm(DATA, "c-perm-any", "raw", "VASCO’s test");
-  drawPerm(DATA, "c-nuc-corr", "corrected", "Per photograph, allowing for pointing", { line: "Plates near tests", trials: "Slid calendars",
-    xlab: "Transients per photograph near the chosen dates, against pointing, relative to the rest", ylab: "Share of slid calendars" }); drawNucChecks(DATA, "c-nuc-checks"); drawNucChecks(DATA, "c-nuc-windows", "nuc_windows");
+  drawPerm(DATA, "c-nuc-corr", "corrected", "Per photograph, allowing for pointing", { line: "Plates near tests", trials: "Shifted calendars",
+    xlab: "Transients per photograph near the chosen dates, against pointing, relative to the rest", ylab: "Share of shifted calendars" }); drawNucChecks(DATA, "c-nuc-checks"); drawNucChecks(DATA, "c-nuc-windows", "nuc_windows");
   drawFan(DATA); drawTracks(DATA); drawCompare(DATA, "c-compare"); drawTail(DATA, "tail-gallery"); drawWidths(DATA, "c-widths"); drawTrail(DATA, "c-trail"); fillDates(DATA); drawRadialMap(DATA); drawRadial(DATA); drawCrowd(DATA);
   drawPlates(DATA, "c-plates"); drawForest(DATA, "c-ratio-vasco"); drawRatioNull(DATA, "c-ratio-null");
 }

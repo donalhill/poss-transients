@@ -273,12 +273,12 @@ A like-for-like comparison is the number of transients each plate should hold, g
 
 To judge whether {n:nc2.point_r} times is unusual, it has to be compared with what chance produces. VASCO’s test compares the nights near tests with the same number of nights drawn at random from across the survey. On the corrected measure, random nights do as well {n:nc2.point_pv}% of the time.
 
-That comparison treats the {n:nuc.nights} nights near tests as independent of one another, and they are not. The tests came in series, so those nights fall in a few observing runs, close together in time, and share emulsion batches and observing conditions. A clustered set of nights varies more by chance than a scattered one, so random nights understate how often chance does as well.
+That comparison treats the {n:nuc.nights} nights near tests as independent of one another, and they are not. The tests fell in series, so those nights fall during a few observing runs, close together in time, which share emulsion batches and observing conditions. A clustered set of nights varies more by chance than a scattered one, so random nights understate how often chance can produce at least as many transients.
 
-A comparison that keeps the clustering slides the whole test calendar to dates when no tests took place, by one to five years plus up to two months. Each slid calendar keeps every test’s time of year and the gaps between tests, and its result is worked out exactly as for the real one. Plates taken within two weeks of a real test are left out, so none of them can enter the comparison. Of {n:nc2.slides} slid calendars, about one in {n:nc2.odds} does as well as the real one ({n:nc2.point_pc}%, or {n:nc2.sig} standard deviations). With either comparison, the corrected excess is not statistically significant.
+A fair comparison keeps that clustering. Take the real list of test dates and move every date by the same amount, for example two years and three weeks later. The result is a calendar with the same gaps between tests and the same times of year, but on dates when no tests took place. Moving the dates by one to five years, earlier or later, plus up to two months, gives {n:nc2.slides} such calendars. Each is scored exactly like the real one, and plates from the two weeks around a real test are left out of every calendar. About one in {n:nc2.odds} shifted calendars shows an excess at least as large as the real one ({n:nc2.point_pc}%, or {n:nc2.sig} standard deviations). With either comparison, the excess near nuclear tests is no larger than chance routinely produces.
 
 ### nuc-corr-caption
-Once the number of photographs and the telescope pointing are accounted for, the plates near nuclear tests hold {n:nc2.point_r} times their expected number of transients. Of {n:nc2.slides} slid test calendars, about one in {n:nc2.odds} does as well or better.
+Once the number of photographs and the telescope pointing are accounted for, the plates near nuclear tests hold {n:nc2.point_r} times their expected number of transients. Of {n:nc2.slides} shifted test calendars, about one in {n:nc2.odds} does as well or better.
 
 ### nuc-checks-title
 Nothing else moves the result
@@ -286,10 +286,10 @@ Nothing else moves the result
 ### nuc-checks-text
 We also allowed for every other property we can measure on each plate: how deep it goes (the share of faint Gaia stars it records), how sharp its stars are, exposure time, height above the horizon, the Moon, and VASCO’s plate-quality flag. None moves the result by more than a few per cent; with all of them together, it is {n:nc3.all}.
 
-Nor does what counts as a transient. Counting 2-arcminute cells rather than transients, keeping only the central part of each plate, or keeping only transients with no other within 5 arcminutes all give similar results. Neither does leaving out any one series of tests. Every version lies between {n:nc3.lo} and {n:nc3.hi} times, and slid calendars do as well between {n:nc3.p_lo}% and {n:nc3.p_hi}% of the time.
+Nor does what counts as a transient. Counting 2-arcminute cells rather than transients, keeping only the central part of each plate, or keeping only transients with no other within 5 arcminutes all give similar results. Neither does leaving out any one series of tests. Every version lies between {n:nc3.lo} and {n:nc3.hi} times, and shifted calendars do as well between {n:nc3.p_lo}% and {n:nc3.p_hi}% of the time.
 
 ### nuc-checks-caption
-How far each further check moves the ratio for plates near nuclear tests. Each version of the analysis is measured against its own slid test calendars.
+How far each further check moves the ratio for plates near nuclear tests. Each version of the analysis is measured against its own shifted test calendars.
 
 ### nuc-global-title
 Why a day either side?
@@ -474,7 +474,7 @@ Plates differ so much that the shortfall happens by chance about one time in {n:
 Do transients cluster around nuclear tests?
 
 ### card-2-ours
-The nights near tests held more photographs, pointed at parts of the sky that yield more transients. Counted per photograph, and allowing for where the telescope pointed, the excess is {n:nc2.point_r} times, which slid test calendars match about one time in {n:nc2.odds}.
+The nights near tests held more photographs, pointed at parts of the sky that yield more transients. Counted per photograph, and allowing for where the telescope pointed, the excess is {n:nc2.point_r} times, which shifted test calendars match about one time in {n:nc2.odds}.
 
 ### card-3-question
 Do transients form linear patterns?
