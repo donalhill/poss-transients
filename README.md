@@ -27,17 +27,14 @@ flowchart LR
   evidence[labels, asteroid dating,<br>DSS headers, Palomar log] --> dates
   dates --> sample((sample.py))
   sample --> pooled[shadow_pooled.py] --> fit[shadow_fit.py]
-  sample --> nuclear[nuclear.py<br>VASCO's test]
-  sample --> dust[plate_dust.py] & depth[plate_depth.py] & blue[plate_blue.py]
+  sample --> nuclear[nuclear.py<br>nuclear tests]
+  sample --> dust[plate_dust.py] & depth[plate_depth.py]
   dust & depth --> props((plate_properties.py))
-  props --> pshapes[plate_shapes.py]
-  props & pshapes --> nbasic[nuclear_basic.py<br>tests, step by step]
-  props --> nfit[nuclear_fit.py<br>frozen design]
-  props & blue & align --> nchecks[nuclear_checks.py]
+  props --> nuclear
   dates --> south[shadow_plates_log.py]
   plates --> align[alignments.py] --> shapes[tail_shapes.py] & second[second_copy.py] & trail[xe492_trail.py]
   cands[vasco_candidates.py]
-  pooled & fit & nuclear & nbasic & nfit & nchecks & dust & south & align & shapes & second & trail & cands --> site[build_site.py<br>site.json: charts and numbers]
+  pooled & fit & nuclear & dust & south & align & shapes & second & trail & cands --> site[build_site.py<br>site.json: charts and numbers]
   site --> page[site/assemble.py<br>docs/index.html]
   copy[site/copy.md<br>the text] --> page
 ```
@@ -63,7 +60,7 @@ Two samples, defined once in `analysis/sample.py`:
 
 Downloaded when missing (not in the repository): VASCO's catalogue, random positions, night list and test list
 (`fetch_external.py`); Palomar's log (`fetch_palomar_log.py`); DSS scans and cutouts, which STScI does not allow to be
-redistributed. `tail_shapes.py` keeps its fits to the stars beside each cutout, and `plate_shapes.py` the transients it has measured, so reruns skip them.
+redistributed. `tail_shapes.py` keeps its fits to the stars beside each cutout, so reruns skip them.
 
 In the repository, because they were made by hand or take hours of calls to public services:
 
@@ -73,7 +70,7 @@ In the repository, because they were made by hand or take hours of calls to publ
 | `data/date_check_summary.csv` | asteroid trails dating each plate | `date_check.py` (JPL Horizons, SkyBoT) |
 | `data/xe_headers.parquet`, `data/xe_plate_centres.csv` | DSS header facts for every red plate | `plate_headers.py` |
 | `data/plate_dust.csv` | dust towards each plate | `plate_dust.py` (IRSA), run by `make` for new plates only |
-| `data/plate_depth.csv`, `data/plate_blue.csv`, `data/plate_shapes.csv` | stars and specks measured on DSS cutouts: each plate's depth and sharpness, specks on the red and blue plates, transient shapes | `plate_depth.py`, `plate_blue.py`, `plate_shapes.py` (DSS), run by `make` when their inputs change |
+| `data/plate_depth.csv` | each plate's depth and sharpness, measured on Gaia stars in DSS cutouts | `plate_depth.py` (DSS), run by `make` when its inputs change |
 | `data/vasco_2025_candidates.csv` | VASCO's five shortlisted alignments | from the tables in their 2025 paper |
 
 ## Choices worth knowing
@@ -85,8 +82,9 @@ In the repository, because they were made by hand or take hours of calls to publ
   the shadow never crossed, so the weights cannot absorb a real shortfall in the shadow. Injected shortfalls are
   recovered (`shadow_fit.py`).
 - **Calibration by real plates.** Counting statistics treat transients as independent; they are not. Every
-  significance on the page comes from the real data: shadow outlines laid on other plates, nights drawn at random,
-  and copies of the catalogue with real lines broken but the clumps kept.
-- **Nuclear tests: design fixed in advance.** The within-run comparison, its nulls, and its checks were written down in
-  `analysis/NUCLEAR_DESIGN.md` before the results were seen; every later test is a dated addendum there, also written
-  before it was run.
+  significance on the page comes from the real data: shadow outlines laid on other plates, the test calendar shifted
+  to other years, and copies of the catalogue with real lines broken but the clumps kept.
+- **Nuclear tests.** Each plate's transients are counted per photograph and measured against what its pointing
+  predicts. Chance comes from the real test calendar shifted by 1 to 5 years and up to two months, which keeps each
+  test's time of year and the gaps between tests, with plates from the two weeks around real tests left out
+  (`nuclear.py`).

@@ -1,5 +1,7 @@
-"""Do transients cluster around US nuclear tests? VASCO's test as they ran it (Bruehl & Villarroel 2025; Bruehl et al.
-2026), reproduced on their construction and on the full catalogue. The measurement itself is nuclear_fit.py.
+"""Do transients cluster around US nuclear tests? Every number in the page's nuclear section.
+
+1. VASCO's test as they ran it (Bruehl & Villarroel 2025; Bruehl et al. 2026), reproduced on their construction and on
+   the full catalogue.
 
 Unit: an observing night; its value is the number of transients on its plates (each transient counted once; the public
 machine-learning scores are not usable). Nights near tests: within one day of a US test. VASCO's test: the ratio of
@@ -9,8 +11,12 @@ photographs the nights near tests hold, against other nights.
 VASCO's construction: archive dates, their list of nights. Ours: every catalogue plate on its corrected date, nights
 from Palomar's log (sample.py).
 
-Then two corrections with physical reasons, one at a time: transients per photograph, and against what each
-photograph's pointing predicts; each against VASCO's null and the test calendar slid by years.
+2. Two corrections with physical reasons, one at a time: transients per photograph, and against what each photograph's
+   pointing predicts; each against VASCO's null and against the real test calendar shifted by 1 to 5 years and up to two
+   months, leaving out plates taken within two weeks of a real test.
+3. Everything else measurable about a plate, other definitions of a transient, and each test series left out.
+4. Every window that includes the test day, up to a week either side; the rich plates that move the result between
+   windows, and the windows without them.
 
 python analysis/nuclear.py -> data/nuclear.json"""
 import json
@@ -18,8 +24,12 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import patsy
+import statsmodels.api as sm
+from scipy.spatial import cKDTree
 from scipy.stats import norm
 
+import plate_properties as PP
 import sample
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -77,10 +87,9 @@ out["steps"] = {"nights": len(nights), "nights_with_plates": int((npl > 0).sum()
 # few). Each against two nulls: VASCO's random nights from the whole survey, and the real test calendar slid by 1 to 5
 # years and up to two months, which keeps each test's time of year and the bunching of tests into series; slid
 # calendars leave out plates taken within two weeks of a real test.
-import patsy                                                                  # noqa: E402
-import statsmodels.api as sm                                                  # noqa: E402
-import plate_properties as PP                                                 # noqa: E402
-from nuclear_model import P, day, y_raw                                       # noqa: E402
+P = PP.properties(cat, plates)                                                # every plate and its properties
+day = ((P.date - DAY0).dt.days).values
+y_raw = P.n.values.astype(float)
 
 SHIFTS = [365 * k + d for k in (-5, -4, -3, -2, -1, 1, 2, 3, 4, 5) for d in range(-60, 61)]
 
@@ -134,8 +143,13 @@ def check(group, label, y=y_raw, e=None, tests=TESTS):
     return {"group": group, "label": label, "r": r3(r), "p": r3((np.sum(Cs >= r) + 1) / (len(Cs) + 1))}
 
 
-from scipy.spatial import cKDTree                                             # noqa: E402
-from nuclear_model import cat as pcat, shots, y_cells, y_inner               # noqa: E402
+pcat = cat
+shots = pd.read_csv(ROOT / "data/us_shot_times.csv")
+shots["day"] = np.floor((pd.to_datetime(shots.ut_datetime.str.replace("Z", ""), format="ISO8601") - DAY0).dt.total_seconds() / 86400).astype(int)
+shots["series"] = shots.source_url.str.extract(r"Operation_([A-Za-z]+)")[0].fillna(shots.Shot_Name)
+y_cells = cat.assign(i=np.floor(cat.xi * 30).astype(int), j=np.floor(cat.eta * 30).astype(int)).groupby("plate") \
+             .apply(lambda g: len(set(zip(g.i, g.j)))).reindex(P.index).fillna(0).values.astype(float)
+y_inner = cat[(cat.xi.abs() < 2.5) & (cat.eta.abs() < 2.5)].groupby("plate").size().reindex(P.index).fillna(0).values.astype(float)
 iso = np.zeros(len(pcat), bool)
 for _, idx in pcat.groupby("plate").indices.items():
     xy = np.c_[pcat.xi.values[idx], pcat.eta.values[idx]] * 60
@@ -153,77 +167,65 @@ for sname, g_ in shots.groupby("series"):
     if (m0 & ~np.isin(day, (t_[:, None] + np.array([-1, 0, 1])[None, :]).ravel())).any():
         out["checks"].append(check("Test series left out", f"Without Operation {sname}", e=E, tests=t_))
 
-# every window of consecutive days [a, b] within 14 days of a test, each scored as above against the same slid
-# calendars: where VASCO's window ranks among them, and how often the best window does as well by chance
-R = 14
+# every window that includes the test day, set by how many days before and after it reaches (up to a week), scored as
+# above against the same shifted calendars: how often the strongest of them does at least as well as VASCO's by chance
+R = 7
 OFF = np.arange(-R, R + 1)
-
-
-def offsets(shift):
-    """Plates x offsets: whether the plate was taken that many days from a (shifted) test; cumulated over offsets."""
-    H = np.isin(day[:, None] - OFF[None, :], TESTS + shift) & (clear_plates[:, None] if shift else True)
-    return np.c_[np.zeros(len(day), int), np.cumsum(H, 1)]
-
-
-WIN = [(a_, b_) for a_ in OFF for b_ in OFF if b_ >= a_]
+WIN = [(-b_, a_) for b_ in range(R + 1) for a_ in range(R + 1)]                # (first day, last day) from the test
 ia, ib = np.array([a_ + R for a_, _ in WIN]), np.array([b_ + R + 1 for _, b_ in WIN])
 Y, Et = y_raw.sum(), E.sum()
 
 
 def scan(shift):
-    C = offsets(shift); M = (C[:, ib] - C[:, ia] > 0).T.astype(float)                  # windows x plates
+    """The ratio for every window, for the test calendar moved by shift days (plates near real tests left out)."""
+    H = np.isin(day[:, None] - OFF[None, :], TESTS + shift) & (clear_plates[:, None] if shift else True)
+    C = np.c_[np.zeros(len(day), int), np.cumsum(H, 1)]
+    M = (C[:, ib] - C[:, ia] > 0).T.astype(float)                                   # windows x plates
     n1, e1, k = M @ y_raw, M @ E, M.sum(1)
-    with np.errstate(divide="ignore", invalid="ignore"):
+    with np.errstate(divide="ignore", invalid="ignore"):                         # fewer than 5 plates: undetermined
         return np.where(k >= 5, (n1 / e1) / ((Y - n1) / (Et - e1)), np.nan)
 
 
 real_w = scan(0)
 null_w = np.array([scan(SHIFTS[i]) for i in keep])
-use = np.isfinite(real_w)
-loc = np.array([(np.sum(null_w[:, j] >= real_w[j]) + 1) / (np.isfinite(null_w[:, j]).sum() + 1) if use[j] else np.nan for j in range(len(WIN))])
-# each slide's own local p for every window, by ranking it among the slides
-nw = np.where(np.isfinite(null_w), null_w, -np.inf)
-rank = (np.sum(nw[None, :, :] >= nw[:, None, :], 1)) / (len(keep) + 1)                  # slides x windows
 iV = WIN.index((-1, 1))
-# the windows that include the test day, set by how many days before and after it they reach: where VASCO's ranks, and
-# how often the best of them does at least as well as VASCO's, or as the best in the data, by chance
-def family(D):
-    idx = [j for j, (a_, b_) in enumerate(WIN) if use[j] and -D <= a_ <= 0 <= b_ <= D]
-    best_slides = rank[:, idx].min(1); jb = idx[int(np.argmin(loc[idx]))]
-    return idx, {"windows": len(idx), "vasco_rank": 1 + int(np.sum(loc[idx] < loc[iV])),
-                 "chance_vs_vasco": r3(np.mean(best_slides <= loc[iV])),
-                 "best": {"before": int(-WIN[jb][0]), "after": int(WIN[jb][1]), "r": r3(real_w[jb]), "p_local": r3(loc[jb]),
-                          "p_global": r3((np.sum(best_slides <= loc[jb]) + 1) / (len(keep) + 1))}}
+p_vasco = (np.sum(null_w[:, iV] >= real_w[iV]) + 1) / (np.isfinite(null_w[:, iV]).sum() + 1)
+# for each shifted calendar, its strongest window's local chance, by ranking every window among the shifted calendars;
+# an undetermined window never counts as striking
+nw = np.where(np.isfinite(null_w), null_w, -np.inf)
+rank = np.sum(nw[None, :, :] >= nw[:, None, :], 1) / (len(keep) + 1)                  # shifted calendars x windows
+fam = {"windows": len(WIN), "chance_vs_vasco": r3(np.mean(rank.min(1) <= p_vasco))}
 
-
-idx7, fam = family(7)
-fam["cells"] = [{"before": int(-WIN[j][0]), "after": int(WIN[j][1]), "r": r3(real_w[j]), "p": r3(loc[j]), "z": round(float(np.clip(norm.isf(loc[j]), -4, 4)), 2)} for j in idx7]
-fam["vasco_p"], fam["chance_vs_vasco_14"] = r3(loc[iV]), family(14)[1]["chance_vs_vasco"]
-fam["larger_r"] = int(np.sum(real_w[idx7] > real_w[iV]))                     # windows with a larger ratio than VASCO's
 # the rich plates that split the windows into two groups: the plate within a week of a test that most exceeds what its
 # pointing predicts, and the two that do so most within a day of a test
 lvl = (Y - y_raw[m0].sum()) / (Et - E[m0].sum())                             # the level of plates away from tests
-def rich(offsets, k):
-    near_ = np.isin(day, (TESTS[:, None] + np.array(offsets)[None, :]).ravel()); ex = np.where(near_, y_raw - lvl * E, -np.inf)
+
+
+def rich(offsets_, k):
+    near_ = near(day, tuple(offsets_)); ex = np.where(near_, y_raw - lvl * E, -np.inf)
     out_ = []
     for j in np.argsort(ex)[::-1][:k]:
-        off = day[j] - TESTS; off = off[np.abs(off) <= 7]
+        off = day[j] - TESTS; off = off[np.abs(off) <= R]
         out_.append({"plate": P.index[j], "date": str(P.date.iloc[j].date()), "n": int(y_raw[j]), "expected": int(round(lvl * E[j])),
                      "days_from_test": int(off[np.argmin(np.abs(off))])})
     return out_
-fam["rich_week"], fam["rich_day"] = rich(range(-7, 8), 1)[0], rich((-1, 0, 1), 2)
+
+
+fam["rich_week"], fam["rich_day"] = rich(range(-R, R + 1), 1)[0], rich((-1, 0, 1), 2)
+two = P.index.isin([x["plate"] for x in fam["rich_day"]]); test_day = near(day, (0,))
+fam["rich_day_share"] = {"plates_test_day": int(test_day.sum()), "test_day": r3(y_raw[two & test_day].sum() / y_raw[test_day].sum())}
 # every window again without those three plates (left out of both sides): a description, since they were picked by looking
 drop3 = P.index.isin([fam["rich_week"]["plate"]] + [x["plate"] for x in fam["rich_day"]])
-def ratio_without(j):
-    m_ = np.isin(day, (TESTS[:, None] + np.arange(WIN[j][0], WIN[j][1] + 1)[None, :]).ravel()); a_, b_ = m_ & ~drop3, ~m_ & ~drop3
-    return (y_raw[a_].sum() / E[a_].sum()) / (y_raw[b_].sum() / E[b_].sum())
-for c_, j in zip(fam["cells"], idx7):
-    c_["r_without"] = r3(ratio_without(j))
-rw = [c_["r_without"] for c_ in fam["cells"]]
-fam["without"] = {"plates": list(P.index[drop3]), "lo": min(rw), "hi": max(rw), "median": r3(np.median(rw)), "vasco": r3(ratio_without(iV))}
-two = P.index.isin([x["plate"] for x in fam["rich_day"]])
-fam["rich_day_share"] = {"plates_test_day": int(near(day, (0,)).sum()), "test_day": r3(y_raw[two & near(day, (0,))].sum() / y_raw[near(day, (0,))].sum()),
-                         "vasco": r3(y_raw[two & m0].sum() / y_raw[m0].sum())}
+
+
+def ratio_without(a_, b_):
+    m_ = near(day, tuple(range(a_, b_ + 1))); w_, o_ = m_ & ~drop3, ~m_ & ~drop3
+    return (y_raw[w_].sum() / E[w_].sum()) / (y_raw[o_].sum() / E[o_].sum())
+
+
+fam["cells"] = [{"before": -a_, "after": b_, "r": r3(real_w[j]), "r_without": r3(ratio_without(a_, b_))} for j, (a_, b_) in enumerate(WIN)]
+fam["without"] = {"plates": list(P.index[drop3]), "median": r3(np.median([c_["r_without"] for c_ in fam["cells"]])),
+                  "vasco": r3(ratio_without(-1, 1))}
 out["windows"] = fam
 
 b_ = np.abs(P.b.values)

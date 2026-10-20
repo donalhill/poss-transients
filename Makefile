@@ -15,11 +15,6 @@ POOLED   := $(D)/shadow_pooled.json
 SOUTH    := $(D)/shadow_plates_log.csv
 FIT      := $(D)/shadow_fit.json
 NUCLEAR  := $(D)/nuclear.json
-NUCFIT   := $(D)/nuclear_fit.json
-NUCCHECK := $(D)/nuclear_checks.json
-NUCBASIC := $(D)/nuclear_basic.json
-BLUE     := $(D)/plate_blue.csv
-PSHAPES  := $(D)/plate_shapes.csv
 PROPS    := $(A)/plate_properties.py $(DUST) $(DEPTH) $(D)/xe_headers.parquet
 ALIGN    := $(D)/alignments.json
 VCAND    := $(D)/vasco_candidates.json
@@ -41,7 +36,7 @@ help:
 	@echo "make catalogue  each transient on its plate              -> $(PLATES)"
 	@echo "make dates      corrected plate dates                    -> $(DATES)"
 	@echo "make shadow     Earth's shadow: pooled count and fit     -> $(POOLED) $(FIT)"
-	@echo "make nuclear    nights near US nuclear tests             -> $(NUCLEAR) $(NUCBASIC) $(NUCFIT) $(NUCCHECK)"
+	@echo "make nuclear    nights near US nuclear tests             -> $(NUCLEAR)"
 	@echo "make alignments track search over 1,000 shifted copies   -> $(ALIGN)  (slow)"
 	@echo "make tracks     the strongest tracks on the plates       -> $(SHAPES) $(SECOND) $(TRAIL)"
 	@echo "make site       charts and numbers for the page          -> $(SITE)"
@@ -50,7 +45,7 @@ help:
 catalogue: $(PLATES)
 dates: $(DATES)
 shadow: $(POOLED) $(FIT) $(SOUTH)
-nuclear: $(NUCLEAR) $(NUCBASIC) $(NUCFIT) $(NUCCHECK)
+nuclear: $(NUCLEAR)
 alignments: $(ALIGN) $(VCAND)
 tracks: $(SHAPES) $(SECOND) $(TRAIL)
 site: $(SITE)
@@ -84,22 +79,7 @@ $(FIT): $(A)/shadow_fit.py $(A)/shadow.py $(POOLED) $(SAMPLE)
 $(DEPTH): $(A)/plate_depth.py $(A)/stars.py $(A)/geometry.py $(SAMPLE)
 	$(PY) $<
 
-$(BLUE): $(A)/plate_blue.py $(A)/geometry.py $(SAMPLE)
-	$(PY) $<
-
-$(NUCLEAR): $(A)/nuclear.py $(A)/nuclear_model.py $(SAMPLE) $(PROPS) $(D)/us_shot_times.csv
-	$(PY) $<
-
-$(NUCFIT): $(A)/nuclear_fit.py $(A)/nuclear_model.py $(SAMPLE) $(PROPS) $(D)/us_shot_times.csv
-	$(PY) $<
-
-$(PSHAPES): $(A)/plate_shapes.py $(A)/stars.py $(A)/nuclear_model.py $(SAMPLE) $(PROPS) $(D)/us_shot_times.csv
-	$(PY) $<
-
-$(NUCBASIC): $(A)/nuclear_basic.py $(A)/nuclear_model.py $(SAMPLE) $(PROPS) $(PSHAPES) $(D)/us_shot_times.csv
-	$(PY) $<
-
-$(NUCCHECK): $(A)/nuclear_checks.py $(A)/nuclear_model.py $(A)/alignments.py $(SAMPLE) $(PROPS) $(BLUE) $(D)/us_shot_times.csv
+$(NUCLEAR): $(A)/nuclear.py $(SAMPLE) $(PROPS) $(D)/us_shot_times.csv
 	$(PY) $<
 
 $(ALIGN): $(A)/alignments.py $(PLATES)
@@ -117,7 +97,7 @@ $(SECOND): $(A)/second_copy.py $(A)/geometry.py $(ALIGN) $(DATES)
 $(TRAIL): $(A)/xe492_trail.py $(A)/geometry.py $(ALIGN) $(DATES)
 	$(PY) $<
 
-$(SITE): $(A)/build_site.py $(A)/shadow.py $(A)/asteroid_clock.py $(A)/fetch_labels.py $(SAMPLE) $(EVIDENCE) $(DUST) $(POOLED) $(SOUTH) $(FIT) $(NUCLEAR) $(NUCBASIC) $(NUCFIT) $(NUCCHECK) $(ALIGN) $(VCAND) $(SHAPES) $(SECOND) $(TRAIL)
+$(SITE): $(A)/build_site.py $(A)/shadow.py $(A)/asteroid_clock.py $(A)/fetch_labels.py $(SAMPLE) $(EVIDENCE) $(DUST) $(POOLED) $(SOUTH) $(FIT) $(NUCLEAR) $(ALIGN) $(VCAND) $(SHAPES) $(SECOND) $(TRAIL)
 	$(PY) $<
 
 $(PAGE): site/assemble.py site/copy.md site/template.html $(SITE)

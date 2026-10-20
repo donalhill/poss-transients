@@ -15,7 +15,6 @@ import astropy.units as u
 from astropy.coordinates import SkyCoord, get_sun
 from astropy.io import fits
 from astropy.time import Time
-from astropy.visualization import ZScaleInterval
 from astropy.wcs import WCS
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -91,44 +90,11 @@ site["paste"] = {"bins": bins.tolist(), "counts": np.histogram(sums, bins)[0].to
 
 # ------------------------------------------------------------------ nuclear tests (nuclear.py)
 NU = json.loads((ROOT / "data/nuclear.json").read_text())
-NF = json.loads((ROOT / "data/nuclear_fit.json").read_text())
-NC = json.loads((ROOT / "data/nuclear_checks.json").read_text())
 site["perm"] = NU["perm"]
 site["perm"]["corrected"] = NU["corrected"]
 site["nuc_windows"] = NU["windows"]
 site["nuc_checks"] = {"base": NU["corrected"]["real"], "title": "Per photograph, allowing for pointing", "span": 0.2,
                      "rows": [x for x in NU["checks"] if x["label"] != "All of them together"]}
-NB_ = json.loads((ROOT / "data/nuclear_basic.json").read_text())
-# the nuclear measurement from the ground up (nuclear_basic.py), with the full model fit (nuclear_fit.py) as a cross-check
-lro = {x["run"]: x["r"] for x in NB_["leave_run_out"]}
-abcd = {x["split"]: x for x in NB_["abcd"]}
-# the two plates near tests that carry most of the excess, each beside a typical plate from its own run
-site["nuc_plates"] = [{**q, "near": near, "xi": cat.xi[cat.plate == q["plate"]].round(3).tolist(), "eta": cat.eta[cat.plate == q["plate"]].round(3).tolist()}
-                      for x in sorted(NB_["plates"][:2], key=lambda x: x["date"]) for q, near in ((x, True), (x["mate"], False))]
-def label(x):
-    """A chart label for one robustness check (nuclear_basic.py)."""
-    c = {"2' cells holding a transient": "Counting 2′ cells holding a transient", "central 5 x 5 deg only": "Central 5 × 5° of each plate only"}.get(x["check"], x["check"])
-    if "plates_dropped" in x:
-        c = c.replace("without ", "without Operation ")
-    return c[0].upper() + c[1:]
-
-
-site["nuc"] = {"r": NB_["within_runs_expected"], "runs": NB_["runs"], "grid": NF["scan"]["grid"],
-               "null": {"r": NF["fit"]["r"], "p": NF["null_runs"]["p_as_high"], "hist": NF["null_runs"]["hist"]},
-               "measures": [
-    {"label": "Analysis fixed in advance", "r": NF["fit"]["r"], "lo": NF["fit"]["count_lo"], "hi": NF["fit"]["count_hi"], "group": "catalogue"},
-    {"label": "Step-by-step ratio", "r": NB_["within_runs_expected"], "group": "catalogue"},
-    *[{"label": f"Step by step, {label(x)[0].lower()}{label(x)[1:]}", "r": x["r"], "group": "catalogue"} for x in NB_["robust"] if x["check"].startswith("without XE")],
-    *[{"label": f"Runs split after {x['gap']} empty nights", "r": x["r"], "group": "choices"} for x in NF["robust"]["run_gap"] if x["gap"] != 4],
-    {"label": "Counting 2′ cells holding a transient", "r": NF["robust"]["outcomes"][1]["r"], "group": "choices"},
-    {"label": "Central 5 × 5° of each plate only", "r": NF["robust"]["outcomes"][2]["r"], "group": "choices"},
-    *[{"label": f"Without Operation {x['series']}", "r": x["r"], "group": "choices"} for x in NF["robust"]["leave_series_out"] if x["plates_dropped"] >= 2],
-    {"label": "In the central part of the plate", "r": abcd["edge against central"]["odds_ratio"], "group": "which"},
-    {"label": "No neighbour within 5′", "r": abcd["crowded against isolated"]["odds_ratio"], "group": "which"},
-    {"label": "Shaped like the stars", "r": abcd["shaped like stars or not"]["odds_ratio"], "group": "which"},
-    {"label": "Red-plate specks", "r": NC["blue"]["red"]["r"], "lo": NC["blue"]["red"]["count_lo"], "hi": NC["blue"]["red"]["count_hi"], "group": "scans"},
-    {"label": "Blue-plate specks, same nights", "r": NC["blue"]["blue"]["r"], "lo": NC["blue"]["blue"]["count_lo"], "hi": NC["blue"]["blue"]["count_hi"], "group": "scans"},
-    *[{"label": f"Tracks scoring {t['score']} or better", "r": t["r"], "lo": t["count_lo"], "hi": t["count_hi"], "group": "tracks"} for t in NC["tracks"]]]}
 
 # ------------------------------------------------------------------ alignments
 rb = lambda a: a.reshape(*a.shape[:-1], -1, 2).sum(-1)                 # 0.2-dex bins
@@ -343,7 +309,7 @@ for _ in range(2000):
 du = pd.read_csv(ROOT / "data/plate_dust.csv").set_index("plate")
 du["b"] = np.abs(SkyCoord(pl.loc[du.index].ra_c.values * u.deg, pl.loc[du.index].dec_c.values * u.deg).galactic.b.deg)
 du = du[du.b > 20]; dusty, clear = du[du.ebv >= 0.15], du[du.ebv < 0.05]
-site["dust"] = {"n_dusty": len(dusty), "median_dusty": int(dusty.n.median()), "n_clear": len(clear), "median_clear": int(clear.n.median())}
+dust = {"n_dusty": len(dusty), "median_dusty": int(dusty.n.median()), "n_clear": len(clear), "median_clear": int(clear.n.median())}
 # share of plates whose band 2.0-2.75 deg from the centre is denser than their inner 1.5 deg
 cs_ = cat; rs_ = np.maximum(cs_.xi.abs(), cs_.eta.abs())
 share_edge = float(np.mean([((g < 2.75) & (g >= 2.0)).sum() / (5.5 ** 2 - 4.0 ** 2) > (g < 1.5).sum() / 3.0 ** 2 for _, g in rs_.groupby(cs_.plate)]))
@@ -385,15 +351,15 @@ V_ = SP["vasco_geo"]
 ST = NU["steps"]
 numbers = {
     # the catalogue
-    "cat.transients": num(len(cat)), "cat.plates": num(len(pl)), "cat.vasco_plates": num(len(vasco_plates)),
+    "cat.transients": num(len(cat)), "cat.plates": num(len(pl)),
     "cat.left_out": num(len(pl) - len(vasco_plates)), "cat.min": num(N_.min()), "cat.max": num(N_.max()),
     "cat.avg": num(avg_all), "cat.noise": num(sd_all), "cat.band_lo": num(lo_b), "cat.band_hi": num(hi_b),
     "cat.in_band": num(((N_ >= lo_b) & (N_ <= hi_b)).sum()), "cat.under30": num((N_ < 30).sum()), "cat.over500": num((N_ > 500).sum()),
     "cat.over1000": word((N_ > 1000).sum()), "cat.edge_share": num(100 * share_edge),
     "crowd.inner": num(pa[pa.absb < 5].N.median()), "crowd.outer": num(round(pa[pa.absb > 40].N.median(), -1)),
     "crowd.ratio": word(round(pa[pa.absb > 40].N.median() / pa[pa.absb < 5].N.median())),
-    "dust.n_dusty": num(site["dust"]["n_dusty"]), "dust.median_dusty": num(site["dust"]["median_dusty"]),
-    "dust.n_clear": num(site["dust"]["n_clear"]), "dust.median_clear": num(site["dust"]["median_clear"]),
+    "dust.n_dusty": num(dust["n_dusty"]), "dust.median_dusty": num(dust["median_dusty"]),
+    "dust.n_clear": num(dust["n_clear"]), "dust.median_clear": num(dust["median_clear"]),
     # Earth's shadow, pooled (shadow_pooled.py)
     "sh.plates": word(G["plates"]), "sh.plates_n": num(G["plates"]), "sh.partial": word(len(F_["plates"])),
     "sh.never": num(len(pl) - G["plates"]), "sh.observed": num(G["observed"]), "sh.worth": num(G["plates_worth"], 2),
@@ -404,7 +370,6 @@ numbers = {
     "sh.topo_plates": word(T_["plates"]), "sh.topo_obs": num(T_["observed"]), "sh.topo_exp": num(T_["expected"]),
     "sh.odds_topo": odds(T_["p_random"]), "sh.sig_topo": sig(T_["p_random"]),
     "sh.vasco_obs": num(V_["observed"]), "sh.vasco_exp": num(V_["expected"]), "sh.vasco_plates": word(V_["plates"]),
-    "sh.taurus": word(sum(1 for q in pt.index[pt.f_area > 0] if 40 < pl.loc[q].ra_c < 75)),
     # Earth's shadow, plate by plate (shadow_fit.py)
     "fit.r": num(F_["fit"]["r"], 2), "fit.count_lo": num(F_["fit"]["count_lo"], 2), "fit.count_hi": num(F_["fit"]["count_hi"], 2),
     "fit.null_median": num(F_["toys"]["null"]["median"], 2), "fit.null_lo": num(F_["toys"]["null"]["q16"], 2),
@@ -422,7 +387,7 @@ numbers = {
     "nuc.vasco_odds": odds(NU["vasco"]["p"]), "nuc.vasco_sig": num(NU["vasco"]["sigma"], 1),
 }
 south = pd.read_csv(ROOT / "data/shadow_plates_log.csv")
-numbers.update({"sh.taurus_cap": numbers["sh.taurus"].capitalize(), "sh.south": num((~south.in_catalogue).sum()),
+numbers.update({"sh.taurus_cap": word(sum(1 for q in pt.index[pt.f_area > 0] if 40 < pl.loc[q].ra_c < 75)).capitalize(), "sh.south": num((~south.in_catalogue).sum()),
                 "sh.south_ratio": word(round(south[~south.in_catalogue].shadow_fraction.sum() / south[south.in_catalogue].shadow_fraction.sum())),
                 })
 # the dates (date_corrections.py and its evidence)
@@ -458,113 +423,37 @@ numbers.update({
     "trail.length": num(np.floor(TR["length_arcmin"])), "trail.sag": num(round(TR["sag_arcsec"], -1)), "trail.radius": num(TR["radius_deg"]),
     "trail.turn_km": num(SHP["defocus_km"] * np.tan(np.radians(TR["radius_deg"]))),
     "trail.spacing_lo": num(TR["spacing_16_84"][0]), "trail.spacing_hi": num(TR["spacing_16_84"][1])})
-# the nuclear tests (nuclear.py, nuclear_basic.py, nuclear_fit.py, nuclear_checks.py)
+# the nuclear tests (nuclear.py)
 pc = lambda p_: num(100 * p_)
 ordinal = lambda n: f"{n}{'th' if 10 <= n % 100 <= 20 else {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')}"
-bysize = {x["days"]: x for x in NB_["scan"]["by_size"]}
-phys = {x["window"]: x for x in NB_["physical"]}
-pred = {x["feature"]: x for x in NC["prediction"]}
-rob = {x["check"]: x for x in NB_["robust"]}
-fs = {x["days"]: x for x in NF["scan"]["by_size"]}; nfp = {x["window"]: x for x in NF["physical"]}
-tp = NB_["plates"][:2]; wo = [rob[f"without {x['plate']}"]["r"] for x in tp]; both = rob[f"without {tp[0]['plate']} and {tp[1]['plate']}"]
-choice = [x["r"] for x in NB_["robust"] if not x["check"].startswith("without XE") and x.get("plates_dropped", 2) >= 2]
-RS = NB_["runs_summary"]; RN = NC["rich_nights"]
 longdate = lambda d: pd.Timestamp(d).strftime("%-d %B %Y")
+numbers.update({"align.pear_diag": num(100 * site["pearson"][45], 1), "align.pear_2": pc(site["pearson"][2]), "align.pear_ew": pc(site["pearson"][0])})
 numbers.update({
     "nuc.nights": num(ST["nights_window"]), "nuc.ratio": num(NU["perm"]["raw"]["real"], 2), "nuc.odds": odds(NU["perm"]["raw"]["p"]),
     "nuc.sig": num(NU["perm"]["raw"]["sigma"], 1), "nuc.plates_window": num(ST["plates_window"], 1), "nuc.plates_other": num(ST["plates_other"], 1),
-    "nuc.per_plate": num(ST["per_plate"], 2),
     **{f"nc2.{k}_r": num(x["r"], 2) for k, x in zip(("night", "photo", "point"), NU["corrections"])},
-    **{f"nc2.{k}_pv": pc(x["vasco_null"]["p"]) for k, x in zip(("night", "photo", "point"), NU["corrections"])},
-    **{f"nc2.{k}_pc": pc(x["calendar_null"]["p"]) for k, x in zip(("night", "photo", "point"), NU["corrections"])},
+    "nc2.point_pv": pc(NU["corrections"][2]["vasco_null"]["p"]), "nc2.point_pc": pc(NU["corrections"][2]["calendar_null"]["p"]),
     "nc2.point_pv_sig": num(norm.isf(NU["corrections"][2]["vasco_null"]["p"]), 1),
-    "nc2.point_odds": odds(NU["corrections"][2]["calendar_null"]["p"]),
-    "nc2.photo_cal_median": num(NU["corrections"][1]["calendar_null"]["median"], 2), "nc2.point_cal_median": num(NU["corrections"][2]["calendar_null"]["median"], 2),
     "nc2.empty_near": word(ST["empty_window"]), "nc2.empty_other": num(ST["empty_other"]), "nc2.nights_other": num(ST["nights_other"]),
     "nc2.med_low": num(NU["pointing"]["median_low"]), "nc2.med_high": num(NU["pointing"]["median_high"]),
     "nc2.exp_pct": num(round(100 * (NU["pointing"]["expected_near_over_other"] - 1))), "nc2.spring": pc(NU["pointing"]["near_spring"]),
     "nc2.slides": num(NU["pointing"]["slides"]), "nc2.sig": num(NU["corrected"]["sigma"], 1), "nc2.odds": odds(NU["corrected"]["p"]),
-    "nc3.lo": num(min(x["r"] for x in NU["checks"]), 2), "nc3.hi": num(max(x["r"] for x in NU["checks"]), 2),
-    "nc3.p_lo": pc(min(x["p"] for x in NU["checks"])), "nc3.p_hi": pc(max(x["p"] for x in NU["checks"])),
-    "nc4.windows": num(NU["windows"]["windows"]), "nc4.others": num(NU["windows"]["windows"] - 1), "nc4.larger": num(NU["windows"]["larger_r"]), "nc4.smaller": num(NU["windows"]["windows"] - 1 - NU["windows"]["larger_r"]), "nc4.chance": pc(NU["windows"]["chance_vs_vasco"]),
-    "nc4.chance14": pc(NU["windows"]["chance_vs_vasco_14"]),
+    "nc4.windows": num(NU["windows"]["windows"]), "nc4.chance": pc(NU["windows"]["chance_vs_vasco"]),
     "nc4.rw_plate": NU["windows"]["rich_week"]["plate"], "nc4.rw_date": longdate(NU["windows"]["rich_week"]["date"]), "nc4.rw_n": num(NU["windows"]["rich_week"]["n"]),
     "nc4.rw_e": num(round(NU["windows"]["rich_week"]["expected"], -1)), "nc4.rw_days": word(NU["windows"]["rich_week"]["days_from_test"]),
-    "nc4.vasco_r": num(next(c["r"] for c in NU["windows"]["cells"] if c["before"] == 1 and c["after"] == 1), 2),
     "nc4.rd_plates": num(NU["windows"]["rich_day_share"]["plates_test_day"]), "nc4.rd_share": pc(NU["windows"]["rich_day_share"]["test_day"]),
-    "nc4.rd_share_v": pc(NU["windows"]["rich_day_share"]["vasco"]),
-    "nc4.wo_lo": num(NU["windows"]["without"]["lo"], 2), "nc4.wo_hi": num(NU["windows"]["without"]["hi"], 2),
     "nc4.wo_median": num(NU["windows"]["without"]["median"], 2), "nc4.wo_vasco": num(NU["windows"]["without"]["vasco"], 2),
-    "nc4.rd1": NU["windows"]["rich_day"][0]["plate"], "nc4.rd2": NU["windows"]["rich_day"][1]["plate"], "nc4.r_lo": num(min(c["r"] for c in NU["windows"]["cells"]), 2), "nc4.r_hi": num(max(c["r"] for c in NU["windows"]["cells"]), 2), "nc4.best_r": num(NU["windows"]["best"]["r"], 2), "nc4.best_global": pc(NU["windows"]["best"]["p_global"]),
+    "nc4.rd1": NU["windows"]["rich_day"][0]["plate"], "nc4.rd2": NU["windows"]["rich_day"][1]["plate"], "nc4.r_lo": num(min(c["r"] for c in NU["windows"]["cells"]), 2), "nc4.r_hi": num(max(c["r"] for c in NU["windows"]["cells"]), 2), 
     **{f"nc3.{k}_{f}": v for k, g in (("defs", "What counts as a transient"), ("series", "Test series left out"))
-       for f, v in (("lo", num(min(x["r"] for x in NU["checks"] if x["group"] == g), 2)), ("hi", num(max(x["r"] for x in NU["checks"] if x["group"] == g), 2)),
-                    ("plo", pc(min(x["p"] for x in NU["checks"] if x["group"] == g))), ("phi", pc(max(x["p"] for x in NU["checks"] if x["group"] == g))))},
-    "nc3.all": num(next(x["r"] for x in NU["checks"] if x["label"] == "All of them together"), 2),
-    "nb.plates": num(NB_["plates_near"]), "nb.nights": num(NB_["nights_near"]), "nb.runs": word(len(NB_["runs"])),
-    "nb.raw": num(NB_["raw"], 2), "nb.within": num(NB_["within_runs"], 2), "nb.r": num(NB_["within_runs_expected"], 2),
-    "nb.p": pc(NB_["null_runs"]["p"]), "nb.odds": odds(NB_["null_runs"]["p"]), "nb.sig": num(NB_["null_runs"]["sigma"], 1),
-    "nb.null_median": num(NB_["null_runs"]["median"], 2), "nb.null_lo": num(NB_["null_runs"]["q16"], 2), "nb.null_hi": num(NB_["null_runs"]["q84"], 2),
-    "nb.p_cal": num(100 * NB_["null_calendar"]["p"], 1), "nb.upper": num(NB_["upper95"], 1), "nb.vasco_low": pc(NB_["vasco_p_as_low"]),
-    "nb.runs_sep": word(sum(1 for x in NB_["runs"] if x["lo"] > 1)), "nb.runs_close": word(RS["within_10pct"]),
-    "nb.run_median": num(RS["median"], 2), "nb.without_nov51": num(lro["1951-11-03"], 2), "nb.without_mar55": num(lro["1955-03-19"], 2),
-    "nb.nov51": num(next(x["contrast"] for x in NB_["runs"] if x["from"] == "1951-11-03"), 1),
-    "nb.mar55": num(next(x["contrast"] for x in NB_["runs"] if x["from"] == "1955-03-19"), 1),
-    **{f"nb.p{k + 1}{f}": v for k, x in enumerate(tp) for f, v in (("", x["plate"]), ("_date", longdate(x["date"])), ("_n", num(x["n"])),
-       ("_e", num(round(x["expected"]))), ("_ratio", num(x["ratio"], 1)), ("_mate", x["mate"]["plate"]), ("_mate_n", num(x["mate"]["n"])),
-       ("_without", num(wo[k], 2)))},
-    **{f"nb.p{k + 1}{m_}{f}": v for k, x in enumerate(tp) for m_, q_ in (("", x), ("_mate", x["mate"])) for f, v in
-       (("_edge", pc(q_["edge"])), ("_nn", num(q_["nn_arcmin"], 1)), ("_fwhm", num(q_["star_fwhm"], 1)), ("_fwhm_pct", num(q_["star_fwhm_pct"])),
-        ("_narrower", pc(q_["narrower"])))},
-    "nb.crop": max(tp, key=lambda x: x["ratio"])["plate"], "nb.narrow_corr": num(NB_["shapes"]["narrower_star_width_corr"], 2),
-    "nb.without_both": num(both["r"], 2), "nb.without_both_p": pc(both["p"]),
-    "nb.choice_lo": num(min(choice), 2), "nb.choice_hi": num(max(choice), 2),
-    "nf.r": num(NF["fit"]["r"], 2), "nf.p": num(100 * NF["null_runs"]["p_as_high"], 1), "nf.odds": odds(NF["null_runs"]["p_as_high"]),
-    "nf.sig": num(NF["fit"]["sigma"], 1), "nf.p_cal": num(100 * NF["null_calendar"]["p_as_high"], 1),
-    "nf.i68_lo": num(NF["interval68"][0], 2), "nf.i68_hi": num(NF["interval68"][1], 2), "nf.i90_lo": num(NF["interval90"][0], 1), "nf.i90_hi": num(NF["interval90"][1], 1),
-    "nf.power": pc(NF["power_vasco"]["p_as_low"]), "nf.vasco_r": num(NF["power_vasco"]["r_true"], 2),
-    "nf.rank_others": word(NF["scan"]["primary_rank"] - 1), "nf.windows": num(NF["scan"]["windows"]), "nf.rank_p": num(100 * NF["scan"]["share_trials_rank_as_high"], 1),
-    **{f"nf.g{x['days']}": num(100 * x["p_global"], 0 if x["p_global"] >= 0.1 else 1) for x in NF["scan"]["by_size"]},
-    "nf.g14_best": f"{fs[14]['best'][0]} to {fs[14]['best'][1]}".replace("-", "−"), "nf.g14_best_r": num(fs[14]["best_r"], 1),
-    "nf.after_r": num(nfp["0 to 24 hours after a shot"]["r"], 2), "nf.after_p": num(100 * nfp["0 to 24 hours after a shot"]["p_runs"], 1),
-    "nf.before_r": num(nfp["24 hours before a shot"]["r"], 2), "nf.before_p": num(100 * nfp["24 hours before a shot"]["p_runs"], 1),
-    "nf.after2_r": num(nfp["24 to 48 hours after"]["r"], 2),
-    "nf.gap_lo": num(min(x["r"] for x in NF["robust"]["run_gap"]), 2), "nf.gap_hi": num(max(x["r"] for x in NF["robust"]["run_gap"]), 2),
-    "nf.gap_pmax": num(100 * max(x["p_runs"] for x in NF["robust"]["run_gap"]), 1),
-    "nf.cells_r": num(NF["robust"]["outcomes"][1]["r"], 2), "nf.inner_r": num(NF["robust"]["outcomes"][2]["r"], 2),
-    "nf.series_lo": num(min(x["r"] for x in NF["robust"]["leave_series_out"]), 2), "nf.series_hi": num(max(x["r"] for x in NF["robust"]["leave_series_out"]), 2),
-    "nf.run_lo": num(min(x["r"] for x in NF["robust"]["leave_run_out"]), 2), "nf.run_hi": num(max(x["r"] for x in NF["robust"]["leave_run_out"]), 2),
-    "nb.drop2_r": num(NB_["drop_two"]["r"], 2), "nb.drop2_median": num(NB_["drop_two"]["trials_median"], 2), "nb.drop2_p": num(100 * NB_["drop_two"]["p"], 1),
-    "nb.plates_inf": num(sum(x["near"] for x in NB_["runs"])), "nb.runs_above": word(RS["above"]),
-    "nc.tracks10_p": pc(1 - NC["tracks"][0]["p_runs"]),
-    "nb.fit_r": num(NF["fit"]["r"], 2), "nb.fit_p": num(100 * NF["null_runs"]["p_as_high"], 1),
-    "nb.rank": num(NB_["scan"]["primary_rank"]), "nb.windows": num(NB_["scan"]["windows"]),
-    "nb.g3": pc(bysize[3]["p_global"]), "nb.g7": pc(bysize[7]["p_global"]), "nb.g14": pc(bysize[14]["p_global"]),
-    "nb.g14_best": f"{bysize[14]['best'][0]} to {bysize[14]['best'][1]}".replace("-", "−"), "nb.g14_best_r": num(bysize[14]["best_r"], 1),
-    "nb.after_r": num(phys["0 to 24 hours after a shot"]["r"], 2), "nb.before_r": num(phys["24 hours before a shot"]["r"], 2),
-    "nb.after2_r": num(phys["24 to 48 hours after"]["r"], 2),
-    "nb.central": num(abcd["edge against central"]["odds_ratio"], 2), "nb.isolated": num(abcd["crowded against isolated"]["odds_ratio"], 2),
-    "nb.isolated_p": num(100 * abcd["crowded against isolated"]["p_less_signal_like"], 1),
-    "nb.shapes": num(NB_["shapes"]["measured"]), "nb.shapes_plates": num(NB_["shapes"]["plates"]),
-    "nb.starlike": pc(NB_["shapes"]["star_like"] / NB_["shapes"]["measured"]), "nb.wider": pc(NB_["shapes"]["wider"] / NB_["shapes"]["measured"]),
-    "nb.shape_r": num(abcd["shaped like stars or not"]["odds_ratio"], 2), "nb.shape_q05": num(abcd["shaped like stars or not"]["trials_q05"], 2),
-    "nb.shape_q95": num(abcd["shaped like stars or not"]["trials_q95"], 2), "nb.shape_if_star": num(NB_["shapes_if_excess"]["all_star_like"], 1),
-    "nb.shape_if_none": num(NB_["shapes_if_excess"]["none_star_like"], 1),
-    "nb.shape_p_more": pc(abcd["shaped like stars or not"]["p_more_signal_like"]), "nb.shape_p_less": pc(abcd["shaped like stars or not"]["p_less_signal_like"]),
-    "nr.top1": longdate(RN["top_near"][0]["date"]), "nr.top1_r": num(RN["top_near"][0]["ratio"], 1),
-    "nr.top2": longdate(RN["top_near"][1]["date"]), "nr.top2_r": num(RN["top_near"][1]["ratio"], 1),
-    "nr.threshold": num(RN["threshold"], 1), "nr.rich": word(RN["rich"]), "nr.rich_near": word(RN["rich_near"]), "nr.p_chance": pc(RN["p_chance"]),
-    "nc.plates": num(NC["blue"]["plates"]), "nc.red_r": num(NC["blue"]["red"]["r"], 2), "nc.blue_r": num(NC["blue"]["blue"]["r"], 2),
-    "nc.pred_p": pc(pred["VASCO's window"]["p"]), "nc.pred_after_p": num(100 * pred["the day after"]["p"], 1),
-    "nc.pred_before_p": pc(pred["the day before"]["p"]), "nc.pred_day_p": pc(pred["the test's date"]["p"]), "nc.pred_nights": num(pred["VASCO's window"]["nights_held_out"]),
-    "nc.tracks10_r": num(NC["tracks"][0]["r"], 2), "nc.tracks100_r": num(NC["tracks"][1]["r"], 2),
-    "nc.tracks10_near": num(NC["tracks"][0]["tracks_near"]), "nc.tracks100_near": word(NC["tracks"][1]["tracks_near"])})
+       for f, v in (("lo", num(min(x["r"] for x in NU["checks"] if x["group"] == g), 2)), ("hi", num(max(x["r"] for x in NU["checks"] if x["group"] == g), 2)))},
+    "nc3.all": num(next(x["r"] for x in NU["checks"] if x["label"] == "All of them together"), 2)})
 site["numbers"] = numbers
 
 (OUT / "data/site.json").write_text(json.dumps(site, separators=(",", ":"), allow_nan=False))
 print("site.json", round((OUT / "data/site.json").stat().st_size / 1024), "kB")
 
 # ------------------------------------------------------------------ images (DSS plate material, figure-sized crops)
-IMGS = ("label_xe356.png", "label_xe617.png", "asteroid_isabella_wide.png", "asteroid_erigone_wide.png", "nuc_densest.png")
+IMGS = ("label_xe356.png", "label_xe617.png", "asteroid_isabella_wide.png", "asteroid_erigone_wide.png")
 if "--images" not in sys.argv and all((OUT / "img" / n).exists() for n in IMGS):
     print("images kept (redraw with --images)"); raise SystemExit
 def save(fig, name):
@@ -622,23 +511,4 @@ for plate, num, nm, label in (("XE356", 210, "isabella", "(210) Isabella"), ("XE
     ax.text(bx + L / 2, by + 0.025 * H_, "2′", ha="center", va="bottom", fontsize=15, color="black",
             path_effects=[pe.withStroke(linewidth=3, foreground="white")])
     save(fig, f"asteroid_{nm}_wide.png")
-# the densest 20' patch of the richer (against expected) of the two plates that carry most of the excess near tests,
-# every catalogue transient circled
-q = max(NB_["plates"][:2], key=lambda x: x["ratio"])["plate"]
-g = cat[cat.plate == q]; H2, xe, ye = np.histogram2d(g.xi, g.eta, bins=18, range=[[-3, 3], [-3, 3]]); i, j = np.unravel_index(H2.argmax(), H2.shape)
-k = (g.xi >= xe[i]) & (g.xi < xe[i + 1]) & (g.eta >= ye[j]) & (g.eta < ye[j + 1])
-f = CUT / f"{q}_densest_20.fits"
-if not f.exists():
-    f.write_bytes(requests.get(f"https://archive.stsci.edu/cgi-bin/dss_search?v=poss1_red&r={g[k].ra.median():.5f}&d={g[k].dec.median():.5f}"
-                               f"&e=J2000&h=20&w=20&f=fits&c=none", timeout=180).content)
-hd = fits.getheader(f); assert hd["REGION"].strip() == q, (q, hd["REGION"])
-img, w = fits.getdata(f).astype(float), WCS(hd)
-fig = plt.figure(figsize=(9, 9)); ax = fig.add_axes([0, 0, 1, 1])
-lo, hi = ZScaleInterval().get_limits(img); ax.imshow(img, origin="lower", cmap="gray_r", vmin=lo, vmax=hi); ax.axis("off")
-x, y = w.world_to_pixel(SkyCoord(g.ra.values * u.deg, g.dec.values * u.deg)); m = (x > 0) & (y > 0) & (x < img.shape[1]) & (y < img.shape[0])
-ax.scatter(x[m], y[m], s=90, facecolors="none", edgecolors="#c0392b", lw=1.1)
-L = 120 / abs(hd["PLTSCALE"] * hd["XPIXELSZ"] / 1000); bx, by = 0.04 * img.shape[1], 0.04 * img.shape[0]
-ax.plot([bx, bx + L], [by, by], color="black", lw=2.5, solid_capstyle="butt")
-ax.text(bx + L / 2, by + 0.02 * img.shape[0], "2′", ha="center", va="bottom", fontsize=15, color="black", path_effects=[pe.withStroke(linewidth=3, foreground="white")])
-save(fig, "nuc_densest.png")
 print("images written")
