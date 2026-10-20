@@ -304,16 +304,16 @@ How far each further check moves the ratio for plates near nuclear tests. Each v
 Choice of time window
 
 ### nuc-global-text
-The 2026 paper describes the association as highly specific in time, and reads this as a sign of a physical link. But a day either side of a test is one of many windows that could equally have been chosen. Allowing up to a week either side gives {n:nc4.windows}, each measured in the same way.
+The 2026 paper describes the association as highly specific in time, and reads this as a sign of a physical link. But a day either side of a test is one of many windows that could equally have been chosen. Allowing up to a week either side gives {n:nc4.windows} windows, each of which can be analysed in the same way.
 
-Across these windows the result runs from {n:nc4.r_lo} to {n:nc4.r_hi} times, in two separate groups. The upper group comes from three unusually rich plates moving in and out of the windows:
+Across these windows the result runs from {n:nc4.r_lo} to {n:nc4.r_hi}, with values falling into two separate groups. The upper group comes from three unusually rich plates moving in and out of the windows:
 
 - {n:nc4.rw_plate} ({n:nc4.rw_date}) holds {n:nc4.rw_n} transients where its pointing predicts about {n:nc4.rw_e}. It was taken {n:nc4.rw_days} days after a test, so every window that reaches that far includes it.
 - {n:nc4.rd1} and {n:nc4.rd2}, both taken on test days, hold {n:nc4.rd_share}% of the transients on the {n:nc4.rd_plates} test-day plates. They dominate the narrowest windows; wider windows dilute them with ordinary plates.
 
-Without these three plates, the two groups merge into one centred on {n:nc4.wo_median}, and VASCO’s window gives {n:nc4.wo_vasco}. The plates were picked out by looking at the data, so this describes where the excess comes from rather than testing it.
+Without these three plates, the two groups merge into one, centred on {n:nc4.wo_median}, and VASCO’s window gives {n:nc4.wo_vasco}. These plates were picked out by looking at the data, so this describes where the excess comes from rather than testing it.
 
-VASCO fixed their window in advance, so its result needs no allowance for the others. But results like it are common among the alternatives: had the strongest of the {n:nc4.windows} been reported, chance alone would give a result at least as strong as VASCO’s {n:nc4.chance}% of the time. On its own, the result does not show that the association is specific in time.
+VASCO fixed their window in advance, so their result needs no allowance for other windows. But results like it are common among the alternatives. Had the strongest of the {n:nc4.windows} windows been reported, chance alone would produce a result at least as strong as VASCO’s {n:nc4.chance}% of the time; physicists call this the look-elsewhere effect. Seen alongside the other windows, VASCO’s result does not show that the association is specific in time.
 
 ### nuc-global-caption
 The result for each of the {n:nc4.windows} windows that include a US test day, from the test day alone to a week before and after: with every plate (red outline), and without the three unusually rich plates XE524, XE429, and XE296 (grey). VASCO’s window, a day either side, is marked in each.
