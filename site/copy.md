@@ -14,9 +14,9 @@ The Palomar Sky Survey
 ### survey-intro
 Images were taken on plates using Palomar’s 48-inch Schmidt telescope, which was built to photograph wide areas of sky. Each plate is a sheet of glass 14 inches square, and covers a patch of sky 6.5 degrees across (about thirteen full Moons). Every patch was photographed through both a blue and a red filter, with red exposures lasting 40 to 60 minutes. Copies of the plates were scanned in the 1990s, and astronomers now work from those scans.
 
-VASCO compared the red plates with three modern catalogues of the sky: Gaia, Pan-STARRS, and WISE. A point of light became a transient if no modern catalogue lists anything within 5 arcseconds of it. An arcsecond is a 3,600th of a degree, and 60 arcseconds make an arcminute. The public catalogue holds {n:cat.transients} such transients spanning {n:cat.plates} plates.
+VASCO compared the red plates with three modern catalogues of the sky: Gaia, Pan-STARRS, and WISE. A point of light was kept as a transient if, among other checks, no modern catalogue lists anything within 5 arcseconds of it. An arcsecond is a 3,600th of a degree, and 60 arcseconds make an arcminute. The public catalogue holds {n:cat.transients} such transients spanning {n:cat.plates} plates.
 
-Many transients are likely to be artefacts, such as dust on the glass, specks in the photographic emulsion, or marks made in copying and scanning. The catalogue has not been checked by eye. The VASCO team has since trained a machine-learning model that rates how likely each transient is to be genuine, but the catalogue was built before this and includes every transient whatever its rating. The ratings are not yet public, so our analysis uses the whole catalogue.
+Many transients are likely to be artefacts, such as dust on the glass, specks in the photographic emulsion, or marks made in copying and scanning. The catalogue as a whole has not been checked by eye. The VASCO team has since trained a machine-learning model that rates how likely each transient is to be genuine, but the catalogue was built before this and includes every transient whatever its rating. The ratings are not yet public, so our analysis uses the whole catalogue.
 
 ### survey-map-caption
 Each tile shown represents one plate, coloured by the number of transients on a logarithmic scale. The map is centred on the north celestial pole and keeps areas true, so equal patches of sky occupy equal space. Plates along the Milky Way hold fewer transients, as do plates close to a patch near Taurus and Perseus. Plates outlined with a dashed line are in the catalogue but were left out of VASCO’s published tests; we include them in our analysis.
@@ -165,7 +165,7 @@ Of the {n:cat.plates} plates in the catalogue, {n:sh.plates_n} intersect with Ea
 Measuring the probability of this deficit
 
 ### shadow-step2-text
-VASCO scores this shortfall with a binomial test, which treats every transient as an independent event. Their headline figure of 22 standard deviations compared the shadow with its share of the whole sky; their 7.6 standard deviations used each plate’s actual coverage, as we do here. With that model and our corrected dates, the expected {n:sh.expected} would vary by about its square root ({n:sh.binom_sd}), which puts the observed {n:sh.observed} about {n:sh.binom_z} standard deviations below expectation.
+VASCO scores this shortfall with a binomial test, which treats every transient as an independent event. Their primary figure of 22 standard deviations compared the shadow with its share of the whole sky; their 7.6 standard deviations used each plate’s actual coverage, as we do here. With that model and our corrected dates, the expected {n:sh.expected} would vary by about its square root ({n:sh.binom_sd}), which puts the observed {n:sh.observed} about {n:sh.binom_z} standard deviations below expectation.
 
 Transients are not independent, however: as shown above, transient counts on plates differ far more than counting noise permits. The count inside a given shadow therefore depends on whether the plate it falls on happens to be rich or poor in transients. To measure how far that count can move, we took the {n:sh.plates} Earth shadow patches, each with its real shape and position, and laid them on {n:sh.plates} plates chosen at random.
 
@@ -197,7 +197,7 @@ The {n:sh.partial} plates that Earth’s shadow partly covers, showing the centr
 Fitting the shadow transient density
 
 ### shadow-fit-text
-The claim is that transients are rarer in Earth’s shadow. Expressed as a measurement: in the shadowed part of a plate, transients are r times as dense as in the sunlit part. With no Earth's shadow effect, the ratio r should be 1. If some transients genuinely vanish in the shadow, r should be below 1.
+VASCO report that transients are rarer in Earth’s shadow. Expressed as a measurement: in the shadowed part of a plate, transients are r times as dense as in the sunlit part. With no Earth's shadow effect, the ratio r should be 1. If some transients genuinely vanish in the shadow, r should be below 1.
 
 In practice, r compares two shares on each plate: the share of its transients that lie in the shadowed part, and the share the shadowed part would hold with no effect. Because transients are denser towards the edges and corners of every plate (see the plate maps above), this second share is not simply the shadowed area. We weight each part of the plate by the average density of transients there, measured only on the {n:sh.never} plates that Earth’s shadow never crossed, so a real shortfall in the shadow cannot affect the weights.
 
@@ -275,7 +275,7 @@ To judge whether {n:nc2.point_r} is an unusual excess, it must be compared with 
 
 This comparison treats the {n:nuc.nights} nights near tests as independent of one another, but in reality they are not. The tests fell in series, so those nights fall during a few observing runs, close together in time, which share emulsion batches and observing conditions. A clustered set of nights varies more by chance than a scattered one, so random nights understate how often chance can produce at least as many transients.
 
-A fair comparison retains this clustering property of the data. We build a null distribution for the test using the real test calendar:
+Our comparison retains this clustering property of the data. We build a null distribution for the test using the real test calendar:
 
 - Move every test date by the same amount, for example two years and three weeks later. The result has the same gaps between tests and the same times of year, but falls on dates when no tests took place.
 - Repeat for every shift of one to five years, earlier or later, plus up to two months. This gives a total of {n:nc2.slides} shifted calendars.
@@ -324,13 +324,13 @@ No significant link to the nuclear tests
 ### nuclear-verdict
 We reproduce VASCO’s excess: nights within a day of a US nuclear test hold more transients than other nights. Counted per photograph, and measured against where the telescope pointed, the excess is {n:nc2.point_r} times, which test calendars shifted to other years match about one time in {n:nc2.odds} ({n:nc2.sig} standard deviations). No other property of the plates changes this.
 
-A day either side of a test is one of many reasonable windows, and results across them depend on a few unusually rich plates entering and leaving the window. Without three such plates, every window sits close to no difference. Had the strongest of {n:nc4.windows} windows been reported, chance alone would give a result at least as strong as VASCO’s {n:nc4.chance}% of the time.
+VASCO fixed a day either side in advance, but it is one of many reasonable windows, and results across them depend on a few unusually rich plates entering and leaving the window. Without three such plates, picked out by looking at the data, every window sits close to no difference. Had the strongest of {n:nc4.windows} windows been reported, chance alone would give a result at least as strong as VASCO’s {n:nc4.chance}% of the time.
 
 ### align-h2
 Do transients form geometric patterns?
 
 ### align-intro
-A flat object tumbling in orbit would flash each time it caught the Sun, leaving a line of points during a long plate exposure. VASCO searched for such alignments and shortlisted five candidates. Their best candidate was quoted at 3.9 standard deviations, corresponding to an estimated 1 in 10,000 chance of occurring by chance.
+A flat object tumbling in orbit would flash each time it caught the Sun, leaving a line of points during a long plate exposure. VASCO searched for such alignments and shortlisted five candidates. Their best candidate was reported at 3.9 standard deviations, corresponding to an estimated 1 in 10,000 chance of occurring by chance.
 
 A catalogue of 100,000 unevenly spread points could contain many chance alignments. Three questions naturally arise:
 
@@ -344,7 +344,7 @@ Searching for alignments in all directions
 ### align-step1-text
 VASCO kept a set of transients only if its two sky coordinates, right ascension (east–west) and declination (north–south), rise and fall together almost perfectly: a correlation coefficient (Pearson’s r) above 0.99. This approach works for diagonal lines. However, along an east–west line, declination does not change, so there is nothing to correlate, and the line is rejected; the same happens to north–south lines.
 
-In simulations (image below), the VASCO method keeps {n:align.pear_diag}% of diagonal lines, {n:align.pear_2}% of lines 2 degrees from east–west, and only {n:align.pear_ew}% of lines running exactly east–west. A geostationary satellite stays fixed in the sky above the observatory while the telescope follows the stars, so on the plate it moves exactly east–west. Objects at the same height on slightly tilted orbits move close to east–west too. VASCO’s selection rejects almost all of the tracks such an object would leave.
+In simulations (image below), the VASCO method keeps {n:align.pear_diag}% of diagonal lines, {n:align.pear_2}% of lines 2 degrees from east–west, and only {n:align.pear_ew}% of lines running exactly east–west. A geostationary satellite stays fixed in the sky above the observatory while the telescope follows the stars, so on the plate it moves exactly east–west. Objects at the same height on slightly tilted orbits move close to east–west too. VASCO’s selection would reject almost all of the tracks such an object would leave.
 
 The same alignment task arises in particle physics, where the paths of charged particles must be reconstructed from hits they leave in a detector. The simplest tracking method fits a straight line through a set of points that could form a track, resulting in a track candidate. The quality of each candidate can be assessed, by checking how far the points lie from the line of best fit. Such a method can be applied in all spatial directions without losing signal, including along the east-west direction in this case.
 
@@ -355,7 +355,7 @@ The share of simulated straight lines kept by each method, shown as a function o
 Fitting every track candidate
 
 ### align-step2-text
-VASCO’s five shortlisted alignments came from an earlier list of 298,165 candidate transients (Solano et al. 2022). Only {n:align.vasco_in_cat} of their {n:align.vasco_transients} transients appears in the later, cleaner catalogue of {n:cat.transients} transients that VASCO uses for its other tests. We have applied our track-fit method to the full catalogue of {n:cat.transients} transients.
+VASCO’s five shortlisted alignments came from an earlier list of 298,165 candidate transients (Solano et al. 2022). Of their {n:align.vasco_transients} transients, {n:align.vasco_in_cat} appears in the later catalogue of {n:cat.transients} transients that VASCO uses for its other tests. We have applied our track-fit method to the full catalogue of {n:cat.transients} transients.
 
 We treated every set of three to six transients up to 15 arcminutes long as a track candidate, fitted a straight line through it, and recorded how closely its points follow the line. Two sources closer than about 4 arcseconds (the width of a star’s image on these scans) blur into one, so we ignored candidates with points closer than 8 arcseconds. The released catalogue itself holds almost no transients closer together than that. Three of VASCO’s five shortlisted alignments contain points 1 to 5 arcseconds apart, so they could not appear in the catalogue, regardless of the method used to search for alignments.
 
@@ -395,7 +395,7 @@ To measure the candidate-finding efficiency of each method, we added 100 artific
 For tracks running diagonally, both methods find about nine in ten alignments. Within two degrees of east–west, where a geostationary object’s track would lie, VASCO’s score finds fewer than half, and along east–west exactly it finds about {n:align.vasco_ew} in 100. In this same region, the track score still finds {n:align.track_ew}.
 
 ### align-vasco-caption
-Left: VASCO’s score against the track score for the {n:align.both} track candidates in the real catalogue found by both methods. Darker cells hold more candidates, and the dashed line represents equal scores across both methods. Right: the proportion of artificial tracks found by each method, as a function of spatial direction. The higher efficiency of the track score method along the east-west and north-south directions is evident.
+Left: VASCO’s score against the track score for the {n:align.both} track candidates in the real catalogue found by both methods. Darker cells hold more candidates, and the dashed line represents equal scores across both methods. Right: the proportion of artificial tracks found by each method, as a function of spatial direction. The higher efficiency of the track score method along the east-west and north-south directions is shown.
 
 ### align-tail-title
 Taking a closer look at the highest-scoring tracks
@@ -496,7 +496,7 @@ Plates differ so much that the shortfall happens by chance about one time in {n:
 Do transients cluster around nuclear tests?
 
 ### card-2-ours
-The nights near tests held more photographs, pointed at parts of the sky that yield more transients. Counted per photograph, and allowing for where the telescope pointed, the excess is {n:nc2.point_r} times, which shifted test calendars match about one time in {n:nc2.odds}. A day either side of a test does not stand out among other reasonable windows: chance would match VASCO’s result with the strongest of them {n:nc4.chance}% of the time.
+The nights near tests held more photographs, pointed at parts of the sky that yield more transients. Counted per photograph, and allowing for where the telescope pointed, the excess is {n:nc2.point_r} times, which shifted test calendars match about one time in {n:nc2.odds}. VASCO’s pre-set window of a day either side does not stand out among other reasonable windows: chance would match VASCO’s result with the strongest of them {n:nc4.chance}% of the time.
 
 ### card-3-question
 Do transients form linear patterns?
@@ -507,9 +507,9 @@ A track score that sees in every direction reveals a catalogue mostly consistent
 ### end-text
 There are three things we would like to see next:
 
-- Public release of the machine-learning scores. The 2026 VASCO paper reports stronger results for the transients its model rates most likely to be genuine, but the score column in the released catalogue assigns the same value to 99.8% of transients. We would be glad to put the scores through the plate-by-plate tests above.
+- Public release of the machine-learning scores. The 2026 VASCO paper reports stronger results for the transients its model rates most likely to be genuine, but the released catalogue does not yet hold these scores: its score column gives the same value to 99.8% of transients. We would be glad to put the scores through the plate-by-plate tests above.
 - Extension of the analyses to the plates south of the celestial equator. Earth’s shadow alone crosses {n:sh.south} of them, which would give around {n:sh.south_ratio} times as much shadowed sky data.
-- Use of our corrected plate dates and track score in future analyses, to improve their accuracy and to find tracks in every direction.
+- Use of our corrected plate dates and track score in future analyses, to correct the plate dates and to find tracks in every direction.
 
 We would welcome the VASCO team’s response to this analysis, and reiterate our gratitude for making their data and code available.
 
