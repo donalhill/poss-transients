@@ -637,19 +637,19 @@ function drawPerm(D, id, key, lab, o = {}) {
 
 /* ---------- nuclear: how far each further check moves the ratio per photograph allowing for pointing, as bars either
    side of it ---------- */
-function drawNucChecks(D, id) {
-  const C = D.nuc_checks, s = svg(id); if (!C) return;
+function drawNucChecks(D, id, key = "nuc_checks") {
+  const C = D[key], s = svg(id); if (!C) return;
   const W = 760, rowH = 26, m = { l: 270, r: 90, t: 40, b: 50 }, gap = 14, base = C.base;
   let yy = m.t; const pos = [];
   C.rows.forEach((r, i) => { if (i === 0 || C.rows[i - 1].group !== r.group) { yy += i ? gap : 0; pos.push({ head: r.group, y: yy }); yy += 20; } pos.push({ row: r, y: yy }); yy += rowH; });
   const H = yy + m.b; s.attr("viewBox", `0 0 ${W} ${H}`);
-  const x = d3.scaleLinear().domain([-0.2, 0.2]).range([m.l, W - m.r]).clamp(true);
+  const x = d3.scaleLinear().domain([-C.span, C.span]).range([m.l, W - m.r]).clamp(true);
   const sg = v => { v = Math.round(v * 100) / 100; return (v > 0 ? "+" : v < 0 ? "−" : "±") + Math.abs(v).toFixed(2); };
-  s.append("g").attr("transform", `translate(0,${H - m.b + 8})`).call(d3.axisBottom(x).tickValues([-0.2, -0.1, 0, 0.1, 0.2]).tickFormat(sg).tickSizeOuter(0)).call(axisStyle);
+  s.append("g").attr("transform", `translate(0,${H - m.b + 8})`).call(d3.axisBottom(x).tickValues(d3.range(-C.span, C.span + 1e-9, 0.1)).tickFormat(sg).tickSizeOuter(0)).call(axisStyle);
   s.append("text").attr("x", (m.l + W - m.r) / 2).attr("y", H - 6).attr("text-anchor", "middle").text(`Change from ${base.toFixed(2)}×`);
   s.append("line").attr("x1", x(0)).attr("x2", x(0)).attr("y1", m.t - 10).attr("y2", H - m.b + 8).attr("stroke", V("--emulsion")).attr("stroke-width", 1.5);
   s.append("text").attr("class", "ann").attr("x", x(0)).attr("y", m.t - 16).attr("text-anchor", "middle").style("fill", V("--emulsion"))
-    .text(`Per photograph, allowing for pointing: ${base.toFixed(2)}×`);
+    .text(`${C.title}: ${base.toFixed(2)}×`);
   pos.forEach(p_ => {
     if (p_.head) { s.append("text").attr("x", 10).attr("y", p_.y + 6).style("font-weight", 600).text(p_.head); return; }
     const r = p_.row, d = r.r - base;
@@ -661,37 +661,12 @@ function drawNucChecks(D, id) {
   });
 }
 
-/* ---------- nuclear: how far each other window that includes the test day (up to a week each side) moves the ratio
-   from VASCO's window, as a histogram ---------- */
-function drawNucWindows(D, id) {
-  const F = D.nuc_windows, s = svg(id); if (!F) return;
-  const V_ = F.cells.find(d => d.before === 1 && d.after === 1), O = F.cells.filter(d => d !== V_).map(d => d.r - V_.r);
-  const W = 760, H = 290, m = { l: 52, r: 16, t: 40, b: 50 }, bw = 0.025;
-  const lo = Math.floor(d3.min(O) / bw) * bw, hi = Math.ceil(d3.max(O) / bw) * bw;
-  const bins = d3.bin().domain([lo, hi]).thresholds(d3.range(lo, hi + 1e-9, bw))(O);
-  const x = d3.scaleLinear().domain([lo - bw, hi + bw]).range([m.l, W - m.r]), y = d3.scaleLinear().domain([0, d3.max(bins, b => b.length) + 1]).range([H - m.b, m.t]);
-  const sg = v => (v > 0 ? "+" : v < 0 ? "−" : "±") + Math.abs(v).toFixed(2);
-  s.append("g").attr("transform", `translate(0,${H - m.b})`).call(d3.axisBottom(x).ticks(8).tickFormat(sg).tickSizeOuter(0)).call(axisStyle);
-  s.append("g").attr("transform", `translate(${m.l},0)`).call(d3.axisLeft(y).ticks(5).tickFormat(d3.format("d")).tickSize(3)).call(axisStyle);
-  s.append("g").selectAll("rect").data(bins).join("rect").attr("x", b => x(b.x0) + 1).attr("width", b => Math.max(0, x(b.x1) - x(b.x0) - 2))
-    .attr("y", b => y(b.length)).attr("height", b => y(0) - y(b.length)).attr("rx", 1.5)
-    .attr("fill", b => b.x0 >= 0 ? V("--emulsion") : V("--ink-3")).attr("fill-opacity", b => b.x0 >= 0 ? 0.75 : 0.6);
-  s.append("line").attr("x1", x(0)).attr("x2", x(0)).attr("y1", m.t - 8).attr("y2", H - m.b).attr("stroke", V("--emulsion")).attr("stroke-width", 2);
-  s.append("text").attr("class", "ann").attr("x", x(0)).attr("y", m.t - 14).attr("text-anchor", "middle").style("fill", V("--emulsion")).style("font-weight", 600)
-    .text(`VASCO’s window, ${V_.r.toFixed(2)}×`);
-  const up = O.filter(v => v > 0).length, dn = O.length - up;
-  s.append("text").attr("class", "ann").attr("x", x(0) + 10).attr("y", m.t + 16).style("fill", V("--ink-2")).text(`${up} windows higher →`);
-  s.append("text").attr("class", "ann").attr("x", x(0) - 10).attr("y", m.t + 16).attr("text-anchor", "end").style("fill", V("--ink-2")).text(`← ${dn} windows lower`);
-  s.append("text").attr("x", (m.l + W - m.r) / 2).attr("y", H - 10).attr("text-anchor", "middle").text("Change in the ratio from VASCO’s window");
-  s.append("text").attr("transform", `translate(14,${(m.t + H - m.b) / 2}) rotate(-90)`).attr("text-anchor", "middle").text("Windows");
-}
-
 let DATA = null;
 function render() {
   if (!DATA) return;
   drawSky(DATA, "c-sky0", false); drawSpread(DATA); drawSky(DATA, "c-sky", true); drawChance(DATA); drawPerm(DATA, "c-perm-any", "raw", "VASCO’s test");
   drawPerm(DATA, "c-nuc-corr", "corrected", "Per photograph, allowing for pointing", { line: "Plates near tests", trials: "Slid calendars",
-    xlab: "Transients per photograph near the chosen dates, against pointing, relative to the rest", ylab: "Share of slid calendars" }); drawNucChecks(DATA, "c-nuc-checks"); drawNucWindows(DATA, "c-nuc-windows");
+    xlab: "Transients per photograph near the chosen dates, against pointing, relative to the rest", ylab: "Share of slid calendars" }); drawNucChecks(DATA, "c-nuc-checks"); drawNucChecks(DATA, "c-nuc-windows", "nuc_windows");
   drawFan(DATA); drawTracks(DATA); drawCompare(DATA, "c-compare"); drawTail(DATA, "tail-gallery"); drawWidths(DATA, "c-widths"); drawTrail(DATA, "c-trail"); fillDates(DATA); drawRadialMap(DATA); drawRadial(DATA); drawCrowd(DATA);
   drawPlates(DATA, "c-plates"); drawForest(DATA, "c-ratio-vasco"); drawRatioNull(DATA, "c-ratio-null");
 }

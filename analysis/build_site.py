@@ -95,8 +95,16 @@ NF = json.loads((ROOT / "data/nuclear_fit.json").read_text())
 NC = json.loads((ROOT / "data/nuclear_checks.json").read_text())
 site["perm"] = NU["perm"]
 site["perm"]["corrected"] = NU["corrected"]
-site["nuc_windows"] = NU["windows"]
-site["nuc_checks"] = {"base": NU["corrected"]["real"], "rows": [x for x in NU["checks"] if x["label"] != "All of them together"]}
+# the other natural windows around the test day, as changes from VASCO's: centred on the test, and reaching only before
+# or only after it, up to a week
+_cell = {(c["before"], c["after"]): c["r"] for c in NU["windows"]["cells"]}
+_pl = lambda k: f"{k} day{'s' if k > 1 else ''}"
+site["nuc_windows"] = {"base": _cell[(1, 1)], "title": "VASCO’s window, a day either side", "span": 0.3, "rows":
+    [{"group": "Centred on the test", "label": "The test day alone" if k == 0 else f"{_pl(k)} either side", "r": _cell[(k, k)]} for k in range(8) if k != 1] +
+    [{"group": "The test day and days before", "label": f"{_pl(k)} before", "r": _cell[(k, 0)]} for k in range(1, 8)] +
+    [{"group": "The test day and days after", "label": f"{_pl(k)} after", "r": _cell[(0, k)]} for k in range(1, 8)]}
+site["nuc_checks"] = {"base": NU["corrected"]["real"], "title": "Per photograph, allowing for pointing", "span": 0.2,
+                     "rows": [x for x in NU["checks"] if x["label"] != "All of them together"]}
 NB_ = json.loads((ROOT / "data/nuclear_basic.json").read_text())
 # the nuclear measurement from the ground up (nuclear_basic.py), with the full model fit (nuclear_fit.py) as a cross-check
 lro = {x["run"]: x["r"] for x in NB_["leave_run_out"]}

@@ -291,7 +291,7 @@ Allowing up to a week on each side gives {n:nc4.windows} such windows, each scor
 VASCO fixed their window before looking at the data, so on its own its chance of about one in {n:nc2.odds} needs no allowance for other windows. But had a researcher tried all {n:nc4.windows} and reported the best, chance would give a result at least as strong as VASCO’s {n:nc4.chance}% of the time. Allowing up to two weeks on each side, {n:nc4.chance14}%.
 
 ### nuc-global-caption
-How far each of the other windows that include a US test day, from the test day alone to a week before and after, moves the ratio for plates near tests away from VASCO’s window, a day either side.
+How far other windows around a US test day move the ratio for plates near tests away from VASCO’s window: windows centred on the test, and windows reaching only before or only after it, up to a week.
 
 ### align-h2
 Do transients form geometric patterns?
