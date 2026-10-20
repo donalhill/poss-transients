@@ -785,7 +785,35 @@
   ],
   "vasco_p": 0.179,
   "chance_vs_vasco_14": 0.412,
-  "larger_r": 18
+  "larger_r": 18,
+  "rich_week": {
+   "plate": "XE524",
+   "date": "1955-11-11",
+   "n": 4166,
+   "expected": 249,
+   "days_from_test": 6
+  },
+  "rich_day": [
+   {
+    "plate": "XE429",
+    "date": "1955-03-23",
+    "n": 850,
+    "expected": 227,
+    "days_from_test": 0
+   },
+   {
+    "plate": "XE296",
+    "date": "1951-11-05",
+    "n": 752,
+    "expected": 172,
+    "days_from_test": 0
+   }
+  ],
+  "rich_day_share": {
+   "plates_test_day": 19,
+   "test_day": 0.331,
+   "vasco": 0.216
+  }
  },
  "pointing": {
   "median_low": 35.0,

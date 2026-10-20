@@ -200,6 +200,21 @@ idx7, fam = family(7)
 fam["cells"] = [{"before": int(-WIN[j][0]), "after": int(WIN[j][1]), "r": r3(real_w[j]), "p": r3(loc[j]), "z": round(float(np.clip(norm.isf(loc[j]), -4, 4)), 2)} for j in idx7]
 fam["vasco_p"], fam["chance_vs_vasco_14"] = r3(loc[iV]), family(14)[1]["chance_vs_vasco"]
 fam["larger_r"] = int(np.sum(real_w[idx7] > real_w[iV]))                     # windows with a larger ratio than VASCO's
+# the rich plates that split the windows into two groups: the plate within a week of a test that most exceeds what its
+# pointing predicts, and the two that do so most within a day of a test
+lvl = (Y - y_raw[m0].sum()) / (Et - E[m0].sum())                             # the level of plates away from tests
+def rich(offsets, k):
+    near_ = np.isin(day, (TESTS[:, None] + np.array(offsets)[None, :]).ravel()); ex = np.where(near_, y_raw - lvl * E, -np.inf)
+    out_ = []
+    for j in np.argsort(ex)[::-1][:k]:
+        off = day[j] - TESTS; off = off[np.abs(off) <= 7]
+        out_.append({"plate": P.index[j], "date": str(P.date.iloc[j].date()), "n": int(y_raw[j]), "expected": int(round(lvl * E[j])),
+                     "days_from_test": int(off[np.argmin(np.abs(off))])})
+    return out_
+fam["rich_week"], fam["rich_day"] = rich(range(-7, 8), 1)[0], rich((-1, 0, 1), 2)
+two = P.index.isin([x["plate"] for x in fam["rich_day"]])
+fam["rich_day_share"] = {"plates_test_day": int(near(day, (0,)).sum()), "test_day": r3(y_raw[two & near(day, (0,))].sum() / y_raw[near(day, (0,))].sum()),
+                         "vasco": r3(y_raw[two & m0].sum() / y_raw[m0].sum())}
 out["windows"] = fam
 
 b_ = np.abs(P.b.values)
