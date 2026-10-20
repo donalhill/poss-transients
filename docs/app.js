@@ -501,7 +501,7 @@ function drawDist(T, id, o) {
       const d = T.all[ci];
       if (ri === 0) s.append("text").attr("x", x0 + pw / 2).attr("y", 14).attr("text-anchor", "middle").style("font-weight", 600).text(`${d.r}-point candidates`);
       s.append("rect").attr("x", x0).attr("y", top).attr("width", pw).attr("height", row.h).attr("fill", "none").attr("stroke", V("--rule"));
-      const bins = lo.map((l, k) => ({ l, h: l + step, n: d.real[k], b: d.bmean[k], sd: d.bsd[k] })).filter(q => q.l >= o.dom[0] - 1e-9 && q.h <= o.dom[1] + 1e-9);
+      const bins = lo.map((l, k) => ({ l, h: l + step, n: d.real[k], b: d.bmean[k], sd: d.bsd[k], z: d.z ? d.z[k] : 0 })).filter(q => q.l >= o.dom[0] - 1e-9 && q.h <= o.dom[1] + 1e-9);
       if (row.key === "dist") {
         const fl = o.floor || 0.5, y = d3.scaleLog().domain([fl, d3.max(bins, q => Math.max(q.n, q.b)) * 3]).range([bot, top]).clamp(true);
         const stepPath = acc => d3.line().x(q => x(q[0])).y(q => y(Math.max(fl, q[1]))).curve(d3.curveStepAfter)(bins.map(q => [q.l, acc(q)]).concat([[bins[bins.length - 1].h, acc(bins[bins.length - 1])]]));
@@ -517,13 +517,14 @@ function drawDist(T, id, o) {
         s.append("g").selectAll("circle").data(pts).join("circle").attr("cx", q => x(q.l + step / 2)).attr("cy", q => y(q.n)).attr("r", 2.6).attr("fill", V("--emulsion"));
         if (ci === 0) s.append("g").attr("transform", `translate(${x0},0)`).call(d3.axisLeft(y).tickValues(o.yticks || [1, 100, 10000]).tickFormat(d3.format(",")).tickSize(3)).call(axisStyle);
       } else {
-        const y = d3.scaleLinear().domain([-4, 4]).range([bot, top]).clamp(true);
-        for (const [k, op] of [[2, 0.18], [1, 0.3]]) s.append("rect").attr("x", x0).attr("width", pw).attr("y", y(k)).attr("height", y(-k) - y(k)).attr("fill", V("--ink-3")).attr("fill-opacity", op);
-        s.append("line").attr("x1", x0).attr("x2", x0 + pw).attr("y1", y(0)).attr("y2", y(0)).attr("stroke", V("--ink-3")).attr("stroke-dasharray", "3 3");
-        const ok = bins.filter(q => q.sd > 0 && q.b >= 1);   // pulls mean nothing where chance expects under one group
-        s.append("g").selectAll("circle").data(ok).join("circle").attr("class", "hov").attr("cx", q => x(q.l + step / 2)).attr("cy", q => y((q.n - q.b) / q.sd)).attr("r", 2.8).attr("fill", V("--emulsion"))
-          .call(sel => hov(sel, q => `${d.r}-point candidates, ${o.what} ${(10 ** q.l).toPrecision(2)} to ${(10 ** q.h).toPrecision(2)}<br>Real catalogue ${d3.format(",")(q.n)}; chance ${d3.format(",.1f")(q.b)} ± ${q.sd.toFixed(1)}<br>${((q.n - q.b) / q.sd).toFixed(1)} standard deviations`));
-        if (ci === 0) s.append("g").attr("transform", `translate(${x0},0)`).call(d3.axisLeft(y).tickValues([-2, 0, 2, 4]).tickFormat(v => (v > 0 ? "+" : "") + v + "σ").tickSize(3)).call(axisStyle);
+        // each bin's difference as a bar from zero: the real count's place among the copies, in standard deviations
+        const y = d3.scaleLinear().domain([-4, 4]).range([bot, top]).clamp(true), bw = x(o.dom[0] + step) - x(o.dom[0]);
+        s.append("g").selectAll("rect").data(bins).join("rect").attr("class", "hov")
+          .attr("x", q => x(q.l) + 0.5).attr("width", Math.max(1, bw - 1)).attr("y", q => Math.min(y(0), y(q.z))).attr("height", q => Math.abs(y(q.z) - y(0)))
+          .attr("fill", V("--emulsion")).attr("fill-opacity", 0.85)
+          .call(sel => hov(sel, q => `${d.r}-point candidates, ${o.what} ${(10 ** q.l).toPrecision(2)} to ${(10 ** q.h).toPrecision(2)}<br>Real catalogue ${d3.format(",")(q.n)}; chance ${d3.format(",.2f")(q.b)} on average<br>${q.z >= 0 ? "+" : "−"}${Math.abs(q.z).toFixed(1)} standard deviations`));
+        s.append("line").attr("x1", x0).attr("x2", x0 + pw).attr("y1", y(0)).attr("y2", y(0)).attr("stroke", V("--ink-3"));
+        if (ci === 0) s.append("g").attr("transform", `translate(${x0},0)`).call(d3.axisLeft(y).tickValues([-4, -2, 0, 2, 4]).tickFormat(v => (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v) + "σ").tickSize(3)).call(axisStyle);
       }
       if (ri === rows.length - 1) s.append("g").attr("transform", `translate(0,${bot})`).call(d3.axisBottom(x).tickValues(o.ticks).tickFormat(fmtX).tickSize(3).tickSizeOuter(0)).call(axisStyle);
     });

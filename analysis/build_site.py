@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+from scipy.stats import norm
 import requests
 import pandas as pd
 import matplotlib
@@ -131,7 +132,12 @@ site["trackfit"] = fit_keep
 site["trackdist"] = {"lo": [r1(v_) for v_ in AZ["bins"][:-1].reshape(-1, 2)[:, 0]], "all": []}
 for k, r in enumerate((3, 4, 5, 6)):
     B = rb(AZ["null_l"][:, k])
-    site["trackdist"]["all"].append({"r": r, "real": rb(AZ["real_l"][k]).tolist(), "bmean": B.mean(0).round(2).tolist(), "bsd": B.std(0).round(2).tolist()})
+    n = rb(AZ["real_l"][k])
+    # the real count's place among the copies, as standard deviations: mid-rank, so a count equal to every copy's
+    # (0 against 0 included) sits at 0, and a count beyond every copy at the most 1,000 copies can resolve
+    z = norm.ppf(((B < n).sum(0) + 0.5 * (B == n).sum(0) + 0.5) / (len(B) + 1))
+    site["trackdist"]["all"].append({"r": r, "real": n.tolist(), "bmean": B.mean(0).round(2).tolist(), "bsd": B.std(0).round(2).tolist(),
+                                     "z": np.round(z, 2).tolist()})
 cells = [(k, int(round((lvl - AZ["bins"][0]) / 0.1))) for k in range(4) for lvl in (-3, -4)]
 Rc = np.array([AZ["real_l"][k, :c].sum() for k, c in cells]); Nc = np.stack([AZ["null_l"][:, k, :c].sum(1) for k, c in cells], 1)
 ploc = lambda x: min(np.mean(Nc[:, j] >= x[j]) for j in range(len(cells)))
