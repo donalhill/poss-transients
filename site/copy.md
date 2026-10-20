@@ -239,9 +239,14 @@ Earth’s shadow also crosses {n:sh.south} plates south of the celestial equator
 Do transients cluster around nuclear tests?
 
 ### nuclear-intro
-During the sky survey, the United States tested nuclear weapons in Nevada and the Pacific. VASCO’s two papers (Scientific Reports, 2025 and 2026) report that observing nights within a day of a US test held more transients than other nights, at a chance of about one in forty (p = 0.024) in the 2026 paper. The authors fixed this window before looking at the data, and read the sharpness of the association in time as a sign that it is genuine.
+During the sky survey, the United States tested nuclear weapons in Nevada and the Pacific. VASCO’s two papers (Scientific Reports, 2025 and 2026) report that observing nights within a day of a US test held more transients than other nights, at a chance of about 1 in 40 (p = 0.024) in the 2026 paper. The authors fixed this time window before looking at the data, and read the sharpness of the association in time as a sign that it is genuine.
 
-We find the same excess. Most of it, however, comes from the photographs themselves: the nights near tests held more photographs, pointed at parts of the sky that yield more transients. Once the comparison allows for this, the remaining excess is not statistically significant.
+Repeating their measurement, we find a similar excess. It shrinks, and becomes consistent with chance, once two further factors are taken into account:
+
+- Nights near tests tended to have more photographs, and each photograph adds its own transients.
+- On those nights the telescope tended to point away from the Milky Way. Fewer known stars lie there to rule a point of light out, so more transients survive.
+
+The choice of time window matters too. A day either side of a test is one of many windows that would have been just as natural to choose. Changing it moves the result up or down as individual plates enter or leave the window, and a day either side does not stand out among the alternatives.
 
 ### nuc-vasco-title
 VASCO’s test, as they ran it
@@ -278,7 +283,7 @@ We also allowed for every other property we can measure on each plate: how deep 
 Nor does what counts as a transient. Counting 2-arcminute cells rather than transients, keeping only the central part of each plate, or keeping only transients with no other within 5 arcminutes all give similar results. Neither does leaving out any one series of tests. Every version lies between {n:nc3.lo} and {n:nc3.hi} times, and slid calendars do as well between {n:nc3.p_lo}% and {n:nc3.p_hi}% of the time.
 
 ### nuc-checks-caption
-How far each further check moves the ratio for plates near nuclear tests, from {n:nc2.point_r} times per photograph allowing for pointing. Each version is measured against its own slid test calendars.
+How far each further check moves the ratio for plates near nuclear tests. Each version of the analysis is measured against its own slid test calendars.
 
 ### nuc-global-title
 Why a day either side?
