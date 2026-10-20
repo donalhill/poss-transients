@@ -467,7 +467,7 @@ The dots are also not evenly spaced. Their spacing runs from about {n:trail.spac
 A trail of this nature may be caused by an object coming into contact with the original plate, or the master that copies were printed from. For instance, a fibre lying against the emulsion would leave a sharp, gently curving line, and its twists could break the line into uneven dots as observed.
 
 ### align-trail-caption
-Top: plate XE492 showing the 5 VASCO transients (red circles) and the straight line track fit (blue line).Bottom: the full extent of the trail, with an arc fitted to points extracted along the trail (red curve). The trail is consistent with an arc of {n:trail.radius} degrees curvature.
+Top: plate XE492 showing the 5 VASCO transients (red circles) and the straight line track fit (blue line).Bottom: the full extent of the trail, with a smooth curve fitted to points extracted along the trail (red curve). Overall, the trail follows an arc with a radius of about {n:trail.radius} degrees. A traced point that strays off the trail (hollow) is left out of the fit.
 
 ### align-verdict-title
 Strong track candidates found, but context is important

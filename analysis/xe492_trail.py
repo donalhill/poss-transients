@@ -4,8 +4,11 @@ The strongest track on XE492 (alignments.py) sits on a dotted trail. Using the s
 transients, DSS cutouts of the red plate 60' across are taken every 0.75 deg along it (kept only where the cutout comes
 from XE492 itself), the sky is removed, and a strip is resampled along the line, 10' either side. The trail is then
 followed outward from its clear middle in half-arcminute steps: in each step, the offset across the strip where the
-summed brightness peaks, searching near the curve fitted so far. A straight line and a quadratic are fitted to the
-offsets; anything moving through space (a meteor, or an object in orbit) crosses the plate in a straight line here.
+summed brightness peaks, searching near the curve fitted so far. A straight line and a smooth curve (a cubic spline with
+a knot every 8', leaving out any traced point more than 5 robust standard deviations from it) are fitted to the offsets; anything moving through space (a meteor, or an object in orbit) crosses the
+plate in a straight line here. The bend is the curve's greatest distance from the straight line joining its ends (the
+sag), and its radius that of the circle through both ends and that point, length^2 / (8 sag): the trail's curvature is
+not constant, so this is the arc it follows overall.
 The dots along the trail are then found, and their spacing measured over its length and in six sections.
 
 python analysis/xe492_trail.py -> data/xe492_trail.npz (the strip near the trail) and data/xe492_trail.json (the traced
@@ -21,6 +24,7 @@ from astropy.coordinates import SkyCoord
 from astropy.io import fits
 from astropy.wcs import WCS
 import astropy.units as u
+from scipy.interpolate import LSQUnivariateSpline
 from scipy.ndimage import map_coordinates, median_filter
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -29,6 +33,7 @@ from geometry import deproject                                                  
 ROOT = Path(__file__).resolve().parents[1]
 CUT = ROOT / "data/cutouts/xe492"; CUT.mkdir(parents=True, exist_ok=True)
 PIX = 1.7                                                              # arcsec, DSS pixel
+KNOT = 8 / 60                                                          # deg, knot spacing of the smooth curve
 pl = pd.read_parquet(ROOT / "data/plates_corrected.parquet"); ra_c, dec_c = pl.loc["XE492"].ra_c, pl.loc["XE492"].dec_c
 best = {}
 for c in json.loads((ROOT / "data/alignments.json").read_text())["track"]["candidates"]:     # sorted best first
@@ -89,18 +94,33 @@ for direction in (+1, -1):
     pts += run
 pts = np.array(sorted(set(pts)))
 s_pts, o_pts = pts[:, 0], pts[:, 1]
-lin = np.polyfit(s_pts, o_pts, 1); quad = np.polyfit(s_pts, o_pts, 2)
-rms = lambda cf: float(np.std(o_pts - np.polyval(cf, s_pts)))
-radius = 1 / abs(2 * np.polyfit(s_pts * 3600, o_pts, 2)[0]) / 3600
+# the smooth curve, refitted without any traced point more than 5 robust standard deviations from it (a step of the
+# trace that strayed onto a neighbouring source) until none is left out
+used = np.ones(len(s_pts), bool)
+while True:
+    curve = LSQUnivariateSpline(s_pts[used], o_pts[used], s_pts.min() + np.arange(KNOT, np.ptp(s_pts), KNOT), k=3)
+    res = o_pts - curve(s_pts); sig = 1.4826 * np.median(np.abs(res[used] - np.median(res[used])))
+    keep = np.abs(res) <= 5 * sig
+    if (keep == used).all():
+        break
+    used = keep
+lin = np.polyfit(s_pts[used], o_pts[used], 1)
+xs = np.linspace(s_pts.min(), s_pts.max(), 400); ys = curve(xs)
+chord = np.interp(xs, xs[[0, -1]], ys[[0, -1]])
+sag_chord = float(np.max(np.abs(ys - chord)))                             # arcsec
+length = float(np.hypot(np.ptp(xs) * 3600, ys[-1] - ys[0]))               # arcsec
+radius = length ** 2 / (8 * sag_chord) / 3600                             # degrees
 covered_to = max(float(f.stem[1:]) for f in CUT.glob("s*.fits") if fits.getheader(f)["REGION"].strip() == "XE492") + 0.5   # end of XE492's cutouts
 out = {"start_arcmin": float((s_pts.min() - s_lo) * 60), "end_arcmin": float((s_pts.max() - s_lo) * 60), "length_arcmin": float(np.ptp(s_pts) * 60),
        "ends_at_coverage": bool(s_pts.max() > covered_to - 1 / 60), "coverage_end_arcmin": float((covered_to - s_lo) * 60), "line_length_deg": float(s_hi - s_lo),
-       "rms_line": rms(lin), "rms_quad": rms(quad), "radius_deg": float(radius), "sag_arcsec": float(np.ptp(np.polyval(quad, s_pts))),
-       "s": np.round((s_pts - s_lo) * 60, 3).tolist(), "offset": np.round(o_pts, 1).tolist(), "quad": quad.tolist(), "s_lo": float(s_lo)}
+       "rms_line": float(np.std((o_pts - np.polyval(lin, s_pts))[used])), "rms_curve": float(np.std(res[used])), "used": used.tolist(), "radius_deg": float(radius),
+       "sag_arcsec": float(np.ptp(ys)), "sag_chord_arcsec": sag_chord,
+       "s": np.round((s_pts - s_lo) * 60, 3).tolist(), "offset": np.round(o_pts, 1).tolist(),
+       "curve": [np.round((xs[np.r_[0:len(xs):8, -1]] - s_lo) * 60, 3).tolist(), np.round(ys[np.r_[0:len(xs):8, -1]], 2).tolist()], "s_lo": float(s_lo)}
 # the dots along the fitted curve: brightness sampled along it (+/-1 pixel across), peaks above 3 sigma at least two
 # pixels apart, and their spacing over the whole trail and in six sections; a steadily flashing source would give the
 # same spacing all the way along
-on = (S >= s_pts.min()) & (S <= s_pts.max()); rows = np.interp(np.polyval(quad, S[on]), O * 3600, np.arange(len(O)))
+on = (S >= s_pts.min()) & (S <= s_pts.max()); rows = np.interp(curve(S[on]), O * 3600, np.arange(len(O)))
 cols = np.flatnonzero(on)
 prof = np.nanmean([map_coordinates(np.nan_to_num(strip), [rows + k, cols], order=1) for k in (-1, 0, 1)], 0)
 a_ = (S[on] - s_lo) * 60
@@ -120,7 +140,7 @@ print(f"{len(pk)} dots; spacing median {np.median(gaps):.1f}\" (16-84% {np.perce
       "; ".join(f"{x['spacing']}\" (repeat {x['repeat']}\", r {x['correlation']})" for x in sections))
 print(f"trail from {out['start_arcmin']:.1f}' to {out['end_arcmin']:.1f}' along the line ({out['length_arcmin']:.1f}'), "
       f"{'running to where our scans of XE492 end' if out['ends_at_coverage'] else 'ending on the plate'}; "
-      f"rms about a straight line {out['rms_line']:.1f}\", about a quadratic {out['rms_quad']:.1f}\"; radius of curvature {radius:.1f} deg")
+      f"rms about a straight line {out['rms_line']:.1f}\", about the smooth curve {out['rms_curve']:.1f}\"; sag {sag_chord:.0f}\", radius {radius:.1f} deg")
 (ROOT / "data/xe492_trail.json").write_text(json.dumps(out))
 # the strip near the trail, for the page: from 4' before the trail to its end, 2' either side of the line
 i0, i1 = int((s_pts.min() - 4 / 60 - S[0]) / step), int((s_pts.max() + 0.5 / 60 - S[0]) / step); j = np.abs(O) <= 120 / 3600

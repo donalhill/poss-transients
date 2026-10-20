@@ -269,10 +269,10 @@ if "--images" in sys.argv or not (OUT / "img/xe492_trail.png").exists():
 best492 = next(c_ for c_ in TT["candidates"] if c_["plate"] == "XE492")
 P492 = np.c_[best492["x"], best492["y"]] / 3600; c492 = P492.mean(0); d492 = np.linalg.svd(P492 - c492)[2][0]; n492 = np.array([-d492[1], d492[0]])
 site["trail"] = {"img": "img/xe492_trail.png", "along0": float(TZ["along0"]), "along1": float(TZ["along0"]) + TZ["strip"].shape[1] * float(TZ["step_arcmin"]),
-                 "across": [float(TZ["across"][0]), float(TZ["across"][-1])], "s": TR["s"], "offset": TR["offset"], "quad": TR["quad"], "s_lo": TR["s_lo"],
+                 "across": [float(TZ["across"][0]), float(TZ["across"][-1])], "s": TR["s"], "offset": TR["offset"], "used": TR["used"], "curve": TR["curve"], "s_lo": TR["s_lo"],
                  "members_along": [r3(((P492[k] - c492) @ d492 - TR["s_lo"]) * 60) for k in range(len(P492))],
                  "members_across": [r1(((P492[k] - c492) @ n492) * 3600) for k in range(len(P492))],
-                 **{k: TR[k] for k in ("start_arcmin", "end_arcmin", "length_arcmin", "ends_at_coverage", "rms_line", "rms_quad", "radius_deg", "sag_arcsec",
+                 **{k: TR[k] for k in ("start_arcmin", "end_arcmin", "length_arcmin", "ends_at_coverage", "rms_line", "rms_curve", "radius_deg", "sag_arcsec",
                                        "dots", "spacing_median", "spacing_16_84", "sections")}}
 site["tail_tracks"] = {"tracks": tail, "levels": TT["levels"], "real": TT["real"], "copies": TT["copies_mean"], "share": TT["share_copies_ge_real"]}
 

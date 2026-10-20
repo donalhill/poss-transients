@@ -399,8 +399,7 @@ function drawTrail(D, id) {
   s.append("image").attr("href", T.img).attr("x", m.l).attr("y", top).attr("width", W - m.l - m.r).attr("height", h1).attr("preserveAspectRatio", "none");
   s.append("rect").attr("x", m.l).attr("y", top).attr("width", W - m.l - m.r).attr("height", h1).attr("fill", "none").attr("stroke", V("--ink-3"));
   s.append("line").attr("x1", m.l).attr("x2", W - m.r).attr("y1", y1(0)).attr("y2", y1(0)).attr("stroke", V("--ours")).attr("stroke-width", 2.4).attr("stroke-dasharray", "6 4");
-  const quad = a => { const sd = (a + a0) / 60 + T.s_lo; return T.quad[0] * sd * sd + T.quad[1] * sd + T.quad[2]; };
-  const arc = d3.range(0, T.end_arcmin - a0 + 0.01, 0.2).map(a => [a, quad(a)]);
+  const arc = T.curve[0].map((a, k) => [a - a0, T.curve[1][k]]);                 // the smooth curve through the trail
   s.append("g").selectAll("circle").data(T.members_along.map((a, k) => [a - a0, T.members_across[k]])).join("circle")
     .attr("cx", d => x(d[0])).attr("cy", d => y1(d[1])).attr("r", 5).attr("fill", "none").attr("stroke", V("--emulsion")).attr("stroke-width", 1.4);
   s.append("g").attr("transform", `translate(${m.l},0)`).call(d3.axisLeft(y1).tickValues([-100, 0, 100]).tickFormat(v => `${v}″`).tickSize(3)).call(axisStyle);
@@ -408,10 +407,12 @@ function drawTrail(D, id) {
   const yA = top + h1 + gap, ext = d3.extent(T.offset.concat([0, 15])), y2 = d3.scaleLinear().domain([Math.min(ext[0], -60) - 5, Math.max(ext[1], 15)]).range([yA + h2, yA]);
   s.append("line").attr("x1", x(0)).attr("x2", x(T.end_arcmin - a0)).attr("y1", y2(0)).attr("y2", y2(0)).attr("stroke", V("--ours")).attr("stroke-width", 2.4).attr("stroke-dasharray", "6 4");
   s.append("text").attr("x", x(T.end_arcmin - a0) - 4).attr("y", y2(0) - 8).attr("text-anchor", "end").style("font-size", "10.5px").style("fill", V("--ours")).text("Track fit to transients");
-  s.append("g").selectAll("circle").data(T.s.map((a, k) => [a - a0, T.offset[k]])).join("circle").attr("cx", d => x(d[0])).attr("cy", d => y2(d[1])).attr("r", 2.6).attr("fill", V("--ink-2"));
+  // traced points; any left out of the fit (a step that strayed off the trail) drawn hollow
+  s.append("g").selectAll("circle").data(T.s.map((a, k) => [a - a0, T.offset[k], T.used ? T.used[k] : true])).join("circle").attr("cx", d => x(d[0])).attr("cy", d => y2(d[1])).attr("r", 2.6)
+    .attr("fill", d => d[2] ? V("--ink-2") : "none").attr("stroke", d => d[2] ? "none" : V("--ink-3")).attr("stroke-width", 1.2);
   s.append("path").attr("d", d3.line().x(d => x(d[0])).y(d => y2(d[1]))(arc)).attr("fill", "none").attr("stroke", V("--emulsion")).attr("stroke-width", 1.6);
   s.append("text").attr("x", x(arc[Math.floor(arc.length * 0.15)][0])).attr("y", y2(arc[Math.floor(arc.length * 0.15)][1]) + 18).style("font-size", "10.5px").style("fill", V("--emulsion"))
-    .text(`Arc fit to full trail (${Math.round(T.radius_deg)} degrees)`);
+    .text("Smooth fit to full trail");
   s.append("g").selectAll("circle.m").data(T.members_along.map((a, k) => [a - a0, T.members_across[k]])).join("circle")
     .attr("cx", d => x(d[0])).attr("cy", d => y2(d[1])).attr("r", 5).attr("fill", "none").attr("stroke", V("--emulsion")).attr("stroke-width", 1.4);
   s.append("g").attr("transform", `translate(${m.l},0)`).call(d3.axisLeft(y2).ticks(4).tickFormat(v => `${v}″`).tickSize(3)).call(axisStyle);
