@@ -484,6 +484,7 @@ numbers.update({
     **{f"nc2.{k}_r": num(x["r"], 2) for k, x in zip(("night", "photo", "point"), NU["corrections"])},
     **{f"nc2.{k}_pv": pc(x["vasco_null"]["p"]) for k, x in zip(("night", "photo", "point"), NU["corrections"])},
     **{f"nc2.{k}_pc": pc(x["calendar_null"]["p"]) for k, x in zip(("night", "photo", "point"), NU["corrections"])},
+    "nc2.point_pv_sig": num(norm.isf(NU["corrections"][2]["vasco_null"]["p"]), 1),
     "nc2.point_odds": odds(NU["corrections"][2]["calendar_null"]["p"]),
     "nc2.photo_cal_median": num(NU["corrections"][1]["calendar_null"]["median"], 2), "nc2.point_cal_median": num(NU["corrections"][2]["calendar_null"]["median"], 2),
     "nc2.empty_near": word(ST["empty_window"]), "nc2.empty_other": num(ST["empty_other"]), "nc2.nights_other": num(ST["nights_other"]),
