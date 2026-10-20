@@ -239,7 +239,7 @@ Earth’s shadow also crosses {n:sh.south} plates south of the celestial equator
 Do transients cluster around nuclear tests?
 
 ### nuclear-intro
-During the sky survey, the United States tested nuclear weapons in Nevada and the Pacific. VASCO’s two papers (Scientific Reports, 2025 and 2026) report that observing nights within a day of a US test held more transients than other nights, at a chance of about 1 in 40 (p = 0.024) in the 2026 paper. The authors fixed this time window before looking at the data, and read the sharpness of the association in time as a sign that it is genuine.
+During the sky survey, the United States tested nuclear weapons in Nevada and the Pacific. In two papers (Scientific Reports, 2025 and 2026), VASCO report that observing nights within a day of a US test held more transients than other nights. The 2026 paper puts the chance of this at about 1 in 40 (p = 0.024). The authors fixed this time window before looking at the data, and read the sharpness of the association in time as a sign that it is genuine.
 
 Repeating their measurement, we find a similar excess. It shrinks, and becomes consistent with chance, once two further factors are taken into account:
 
