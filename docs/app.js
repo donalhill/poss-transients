@@ -1,4 +1,11 @@
 const tip = document.getElementById("tip");
+// a share in words, as the page's text gives it (build_site.frac): "1 time in 7" when small, else the nearest simple fraction
+const shareText = p => {
+  if (p < 0.25) return `1 time in ${Math.round(1 / p)}`;
+  let best = [1, 2];
+  for (let n = 2; n <= 5; n++) for (let k = 1; k < n; k++) if (Math.abs(k / n - p) < Math.abs(best[0] / best[1] - p)) best = [k, n];
+  return `${best[0]} times in ${best[1]}`;
+};
 const sdText = v => v.toFixed(1) === "1.0" ? "1 standard deviation" : `${v.toFixed(1)} standard deviations`;   // exactly one reads as such
 const V = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const fmt = d3.format(",");
@@ -376,7 +383,7 @@ function drawRatioNull(D, id) {
   const full0 = B0.map(d => d.c), full1 = B1.map(d => d.c), zero = B0.map(() => 0);
   const cl = Math.round(100 * (1 - I.p_as_high)), pv = Math.round(100 * I.p_as_high);
   const slides = [
-    { band: 0, obs: 0, inj: 0, build: true, text: [["We run the fit many times with the real shadow outlines laid on random plates, which the shadow never crossed.", ink, 400],
+    { band: 0, obs: 0, inj: 0, build: true, text: [["We repeat the fit many times, each time laying the real shadow outlines on plates the shadow never crossed.", ink, 400],
       [`On average it finds no effect (a ratio of ${R.null.median.toFixed(2)}); the spread is from chance, due to fitting only ${Z.plates.length} plates.`, ink, 400]] },
     { band: 0, obs: 1, inj: 0, text: [[`The real plates give ${r.toFixed(2)}: no sign of fewer transients in shadow.`, blue, 600]] },
     { band: 0, obs: 1, inj: 1, shade: true, text: [[`Had transients been as rare in shadow as VASCO’s count implies (r = ${I.r_true.toFixed(2)}), a fit this high would occur ${pv}% of the time.`, pur, 400],
@@ -751,11 +758,13 @@ function drawRows(D) {
   s.append("text").attr("transform", `translate(14,${(m.t + H - m.b) / 2}) rotate(-90)`).attr("text-anchor", "middle").text("Transients over prediction");
   s.append("line").attr("x1", x(-3)).attr("x2", x(90)).attr("y1", y(1)).attr("y2", y(1)).attr("stroke", V("--ink-3")).attr("stroke-dasharray", "3 3");
   s.append("g").selectAll("circle").data(R.plates).join("circle").attr("cx", p => x(p.dec)).attr("cy", p => y(p.r)).attr("r", 2.6)
-    .attr("fill", V("--ink-3")).attr("fill-opacity", 0.45).call(sel => hov(sel, p => `${p.id}: ${p.r.toFixed(2)} times its prediction, centre at ${p.dec}°`));
-  const eb = s.append("g").attr("stroke", V("--ours")).attr("stroke-width", 2);
-  eb.selectAll("path").data(R.rows).join("path").attr("fill", "none")
-    .attr("d", r => `M${x(r.dec)},${y(r.lo)}V${y(r.hi)}M${x(r.dec) - 5},${y(r.lo)}h10M${x(r.dec) - 5},${y(r.hi)}h10`);
-  s.append("g").selectAll("circle.m").data(R.rows).join("circle").attr("cx", r => x(r.dec)).attr("cy", r => y(r.median)).attr("r", 3.2).attr("fill", V("--ours")).call(sel => hov(sel, r => `Row at ${r.dec}°: ${r.n} plates, median ${r.median.toFixed(2)} times their prediction (${r.lo.toFixed(2)} to ${r.hi.toFixed(2)})`));
+    .attr("fill", V("--ink-3")).attr("fill-opacity", 0.32).call(sel => hov(sel, p => `${p.id}: ${p.r.toFixed(2)} times its prediction, centre at ${p.dec}°`));
+  // each row's median and its uncertainty, edged in the background colour so they stand clear of the plates behind
+  const bar = r => `M${x(r.dec)},${y(r.lo)}V${y(r.hi)}M${x(r.dec) - 6},${y(r.lo)}h12M${x(r.dec) - 6},${y(r.hi)}h12`;
+  s.append("g").attr("stroke", V("--surface")).attr("stroke-width", 5).selectAll("path").data(R.rows).join("path").attr("fill", "none").attr("d", bar);
+  s.append("g").attr("stroke", V("--ours")).attr("stroke-width", 2.4).selectAll("path").data(R.rows).join("path").attr("fill", "none").attr("d", bar);
+  s.append("g").selectAll("circle.m").data(R.rows).join("circle").attr("cx", r => x(r.dec)).attr("cy", r => y(r.median)).attr("r", 4.6).attr("fill", V("--ours"))
+    .attr("stroke", V("--surface")).attr("stroke-width", 1.5).call(sel => hov(sel, r => `Row at ${r.dec}°: ${r.n} plates, median ${r.median.toFixed(2)} times their prediction (${r.lo.toFixed(2)} to ${r.hi.toFixed(2)})`));
   s.append("text").attr("x", x(3) + 6).attr("y", m.t + 14).style("font-size", "11px").style("fill", V("--theirs")).text("Equatorial row");
 }
 
@@ -776,8 +785,11 @@ function drawPerm(D, id, key, lab, o = {}) {
   s.append("line").attr("x1", x(q.real)).attr("x2", x(q.real)).attr("y1", top).attr("y2", bot).attr("stroke", V("--emulsion")).attr("stroke-width", 2.5);
   s.append("text").attr("class", "ann").attr("x", m.l).attr("y", 16).style("font-weight", 600).text(lab);
   const sd = sdText(q.sigma);
-  s.append("text").attr("class", "ann").attr("x", x(q.real) + 8).attr("y", top + 14).style("fill", V("--emulsion")).text(`${line}: ${q.real.toFixed(2)}×`);
-  s.append("text").attr("class", "ann").attr("x", x(q.real) + 8).attr("y", top + 30).style("fill", V("--emulsion")).text(`${trials} reach it 1 time in ${Math.round(1 / q.p)} (${sd})`);
+  const lab2 = (yy, txt) => s.append("text").attr("class", "ann").attr("x", x(q.real) + 8).attr("y", yy).style("fill", V("--emulsion")).text(txt);
+  lab2(top + 14, `${line}: ${q.real.toFixed(2)}×`);
+  const l2 = lab2(top + 30, `${trials} match or beat it ${shareText(q.p)} (${sd})`);
+  // too long for the room right of the line: the standard deviations go on a line of their own
+  if (x(q.real) + 8 + l2.node().getComputedTextLength() > W - 6) { l2.text(`${trials} match or beat it ${shareText(q.p)}`); lab2(top + 46, `(${sd})`); }
   s.append("g").attr("transform", `translate(0,${bot})`).call(d3.axisBottom(x).ticks(6).tickFormat(d => d + "×").tickSizeOuter(0)).call(axisStyle);
   s.append("text").attr("x", (m.l + W - m.r) / 2).attr("y", H - 8).attr("text-anchor", "middle").text(xlab);
   s.append("text").attr("transform", `translate(12,${(top + bot) / 2}) rotate(-90)`).attr("text-anchor", "middle").text(o.ylab || "Share of random sets");

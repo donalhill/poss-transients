@@ -96,7 +96,8 @@ section { padding-block: clamp(2.8rem, 6vw, 5rem) 1.5rem; border-bottom: 1px sol
 .step-copy { margin-bottom: 1.4rem; }
 .step-text { columns: 2 24rem; column-gap: 3.5rem; orphans: 3; widows: 3; }
 .step-text p:first-child { margin-top: 0; }
-.step-between { margin: 1.8rem 0 1.4rem; }
+.step-between { margin: 1.8rem 0 1.4rem; max-width: none; columns: 2 24rem; column-gap: 3.5rem; orphans: 3; widows: 3; font-size: 0.98rem; }
+.step-between p:first-child { margin-top: 0; }
 .step-h { display: grid; grid-template-columns: auto 1fr; gap: 0.8rem; align-items: baseline; margin-bottom: 0.6rem; }
 .keep { break-inside: avoid; }
 .prose ul, .step-text ul { padding-left: 1.25rem; margin: 0.2rem 0 1rem; }
@@ -131,7 +132,7 @@ section { padding-block: clamp(2.8rem, 6vw, 5rem) 1.5rem; border-bottom: 1px sol
 .blink-btns.steps { align-items: center; gap: 0.6rem; }
 .blink-btns.steps .pos { font-size: 0.78rem; color: var(--ink-2); min-width: 4.5rem; text-align: center; }
 .blink-btns button:disabled { opacity: 0.4; cursor: default; }
-.blink-btns.steps + .legend { margin-top: 1.1rem; }
+.blink-btns + .legend { margin-top: 1.1rem; }
 .tail-card svg { display: block; width: 100%; height: auto; }
 .tail-card figcaption { font-size: 0.86rem; color: var(--ink-2); line-height: 1.5; }
 .tail-head { font-size: 1.05rem; color: var(--ink); }
@@ -479,6 +480,7 @@ footer li { margin-bottom: 0.45rem; }
       <svg id="c-counts" viewBox="0 0 760 400" role="img" aria-label="The track score of every track candidate, by size, in the real catalogue against random catalogues with every real line broken, with the difference in standard deviations"></svg>
       <div class="cap">{{align-excess-caption}}</div>
     </div>
+    <div class="prose step-between">{{align-limit-text}}</div>
     <div class="chart">
       <svg id="c-limit" viewBox="0 0 760 300" role="img" aria-label="For glint tracks of 3, 4, 5, and 6 transients, the probability of each number of them in the catalogue, with the bars holding 95% of the probability shaded"></svg>
       <div class="cap">{{align-limit-caption}}</div>

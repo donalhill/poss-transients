@@ -471,7 +471,7 @@ numbers.update({
     "nc4.rd_ratio": num(sum(x["n"] for x in NU["windows"]["rich_day"]) / sum(x["expected"] for x in NU["windows"]["rich_day"]), 1),
     "nc4.best_local": pc(NU["windows"]["best"]["p_local"]), "nc4.best_global": pc(NU["windows"]["best"]["p_global"]), "nc4.vasco_r": num(next(c["r"] for c in NU["windows"]["cells"] if c["before"] == 1 and c["after"] == 1), 2),
     "nuc.missing": word(NU["vasco_list"]["missing_shots"]), "nuc.vlist_r": num(NU["vasco_list"]["r"], 2), "nuc.vlist_pct": pc(NU["vasco_list"]["p"]),
-    "nuc.vlist_extra": word(NU["vasco_list"]["extra_plates"]), "nc2.made": num(NU["calendars"]["made"]), "nc2.match": num(round(100 * NU["calendars"]["match"])),
+    "nuc.vlist_extra": word(NU["vasco_list"]["extra_plates"]), "nc2.made": num(NU["calendars"]["made"]), "nc2.n0": num(NU["calendars"]["plates_real"]), "nc2.match": num(round(100 * NU["calendars"]["match"])),
     "nc4.wo_median": num(NU["windows"]["without"]["median"], 2), "nc4.wo_vasco": num(NU["windows"]["without"]["vasco"], 2),
     "nc4.rd1": NU["windows"]["rich_day"][0]["plate"], "nc4.rd2": NU["windows"]["rich_day"][1]["plate"], "nc4.r_lo": num(min(c["r"] for c in NU["windows"]["cells"]), 2), "nc4.r_hi": num(max(c["r"] for c in NU["windows"]["cells"]), 2), 
     **{f"nc3.{k}_{f}": v for k, g in (("defs", "What counts as a transient"), ("series", "Test series left out"))
