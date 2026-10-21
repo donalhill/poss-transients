@@ -300,6 +300,12 @@ WORDS = "zero one two three four five six seven eight nine ten eleven twelve".sp
 word = lambda n: WORDS[int(n)] if 0 <= int(n) < len(WORDS) else f"{int(n):,}"
 odds = lambda p_: word(round(1 / p_)) if round(1 / p_) <= 10 else f"{round(1 / p_):,}"    # "one in {odds}"
 num = lambda v, d=0: f"{v:,.{d}f}"
+def frac(p_):
+    """A share in words: "one in seven" when small, otherwise the nearest simple fraction ("two in five")."""
+    if p_ < 0.25:
+        return f"one in {odds(p_)}"
+    k, n = min(((k, n) for n in range(2, 6) for k in range(1, n)), key=lambda kn: abs(kn[0] / kn[1] - p_))
+    return f"{word(k)} in {word(n)}"
 from scipy.stats import norm                                                 # noqa: E402
 sig = lambda p_: f"{norm.isf(p_):.1f}"
 N_ = pl.N
@@ -315,6 +321,8 @@ numbers = {
     "cat.left_out": num(len(pl) - len(vasco_plates)), "cat.min": num(N_.min()), "cat.max": num(N_.max()),
     "cat.avg": num(avg_all), "cat.noise": num(sd_all), "cat.band_lo": num(lo_b), "cat.band_hi": num(hi_b),
     "cat.in_band": num(((N_ >= lo_b) & (N_ <= hi_b)).sum()),
+    "cat.ml_default": num(100 * pd.read_csv(ROOT / "data/external/SUPERVIKTIG_HELAVASCO_validated_v4.csv", usecols=["ml_probability"]).ml_probability.value_counts(normalize=True).iloc[0], 1),
+    "nc2.photo_pc": num(100 * NU["corrections"][1]["calendar_null"]["p"]),
     "cat.over1000": word((N_ > 1000).sum()), "cat.edge_share": num(100 * share_edge),
     "crowd.inner": num(pa[pa.absb < 5].N.median()), "crowd.outer": num(round(pa[pa.absb > 40].N.median(), -1)),
     "crowd.ratio": word(round(pa[pa.absb > 40].N.median() / pa[pa.absb < 5].N.median())),
@@ -453,7 +461,7 @@ numbers.update({
     "nc2.med_low": num(NU["pointing"]["median_low"]), "nc2.med_high": num(NU["pointing"]["median_high"]),
     "nc2.exp_pct": num(round(100 * (NU["pointing"]["expected_near_over_other"] - 1))), "nc2.spring": pc(NU["pointing"]["near_spring"]),
     "nc2.slides": num(NU["pointing"]["slides"]), "nc2.sig": num(NU["corrected"]["sigma"], 1), "nc2.held_out": num(NU["corrected"]["held_out"], 2), "nc2.inj_f": num(NU["null_checks"]["injected"][0]["factor"], 1), "nc2.inj_r": num(NU["null_checks"]["injected"][0]["measured"], 2),
-    "nc2.inj_p": num(100 * NU["null_checks"]["injected"][0]["p"], 1), "nc2.odds": odds(NU["corrected"]["p"]),
+    "nc2.inj_p": num(100 * NU["null_checks"]["injected"][0]["p"], 1), "nc2.odds": odds(NU["corrected"]["p"]), "nc2.frac": frac(NU["corrected"]["p"]),
     "nc4.windows": num(NU["windows"]["windows"]), "nc4.chance": pc(NU["windows"]["chance_vs_vasco"]),
     "nc4.rw_plate": NU["windows"]["rich_week"]["plate"], "nc4.rw_date": longdate(NU["windows"]["rich_week"]["date"]), "nc4.rw_n": num(NU["windows"]["rich_week"]["n"]),
     "nc4.rw_e": num(round(NU["windows"]["rich_week"]["expected"], -1)), "nc4.rw_days": word(NU["windows"]["rich_week"]["days_from_test"]),
