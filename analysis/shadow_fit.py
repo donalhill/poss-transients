@@ -86,8 +86,13 @@ def neyman(P, pick, fit, r_obs):
         d = fit(*toys_from_hosts(P, pick, rt, TBELT))
         rows.append([rt, *np.quantile(d, [0.05, 0.16, 0.5, 0.84, 0.95])])
     B = np.array(rows)
-    in68 = B[(B[:, 2] <= r_obs) & (B[:, 4] >= r_obs), 0]; in90 = B[(B[:, 1] <= r_obs) & (B[:, 5] >= r_obs), 0]
-    return B, (float(in68.min()), float(in68.max())), (float(in90.min()), float(in90.max()))
+    # each end where the toys' quantile crosses the observed r, interpolated between the two injected values either side
+    # (the lower end at the first crossing of the upper quantile, the upper end at the last crossing of the lower one)
+
+    def edge(q, first):
+        s = np.flatnonzero(np.diff(np.sign(B[:, q] - r_obs)) != 0); i = s[0] if first else s[-1]
+        return float(np.interp(r_obs, B[i:i + 2, q], B[i:i + 2, 0])) if B[i, q] < B[i + 1, q] else float(B[i, 0])
+    return B, (edge(4, True), edge(2, False)), (edge(5, True), edge(1, False))
 
 
 def placements(P_, want=6000, batch=512):
@@ -163,7 +168,7 @@ if __name__ == "__main__":
     pick = lambda p: p["similar"]
     d0 = fit(*toys_from_hosts(P, pick, 1.0, T))
     B, i68, i90 = neyman(P, pick, fit, r_hat)
-    out["toys"] = {"null": summary(d0), "p_as_high": round(float(np.mean(d0 >= r_hat)), 3),
+    out["toys"] = {"trials": T, "null": summary(d0), "p_as_high": round(float(np.mean(d0 >= r_hat)), 3),
                    "hist_null": np.histogram(d0, np.linspace(0, 3, 61))[0].tolist(),
                    "interval68": [round(v, 3) for v in i68], "interval90": [round(v, 3) for v in i90],
                    "belt": [[round(float(x), 3) for x in row] for row in B]}

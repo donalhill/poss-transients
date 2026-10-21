@@ -62,7 +62,7 @@ function drawSky(D, id, shadow) {   // shadow: pick out the plates the shadow cr
   s.append("g").selectAll("path").data(sh).join("path").attr("class", "shp").attr("pointer-events", "none").attr("d", p => path(p.g)).attr("fill", "none").attr("stroke", "#ffffff").attr("stroke-width", 5);
   s.append("g").selectAll("path").data(sh).join("path").attr("class", "hov shp").attr("d", p => path(p.g))
     .attr("fill", p => p.N !== undefined ? col(Math.max(p.N, 5)) : V("--surface")).attr("stroke", "#111418").attr("stroke-width", 1.8)
-    .call(sel => hov(sel, p => `<b>Plate ${p.id}</b> · ${p.date}<br>${fmt(p.N)} transients on the whole plate<br>${Math.round(p.frac * 100)}% of the whole plate inside the shadow<br>${p.obs} transients in the shadowed part; an average plate would have about ${Math.round(p.exp)} there`));
+    .call(sel => hov(sel, p => `<b>Plate ${p.id}</b> · ${p.date}<br>${fmt(p.N)} transients on the whole plate<br>${Math.round(p.frac * 100)}% of the central 6 × 6° inside the shadow<br>${p.obs} transients in the shadowed part; an average plate would have about ${Math.round(p.exp)} there`));
 
   s.append("g").attr("pointer-events", "none").selectAll("path").data(sh).join("path").attr("class", "shp").attr("d", p => path(ring(p.circle)))
     .attr("fill", "none").attr("stroke", SHADOW).attr("stroke-width", 2.4);
@@ -119,11 +119,11 @@ function playShadow(s, sh, W) {
 function drawSpread(D) {
   const s = svg("c-spread"), W = 760, H = 300, m = { l: 48, r: 16, t: 26, b: 44 };
   const N = D.plates.map(p => p.N), mu = d3.mean(N), sd = Math.sqrt(mu), lo = mu - 2 * sd, hi = mu + 2 * sd;
-  const bins = d3.range(0, 1000, 25).map(a => ({ lo: a, hi: a + 25, n: N.filter(v => v >= a && v < a + 25).length }));
-  const over = { lo: 1025, hi: 1075, n: N.filter(v => v >= 1000).length, more: true };
+  const bins = d3.range(0, 1000, 25).map(a => ({ lo: a, hi: a + 25, n: N.filter(v => v >= a && (a === 975 ? v <= 1000 : v < a + 25)).length }));
+  const over = { lo: 1025, hi: 1075, n: N.filter(v => v > 1000).length, more: true };
   const inBand = N.filter(v => v >= lo && v <= hi).length;
   const x = d3.scaleLinear().domain([0, 1080]).range([m.l, W - m.r]);
-  const y = d3.scaleLinear().domain([0, 60]).range([H - m.b, m.t]);
+  const y = d3.scaleLinear().domain([0, Math.ceil(d3.max(bins.concat(over), b => b.n) / 10) * 10]).range([H - m.b, m.t]);
   s.append("rect").attr("x", x(lo)).attr("width", x(hi) - x(lo)).attr("y", m.t - 14).attr("height", H - m.b - m.t + 14).attr("fill", V("--theirs-soft"));
   s.append("text").attr("class", "ann").attr("x", x(hi) + 8).attr("y", m.t + 16).text(`${inBand} of ${N.length} plates fall in this range`);
   s.append("g").attr("transform", `translate(0,${H - m.b})`).call(d3.axisBottom(x).tickValues([0, 200, 400, 600, 800]).tickFormat(d3.format(",")).tickSizeOuter(0)).call(axisStyle);
@@ -380,9 +380,9 @@ function drawRatioNull(D, id) {
       [`On average it finds no effect (a ratio of ${R.null.median.toFixed(2)}); the spread is from chance, due to fitting only ${Z.plates.length} plates.`, ink, 400]] },
     { band: 0, obs: 1, inj: 0, text: [[`The real plates give ${r.toFixed(2)}: no sign of fewer transients in shadow.`, blue, 600]] },
     { band: 0, obs: 1, inj: 1, shade: true, text: [[`Had transients been as rare in shadow as VASCO’s count implies (r = ${I.r_true.toFixed(2)}), a fit this high would occur ${pv}% of the time.`, pur, 400],
-      [`A shortfall of that size is excluded at ${cl}% confidence.`, pur, 600]] },
+      [`A shortfall of that size is excluded at ${cl}% confidence (one-sided).`, pur, 600]] },
     { band: 0, obs: 1, inj: 1, shade: true, text: [[[[`Fit result on real plates (${r.toFixed(2)})`, blue], [" falls within random trials with no shadow effect.", ink]], ink, 400],
-      [`A shortfall as large as VASCO’s (purple) is excluded at ${cl}% confidence.`, pur, 600]] }
+      [`A shortfall as large as VASCO’s (purple) is excluded at ${cl}% confidence (one-sided).`, pur, 600]] }
   ];
   const last = slides.length - 1, op = { band: 0, obs: 0, inj: 0 };
   let cur = -1, timers = [];
@@ -775,84 +775,12 @@ function drawPerm(D, id, key, lab, o = {}) {
   bars(s.append("g").attr("clip-path", `url(#${id}-tail)`), 0.9);
   s.append("line").attr("x1", x(q.real)).attr("x2", x(q.real)).attr("y1", top).attr("y2", bot).attr("stroke", V("--emulsion")).attr("stroke-width", 2.5);
   s.append("text").attr("class", "ann").attr("x", m.l).attr("y", 16).style("font-weight", 600).text(lab);
-  const sd = `${q.sigma.toFixed(1)} standard deviation${q.sigma.toFixed(1) === "1.0" ? "" : "s"}`;
+  const sd = sdText(q.sigma);
   s.append("text").attr("class", "ann").attr("x", x(q.real) + 8).attr("y", top + 14).style("fill", V("--emulsion")).text(`${line}: ${q.real.toFixed(2)}×`);
   s.append("text").attr("class", "ann").attr("x", x(q.real) + 8).attr("y", top + 30).style("fill", V("--emulsion")).text(`${trials} reach it 1 time in ${Math.round(1 / q.p)} (${sd})`);
   s.append("g").attr("transform", `translate(0,${bot})`).call(d3.axisBottom(x).ticks(6).tickFormat(d => d + "×").tickSizeOuter(0)).call(axisStyle);
   s.append("text").attr("x", (m.l + W - m.r) / 2).attr("y", H - 8).attr("text-anchor", "middle").text(xlab);
   s.append("text").attr("transform", `translate(12,${(top + bot) / 2}) rotate(-90)`).attr("text-anchor", "middle").text(o.ylab || "Share of random sets");
-}
-
-/* ---------- nuclear: how far each further check moves the ratio per photograph allowing for pointing, as bars either
-   side of it ---------- */
-function drawNucChecks(D, id, key = "nuc_checks") {
-  const C = D[key], s = svg(id); if (!C) return;
-  const W = 760, rowH = 26, m = { l: 270, r: 90, t: 40, b: 50 }, gap = 14, base = C.base;
-  let yy = m.t; const pos = [];
-  C.rows.forEach((r, i) => { if (i === 0 || C.rows[i - 1].group !== r.group) { yy += i ? gap : 0; pos.push({ head: r.group, y: yy }); yy += 20; } pos.push({ row: r, y: yy }); yy += rowH; });
-  const H = yy + m.b; s.attr("viewBox", `0 0 ${W} ${H}`);
-  const x = d3.scaleLinear().domain([-C.span, C.span]).range([m.l, W - m.r]).clamp(true);
-  const sg = v => { v = Math.round(v * 100) / 100; return (v > 0 ? "+" : v < 0 ? "−" : "±") + Math.abs(v).toFixed(2); };
-  s.append("g").attr("transform", `translate(0,${H - m.b + 8})`).call(d3.axisBottom(x).tickValues(d3.range(-C.span, C.span + 1e-9, 0.1)).tickFormat(sg).tickSizeOuter(0)).call(axisStyle);
-  s.append("text").attr("x", (m.l + W - m.r) / 2).attr("y", H - 6).attr("text-anchor", "middle").text(`Change from ${base.toFixed(2)}×`);
-  s.append("line").attr("x1", x(0)).attr("x2", x(0)).attr("y1", m.t - 10).attr("y2", H - m.b + 8).attr("stroke", V("--emulsion")).attr("stroke-width", 1.5);
-  s.append("text").attr("class", "ann").attr("x", x(0)).attr("y", m.t - 16).attr("text-anchor", "middle").style("fill", V("--emulsion"))
-    .text(`${C.title}: ${base.toFixed(2)}×`);
-  pos.forEach(p_ => {
-    if (p_.head) { s.append("text").attr("x", 10).attr("y", p_.y + 6).style("font-weight", 600).text(p_.head); return; }
-    const r = p_.row, d = r.r - base;
-    s.append("text").attr("x", m.l - 12).attr("y", p_.y + 4).attr("text-anchor", "end").style("fill", V("--ink-2")).text(r.label);
-    s.append("rect").attr("x", Math.min(x(0), x(d))).attr("width", Math.max(1.5, Math.abs(x(d) - x(0)))).attr("y", p_.y - 7).attr("height", 14)
-      .attr("fill", V("--emulsion")).attr("fill-opacity", 0.8);
-    s.append("text").attr("class", "ann").attr("x", W - m.r + 12).attr("y", p_.y + 4).style("fill", V("--ink-2"))
-      .text(sg(d));
-  });
-}
-
-/* ---------- nuclear: the result for every window that includes the test day (up to a week each side), one block per
-   window stacked by result, coloured by what drives it; a toggle moves the blocks to their results without the three
-   richest plates ---------- */
-const NUC_COL = d3.scaleDiverging(t => d3.interpolateRdBu(1 - t)).domain([0.85, 1, 1.45]).clamp(true);   // blue below no difference, red above
-let nucState = "r";
-function drawNucWindowHist(D, id) {
-  const F = D.nuc_windows, s = svg(id); if (!F) return;
-  const W = 760, H = 300, m = { l: 52, r: 16, t: 30, b: 50 }, bw = 0.025, lo = 0.85, hi = 1.45, nb = Math.round((hi - lo) / bw);
-  const x = d3.scaleLinear().domain([lo, hi]).range([m.l, W - m.r]), bwPx = (W - m.l - m.r) / nb, bh = 9;
-  s.append("g").attr("transform", `translate(0,${H - m.b})`).call(d3.axisBottom(x).ticks(7).tickFormat(d => `${d}×`).tickSizeOuter(0)).call(axisStyle);
-  s.append("line").attr("x1", x(1)).attr("x2", x(1)).attr("y1", m.t - 6).attr("y2", H - m.b).attr("stroke", V("--ink")).attr("stroke-dasharray", "3 3");
-  s.append("text").attr("class", "ann").attr("x", x(1)).attr("y", m.t - 12).attr("text-anchor", "middle").style("fill", V("--ink-2")).text("No difference");
-  s.append("text").attr("x", (m.l + W - m.r) / 2).attr("y", H - 10).attr("text-anchor", "middle").text("Transients per plate inside the window, relative to plates outside it");
-  s.append("text").attr("transform", `translate(16,${(m.t + H - m.b) / 2}) rotate(-90)`).attr("text-anchor", "middle").text("Windows");
-  // place every block for a state: bin by result, stack within a bin by kind then by window length
-  const isV = c => +(c.before === 1 && c.after === 1);                           // VASCO's window sits on top of its stack
-  const place = key => {
-    const pos = new Map(), binOf = c => Math.min(nb - 1, Math.max(0, Math.floor((c[key] - lo) / bw))), bins = d3.group(F.cells, binOf);
-    // the label starts just left of the block and runs right: clear every stack it spans, and the "no difference" line
-    pos.peak = c => H - m.b - (bh + 1) * d3.max(d3.range(binOf(c) - 1, binOf(c) + Math.ceil(120 / bwPx) + 1), b => (bins.get(b) || []).length) - 22;
-    bins.forEach((cs, b) => cs.sort((p, q) => isV(p) - isV(q) || (p.before + p.after) - (q.before + q.after) || p.before - q.before)
-      .forEach((c, k) => pos.set(c, [m.l + b * bwPx + 1.5, H - m.b - (k + 1) * (bh + 1)])));
-    return pos;
-  };
-  const blocks = s.append("g").selectAll("rect").data(F.cells).join("rect").attr("width", bwPx - 3).attr("height", bh).attr("rx", 2)
-    .attr("stroke", c => c.before === 1 && c.after === 1 ? V("--ink") : V("--ink-3")).attr("stroke-width", c => c.before === 1 && c.after === 1 ? 2.4 : 0.6)
-    .call(sel => hov(sel, c => `${c.before} day${c.before === 1 ? "" : "s"} before to ${c.after} after: ${c[nucState].toFixed(2)}×`));
-  const vasco = F.cells.find(c => c.before === 1 && c.after === 1);
-  const vlab = s.append("text").attr("class", "ann").attr("text-anchor", "start").style("fill", V("--ink")).style("font-weight", 600).text("VASCO’s window");
-  const vline = s.append("line").attr("stroke", V("--ink")).attr("stroke-width", 1.2);
-  const show = (key, t) => {
-    nucState = key; const pos = place(key);
-    blocks.transition().duration(t).delay((c, i) => t ? (c.before + c.after) * 30 : 0).ease(d3.easeCubicInOut)
-      .attr("x", c => pos.get(c)[0]).attr("y", c => pos.get(c)[1]).attr("fill", c => NUC_COL(c[key]));
-    const [vx, vy] = pos.get(vasco), d_ = t ? (vasco.before + vasco.after) * 30 : 0;
-    const yl = pos.peak(vasco);
-    vlab.transition().duration(t).delay(d_).ease(d3.easeCubicInOut).attr("x", Math.max(vx + bwPx / 2 - 10, x(1) + 6)).attr("y", yl);
-    vline.transition().duration(t).delay(d_).ease(d3.easeCubicInOut).attr("x1", vx + bwPx / 2).attr("x2", vx + bwPx / 2).attr("y1", yl + 4).attr("y2", vy - 1);
-  };
-  show(nucState, 0);
-  d3.selectAll("#nuc-toggle button").on("click", function () {
-    d3.selectAll("#nuc-toggle button").classed("on", false); d3.select(this).classed("on", true);
-    show(this.dataset.key, matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 900);
-  }).classed("on", function () { return this.dataset.key === nucState; });
 }
 
 let DATA = null;
@@ -985,7 +913,7 @@ function render() {
   if (!DATA) return;
   drawSky(DATA, "c-sky0", false); drawSpread(DATA); drawSky(DATA, "c-sky", true); drawChance(DATA); drawPerm(DATA, "c-perm-any", "raw", "VASCO’s test");
   drawPerm(DATA, "c-nuc-corr", "corrected", "Per photograph, allowing for pointing", { line: "Plates near tests", trials: "Shifted calendars",
-    xlab: "Transients per photograph near the chosen dates, against pointing, relative to the rest", ylab: "Share of shifted calendars" }); drawNucChecks(DATA, "c-nuc-checks"); drawNucWindowHist(DATA, "c-nuc-windows");
+    xlab: "Transients per photograph near the chosen dates, against pointing, relative to the rest", ylab: "Share of shifted calendars" });
   drawFan(DATA); drawMethod(DATA, "c-method"); drawTracks(DATA); drawCompare(DATA, "c-compare"); drawLimit(DATA, "c-limit"); fillDates(DATA); drawRadialMap(DATA); drawRadial(DATA); drawCrowd(DATA); drawPointing(DATA); drawRows(DATA);
   drawPlates(DATA, "c-plates"); drawForest(DATA, "c-ratio-vasco"); drawRatioNull(DATA, "c-ratio-null");
 }

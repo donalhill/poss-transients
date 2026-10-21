@@ -3,8 +3,8 @@ shadow never crossed, each count scaled to the shadow plate's pointing (plate_pr
 plates either shadow crosses).
 
 1. Calibration: ten plates the shadow never crossed act as pretend shadow plates, with the real outlines on them, and are
-   tested against the other uncrossed plates in the same way. With no signal, the share of tests below a level should be
-   that level.
+   tested against the other uncrossed plates in the same way, the pointing curve refitted without them. With no signal,
+   the share of tests below a level should be that level.
 2. Leak: no host plate is crossed by either shadow.
 3. Injection: a share of the transients inside the real shadow removed, and the test run as on the page.
 4. The pointing curve built term by term: how much each part moves the test.
@@ -36,10 +36,10 @@ E = pd.Series(PP.pointing(P, use=use)[0], P.index).reindex(plates.index).values
 rng = np.random.default_rng(3)
 
 
-def null(Ek, pool, n):
+def null(Ek, pool, n, E_=E):
     """n trials: each outline on a random plate from pool, turned and flipped at random, scaled to Ek over that plate's E."""
     q = pool[rng.integers(0, len(pool), (n, len(K)))]; d = rng.integers(0, 8, (n, len(K)))
-    return (C[np.arange(len(K))[None, :], d, q] * Ek[None, :] / E[q]).sum(1)
+    return (C[np.arange(len(K))[None, :], d, q] * Ek[None, :] / E_[q]).sum(1)
 
 
 out = {"observed": res["observed"]}
@@ -50,7 +50,9 @@ ps = []
 for _ in range(NCAL):
     fake = rng.choice(H, len(K), replace=False)
     o = C[np.arange(len(K)), 0, fake].sum()
-    ps.append(np.mean(null(E[fake], np.setdiff1d(H, fake), NTRIAL) <= o))
+    # the pointing curve refitted without the pretend shadow plates, as the page's is without the real ones
+    E_f = pd.Series(PP.pointing(P, use=use & ~P.index.isin(plates.index[fake]))[0], P.index).reindex(plates.index).values
+    ps.append(np.mean(null(E_f[fake], np.setdiff1d(H, fake), NTRIAL, E_f) <= o))
 out["calibration"] = {"runs": NCAL, "share_below": {str(v): round(float(np.mean(np.array(ps) <= v)), 3) for v in LEVELS}}
 # 2. leak
 out["hosts_crossed"] = len(set(plates.index[H]) & crossed)

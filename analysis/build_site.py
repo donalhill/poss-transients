@@ -96,9 +96,6 @@ site["paste"] = {"bins": bins.tolist(), "counts": np.histogram(sums, bins)[0].to
 NU = json.loads((ROOT / "data/nuclear.json").read_text())
 site["perm"] = NU["perm"]
 site["perm"]["corrected"] = NU["corrected"]
-site["nuc_windows"] = NU["windows"]
-site["nuc_checks"] = {"base": NU["corrected"]["real"], "title": "Per photograph, allowing for pointing", "span": 0.2,
-                     "rows": [x for x in NU["checks"] if x["label"] != "All of them together"]}
 
 # ------------------------------------------------------------------ alignments
 rb = lambda a: a.reshape(*a.shape[:-1], -1, 2).sum(-1)                 # 0.2-dex bins
@@ -193,11 +190,9 @@ site["recovery"] = {"angles": angles, "false_alarms": 3,
 t = pd.read_csv(ROOT / "data/plate_date_corrections.csv", index_col=0, parse_dates=["header_date", "corrected_date"])
 used = t.index.isin(pl.index) | t.index.isin(pd.read_parquet(ROOT / "data/plates.parquet").index)
 an = t[t.index.isin(pd.read_parquet(ROOT / "data/plates.parquet").index)]
-exc = []
-for p in ("XE113", "XE389", "XE217", "XE128", "XE603", "XE666", "XE498", "XE098"):
-    r = t.loc[p]
-    exc.append({"plate": p, "e": int(r.label), "header": r.header_date.strftime("%Y-%m-%d"),
-                "correct": r.corrected_date.strftime("%Y-%m-%d"), "days": int(r.offset_days)})
+# the plates whose date breaks the rule of their run of serial numbers
+exc = [{"plate": p, "e": int(r.label), "header": r.header_date.strftime("%Y-%m-%d"), "correct": r.corrected_date.strftime("%Y-%m-%d"),
+        "days": int(r.offset_days)} for p, r in t[t.offset_days.notna() & t.rule_offset.notna() & (t.offset_days != t.rule_offset)].sort_values("label").iterrows()]
 # Palomar's plate log against the evidence that does not depend on it: asteroid trails and labels read off the scans
 direct = t.label_offset.fillna(t.asteroid_offset)
 chk = t.log_offset.notna() & direct.notna()
@@ -327,11 +322,12 @@ numbers = {
     "dust.n_clear": num(dust["n_clear"]), "cat.eq_plates": num(int((row_ == 0).sum())), "cat.eq_share": num(100 * eqm_ / othm_), "cat.eq_same_sky": num(100 * same_sky), "sh.eq_plates": word(sum(1 for q in pt.index[pt.f_area > 0] if abs(pl.loc[q].dec_c) < 3)), "cat.pointing_share": num(100 * site["pointing_fit"]["share"]), "dust.median_clear": num(dust["median_clear"]),
     # Earth's shadow, pooled (shadow_pooled.py)
     "sh.plates": word(G["plates"]), "sh.plates_n": num(G["plates"]), "sh.partial": word(len(F_["plates"])),
-    "sh.never": num(len(pl) - G["plates"]), "sh.observed": num(G["observed"]), "sh.worth": num(G["plates_worth"], 2),
+    "sh.never": num(G["hosts"]["plates"]), "sh.observed": num(G["observed"]), "sh.worth": num(G["plates_worth"], 2),
     "sh.avg": num(G["avg_per_plate"], 1), "sh.expected": num(G["expected"]), "sh.binom_sd": num(G["binom_sd"]),
     "sh.binom_z": num(abs(G["binom_z"]), 1), "sh.p_random": num(100 * G["p_random"]),
     "sh.p_point": num(100 * G["pointing"]["p"]), "sh.trials": num(len(sums)), "sh.sig_point": sig(G["pointing"]["p"]),
-    "sh.odds_point": odds(G["pointing"]["p"]), "sh.odds_near": odds(G["p_near"]), "sh.sig_near": sig(G["p_near"]),
+    "sh.odds_point": odds(G["pointing"]["p"]), "sh.odds_near": odds(G["p_near"]), "sh.sig_near": sig(G["p_near"]), "sh.near_max": num(G["near"]["max_deg"]), "sh.near_hosts": num(G["near"]["hosts"]),
+    "sh.shadow_lo": num(G["near"]["shadow_deg"][0]), "sh.shadow_hi": num(round(G["near"]["shadow_deg"][1])),
     "sh.centre_obs": num(G["centre"]["observed"]), "sh.centre_exp": num(G["centre"]["expected"]), "sh.odds_centre": odds(G["centre"]["p_random"]),
     "sh.topo_plates": word(T_["plates"]), "sh.topo_obs": num(T_["observed"]), "sh.topo_exp": num(T_["expected"]),
     "sh.odds_topo": odds(T_["p_random"]), "sh.sig_topo": sig(T_["p_random"]),
@@ -342,7 +338,7 @@ numbers = {
     "fit.null_hi": num(F_["toys"]["null"]["q84"], 2), "fit.ci90_lo": num(F_["toys"]["interval90"][0], 2),
     "fit.ci90_hi": num(F_["toys"]["interval90"][1], 2), "fit.inj_r": num(F_["injected"]["r_true"], 2),
     "fit.inj_pct": num(100 * F_["injected"]["p_as_high"]), "fit.inj_cl": num(100 * (1 - F_["injected"]["p_as_high"])),
-    "fit.max_plate": max(Fp, key=lambda q: Fp[q]["r"] or 0), "fit.max_r": num(max(p_["r"] or 0 for p_ in F_["plates"])),
+    "fit.max_plate": max(Fp, key=lambda q: Fp[q]["r"] or 0), "fit.max_r": num(max(p_["r"] or 0 for p_ in F_["plates"]), 1), "fit.trials": num(F_["toys"]["trials"]),
     "fit.ex_plate": "XE358", "fit.ex_area": num(100 * Fp["XE358"]["shadow"], 1), "fit.ex_weighted": num(100 * Fp["XE358"]["weighted"], 1),
     "fit.ex_share": num(100 * Fp["XE358"]["O"] / Fp["XE358"]["n"]), "fit.ex_O": num(Fp["XE358"]["O"]), "fit.ex_n": num(Fp["XE358"]["n"]),
     "pl.XE415_n": num(Fp["XE415"]["n"]), "pl.XE355_n": num(Fp["XE355"]["n"]), "pl.XE617_area": num(100 * Fp["XE617"]["shadow"]),
@@ -367,7 +363,7 @@ numbers.update({
     "dates.ast_late_plates": num((DC.best_day_offset == 1).sum()), "dates.ast_ok_trails": num(DC[DC.best_day_offset == 0].n_at_best.sum()),
     "dates.ast_ok_plates": num((DC.best_day_offset == 0).sum()), "dates.log_agree": num(DS["log_agree"]), "dates.log_checked": num(DS["log_checked"]),
     "dates.dated": num(len(t)), "dates.by_log": num(src["Palomar log"]), "dates.by_asteroids": num(src["asteroids"]),
-    "dates.by_label": num(src["label"]), "dates.by_runs": num(src["block rule"]), "dates.unresolved": word(src.get("unresolved", 0)),
+    "dates.by_label": num(src["label"]), "dates.by_runs": num(src["block rule"] + src.get("serial neighbours", 0)), "dates.unresolved": word(src.get("unresolved", 0)),
     "dates.exceptions": word(len(DS["exceptions"])).capitalize(), "dates.gross": word(sum(abs(e_["days"]) > 1 for e_ in DS["exceptions"])).capitalize(),
     "dates.vasco_nights": num(len(sample.vasco_nights())), "dates.dropped": num((left_ & (off_ == 0)).sum()),
     "dates.shifted": num((~left_ & (off_ == 0)).sum())})
@@ -395,11 +391,25 @@ AF = json.loads((ROOT / "data/alignment_fit.json").read_text())
 site["limit"] = {f_: {"p": v_["p_post"], "s95": v_["s95"]} for f_, v_ in AF["flashes"].items()}
 c4 = next(c_ for c_ in site["trackdist"]["tail"]["cells"] if c_["r"] == 4 and c_["lvl"] == -3)
 BX = {b_["box_arcsec"]: b_ for b_ in NCK["boxes"]}                    # the track score with smaller boxes
+# VASCO's score counted without arbitration: overlapping candidates grouped into families sharing transients
+vk_ = [a_ for a_ in AL.score(AL.cat)[5] if a_["mu"] <= 1e-3]; fam_ = list(range(len(vk_))); own_ = {}
+root_ = lambda i: i if fam_[i] == i else root_(fam_[i])
+for i_, a_ in enumerate(vk_):
+    for t_ in a_["ids"]:
+        if t_ in own_: fam_[root_(i_)] = root_(own_[t_])
+        else: own_[t_] = i_
+fams_ = pd.Series([vk_[i_]["plate"] for i_ in range(len(vk_))]).groupby([root_(i_) for i_ in range(len(vk_))]).agg(["first", "size"]).sort_values("size", ascending=False)
+AC = AJ["counts"]
 numbers.update({
     "align.alt_p3_lo": num(min(p3)), "align.alt_p3_hi": num(max(p3)),
     "align.alone_move": num(alone["shift_arcsec"] / 60), "align.alone_exp3": num(alone["track_mean"][i3], 1),
     "align.vasco_real": num(NCK["real_vasco_1e-3"]), "align.vasco_exp": num(moves[0]["vasco_mean"], 1), "align.vasco_p": num(100 * moves[0]["vasco_share_ge"]),
     "align.vasco_alone": num(alone["vasco_mean"], 1),
+    "align.vasco_all": num(AC["all_candidates_1e-3"]["real"]), "align.vasco_all_exp": num(AC["all_candidates_1e-3"]["copies_mean"], 1),
+    "align.vasco_fam1": fams_.iloc[0]["first"], "align.vasco_fam1_n": num(fams_.iloc[0]["size"]),
+    "align.vasco_fam2": fams_.iloc[1]["first"], "align.vasco_fam2_n": num(fams_.iloc[1]["size"]),
+    "align.vasco_straight": num(AC["straight_candidates_1e-3"]["real"]), "align.vasco_straight_exp": num(AC["straight_candidates_1e-3"]["copies_mean"], 1),
+    "align.vasco_straight_p": num(100 * AC["straight_candidates_1e-3"]["share_copies_ge_real"]),
     "align.vasco_alone_phrase": (lambda k_: "more than any of them holds" if k_ == 0 else f"more than all but {num(k_)} of them hold")(
         round(alone["vasco_share_ge"] * AJ["ncopies"])),
     "align.eff10": num(BX[10.0]["found_diagonal"]),
@@ -409,7 +419,7 @@ numbers.update({
     "align.keep4": num(100 - 100 * (ab["copies_of_injected_mean"][i4] - ab["copies_of_plain_mean"][i4]) / added[1]),
     "align.pair2030": num(pr_[i20], 1),
     "align.vasco_close_n": word(len(close)).capitalize(), "align.vasco_close": " and ".join(num(d_) for d_ in sorted(close)),
-    "align.fit_bg_p": num(100 * AF["background"]["p"]), **{f"align.lim{f_}": word(v_["s95"]) for f_, v_ in AF["flashes"].items()}, **{f"align.lim{f_}_n": num(v_["s95"]) for f_, v_ in AF["flashes"].items()},
+    "align.fit_bg_p": num(100 * AF["background"]["p"]), **{f"align.lim{f_}": word(v_["s95"]) for f_, v_ in AF["flashes"].items()}, **{f"align.lim{f_}_n": num(v_["s95"]) for f_, v_ in AF["flashes"].items()}, **{f"align.lim{f_}_2": num(v_["s95_scatter2"]) for f_, v_ in AF["flashes"].items()},
     "align.fit_none": "zero" if all(v_["s_hat"] == 0 for v_ in AF["flashes"].values()) else "above zero, though no more than chance allows",
     "align.fit_cls": "the same limits" if all(v_["s95"] == v_["s95_cls"] for v_ in AF["flashes"].values()) else
         "limits of " + ", ".join(word(AF["flashes"][f_]["s95_cls"]) for f_ in ("6", "5", "4")) + f', and {word(AF["flashes"]["3"]["s95_cls"])}'
@@ -435,7 +445,7 @@ longdate = lambda d: pd.Timestamp(d).strftime("%-d %B %Y")
 numbers.update({"align.pear_diag": num(100 * site["pearson"][45], 1), "align.pear_2": pc(site["pearson"][2]), "align.pear_ew": pc(site["pearson"][0])})
 numbers.update({
     "nuc.nights": num(ST["nights_window"]), "nuc.ratio": num(NU["perm"]["raw"]["real"], 2), "nuc.odds": odds(NU["perm"]["raw"]["p"]),
-    "nuc.sig": num(NU["perm"]["raw"]["sigma"], 1), "nuc.plates_window": num(ST["plates_window"], 1), "nuc.plates_other": num(ST["plates_other"], 1),
+    "nuc.sig": num(NU["perm"]["raw"]["sigma"], 1), "nuc.trials": num(NU["perm"]["raw"]["trials"]), "nuc.plates_window": num(ST["plates_window"], 1), "nuc.plates_other": num(ST["plates_other"], 1),
     **{f"nc2.{k}_r": num(x["r"], 2) for k, x in zip(("night", "photo", "point"), NU["corrections"])},
     "nc2.point_pv": pc(NU["corrections"][2]["vasco_null"]["p"]), "nc2.point_pc": pc(NU["corrections"][2]["calendar_null"]["p"]),
     "nc2.point_pv_sig": num(norm.isf(NU["corrections"][2]["vasco_null"]["p"]), 1),
@@ -446,7 +456,13 @@ numbers.update({
     "nc4.windows": num(NU["windows"]["windows"]), "nc4.chance": pc(NU["windows"]["chance_vs_vasco"]),
     "nc4.rw_plate": NU["windows"]["rich_week"]["plate"], "nc4.rw_date": longdate(NU["windows"]["rich_week"]["date"]), "nc4.rw_n": num(NU["windows"]["rich_week"]["n"]),
     "nc4.rw_e": num(round(NU["windows"]["rich_week"]["expected"], -1)), "nc4.rw_days": word(NU["windows"]["rich_week"]["days_from_test"]),
-    "nc4.rd_plates": num(NU["windows"]["rich_day_share"]["plates_test_day"]), "nc4.rd_share": pc(NU["windows"]["rich_day_share"]["test_day"]),
+    "nc4.rd_plates": num(NU["windows"]["rich_day_share"]["plates_window"]), "nc4.rd_share": pc(NU["windows"]["rich_day_share"]["window"]),
+    "nc4.best_before": word(-NU["windows"]["best"]["window"][0]), "nc4.best_after": word(NU["windows"]["best"]["window"][1]), "nc4.best_r": num(NU["windows"]["best"]["r"], 2),
+    "nc4.best_span": (lambda b_, a_: f"from the test day to {word(a_)} days after" if b_ == 0 else f"from {word(b_)} days before a test to {word(a_)} after")(-NU["windows"]["best"]["window"][0], NU["windows"]["best"]["window"][1]),
+    "nc4.rd_ratio": num(sum(x["n"] for x in NU["windows"]["rich_day"]) / sum(x["expected"] for x in NU["windows"]["rich_day"]), 1),
+    "nc4.best_local": pc(NU["windows"]["best"]["p_local"]), "nc4.best_global": pc(NU["windows"]["best"]["p_global"]), "nc4.vasco_r": num(next(c["r"] for c in NU["windows"]["cells"] if c["before"] == 1 and c["after"] == 1), 2),
+    "nuc.missing": word(NU["vasco_list"]["missing_shots"]), "nuc.vlist_r": num(NU["vasco_list"]["r"], 2), "nuc.vlist_pct": pc(NU["vasco_list"]["p"]),
+    "nuc.vlist_extra": word(NU["vasco_list"]["extra_plates"]), "nc2.made": num(NU["calendars"]["made"]), "nc2.match": num(round(100 * NU["calendars"]["match"])),
     "nc4.wo_median": num(NU["windows"]["without"]["median"], 2), "nc4.wo_vasco": num(NU["windows"]["without"]["vasco"], 2),
     "nc4.rd1": NU["windows"]["rich_day"][0]["plate"], "nc4.rd2": NU["windows"]["rich_day"][1]["plate"], "nc4.r_lo": num(min(c["r"] for c in NU["windows"]["cells"]), 2), "nc4.r_hi": num(max(c["r"] for c in NU["windows"]["cells"]), 2), 
     **{f"nc3.{k}_{f}": v for k, g in (("defs", "What counts as a transient"), ("series", "Test series left out"))

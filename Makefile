@@ -20,12 +20,14 @@ ALIGN    := $(D)/alignments.json
 VCAND    := $(D)/vasco_candidates.json
 AFIT     := $(D)/alignment_fit.json
 NULLCHK  := $(D)/alignment_null_checks.json
+SHCHK    := $(D)/shadow_null_checks.json
+TESTSV   := $(D)/external/nuclear_tests_1949_1957.csv $(D)/external/poss_i_observing_dates_strict.csv
 SITE     := docs/data/site.json
 PAGE     := docs/index.html
 
 # inputs read off the plates by eye or from slow public services, kept in the repository (see README.md)
 EVIDENCE := $(D)/label_readings.csv $(D)/extra_labels.csv $(D)/date_check_summary.csv $(D)/xe_headers.parquet $(D)/xe_plate_centres.csv
-SAMPLE   := $(A)/sample.py $(DATES) $(LOG) $(EXT)
+SAMPLE   := $(A)/sample.py $(DATES) $(LOG) $(EXT) $(D)/external/poss_i_observing_dates_strict.csv
 
 .PHONY: all help catalogue dates shadow nuclear alignments null-checks shadow-checks site page
 all: page
@@ -37,8 +39,8 @@ help:
 	@echo "make shadow     Earth's shadow: pooled count and fit     -> $(POOLED) $(FIT)"
 	@echo "make nuclear    nights near US nuclear tests             -> $(NUCLEAR)"
 	@echo "make alignments track search over 1,000 shifted copies   -> $(ALIGN)  (slow)"
-	@echo "make null-checks the alignment null made other ways      -> $(NULLCHK)  (slow; only on request)"
-	@echo "make shadow-checks the pooled shadow null: calibration, leak, injection -> $(D)/shadow_null_checks.json  (on request)"
+	@echo "make null-checks the alignment null made other ways      -> $(NULLCHK)  (slow)"
+	@echo "make shadow-checks the pooled shadow null: calibration, leak, injection -> $(SHCHK)"
 	@echo "make site       charts and numbers for the page          -> $(SITE)"
 	@echo "make page       the page                                 -> $(PAGE)"
 
@@ -47,15 +49,14 @@ dates: $(DATES)
 shadow: $(POOLED) $(FIT) $(SOUTH)
 nuclear: $(NUCLEAR)
 alignments: $(ALIGN) $(AFIT) $(VCAND)
-shadow-checks:
-	$(PY) $(A)/shadow_null_checks.py
+shadow-checks: $(SHCHK)
 null-checks:
 	$(PY) $(A)/alignment_null_checks.py
 site: $(SITE)
 page: $(PAGE)
 
-# downloaded inputs: fetched once, when missing
-$(EXT):
+# downloaded inputs: fetched once, when missing, from fixed commits (checksums in fetch_external.py)
+$(EXT) $(TESTSV):
 	$(PY) $(A)/fetch_external.py
 
 $(LOG):
@@ -64,7 +65,7 @@ $(LOG):
 $(PLATES): $(A)/plates.py $(A)/geometry.py $(EXT)
 	$(PY) $<
 
-$(DATES): $(A)/date_corrections.py $(PLATES) $(LOG) $(EVIDENCE)
+$(DATES): $(A)/date_corrections.py $(A)/date_check.py $(PLATES) $(LOG) $(EVIDENCE)
 	$(PY) $<
 
 $(DUST): $(A)/plate_dust.py $(SAMPLE)
@@ -82,7 +83,7 @@ $(FIT): $(A)/shadow_fit.py $(A)/shadow.py $(POOLED) $(SAMPLE)
 $(DEPTH): $(A)/plate_depth.py $(A)/stars.py $(A)/geometry.py $(SAMPLE)
 	$(PY) $<
 
-$(NUCLEAR): $(A)/nuclear.py $(SAMPLE) $(PROPS) $(D)/us_shot_times.csv
+$(NUCLEAR): $(A)/nuclear.py $(SAMPLE) $(PROPS) $(D)/us_shot_times.csv $(TESTSV)
 	$(PY) $<
 
 $(ALIGN): $(A)/alignments.py $(PLATES)
@@ -91,10 +92,18 @@ $(ALIGN): $(A)/alignments.py $(PLATES)
 $(VCAND): $(A)/vasco_candidates.py $(D)/vasco_2025_candidates.csv $(EXT) $(D)/xe_headers.parquet $(D)/xe_plate_centres.csv
 	$(PY) $<
 
-$(AFIT): $(A)/alignment_fit.py $(A)/alignments.py $(ALIGN) $(NULLCHK)
+$(AFIT): $(A)/alignment_fit.py $(A)/alignments.py $(ALIGN) | $(NULLCHK)
 	$(PY) $<
 
-$(SITE): $(A)/build_site.py $(A)/shadow.py $(A)/asteroid_clock.py $(A)/fetch_labels.py $(SAMPLE) $(EVIDENCE) $(DUST) $(PROPS) $(POOLED) $(SOUTH) $(FIT) $(NUCLEAR) $(ALIGN) $(AFIT) $(VCAND) $(NULLCHK)
+# slow (about 40 minutes on 8 cores); its output is kept in the repository, so `make` uses it as it is (no
+# prerequisites: built only when missing) and only `make null-checks` reruns it
+$(NULLCHK):
+	$(PY) $(A)/alignment_null_checks.py
+
+$(SHCHK): $(A)/shadow_null_checks.py $(A)/shadow_pooled.py $(A)/shadow.py $(SAMPLE) $(PROPS)
+	$(PY) $<
+
+$(SITE): $(A)/build_site.py $(A)/shadow.py $(A)/asteroid_clock.py $(A)/fetch_labels.py $(SAMPLE) $(EVIDENCE) $(DUST) $(PROPS) $(POOLED) $(SOUTH) $(FIT) $(NUCLEAR) $(ALIGN) $(AFIT) $(VCAND) | $(NULLCHK)
 	$(PY) $<
 
 $(PAGE): site/assemble.py site/copy.md site/template.html $(SITE)

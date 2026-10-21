@@ -6,7 +6,8 @@ vasco: VASCO's construction, to reproduce their numbers: plates whose archive da
 
 Each returns (cat, plates): cat has one row per transient with its plate, plate-frame offsets xi and eta (deg) and
 `date`, the night it was taken (UT date for ours, archive date for vasco); plates has one row per plate with its
-centre, mid-exposure time `ut` and `date`."""
+centre, time `ut` and `date` (ours: corrected mid-exposure time; vasco: VASCO's UTobservation, the header's start time
+read as hours and minutes)."""
 from pathlib import Path
 
 import pandas as pd

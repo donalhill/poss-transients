@@ -17,7 +17,7 @@ import sample                                                                  #
 
 ROOT = Path(__file__).resolve().parents[1]
 SFD = ROOT / "data/external/dustmaps/sfd"
-SFD_URL = "https://github.com/kbarbary/sfddata/raw/master/"                     # a mirror of the SFD files used by sfdmap
+SFD_URL = "https://github.com/kbarbary/sfddata/raw/7a5fe7fadf086561ba4748756e59a4c51d0ec632/"                     # a mirror of the SFD files used by sfdmap
 
 
 def plate_mean(pl):

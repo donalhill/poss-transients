@@ -297,7 +297,7 @@ footer li { margin-bottom: 0.45rem; }
   <div class="step">
     <div class="step-copy"><div class="step-h"><span class="step-n">1</span><h3>{{cat-spread-title|inline}}</h3></div><div class="step-text">{{cat-spread-text}}</div></div>
     <div class="chart">
-      <div class="legend"><span><i class="sw" style="background:var(--ours)"></i>Plates in VASCO’s tests</span><span><i class="sw" style="background:var(--theirs-soft)"></i>Expected range from counting noise alone</span></div>
+      <div class="legend"><span><i class="sw" style="background:var(--ours)"></i>Plates in the catalogue</span><span><i class="sw" style="background:var(--theirs-soft)"></i>Expected range from counting noise alone</span></div>
       <svg id="c-spread" viewBox="0 0 760 300" role="img" aria-label="How many transients each plate holds, against the narrow range expected if transients landed independently"></svg>
       <div class="cap">{{cat-spread-caption}}</div>
     </div>
@@ -426,21 +426,6 @@ footer li { margin-bottom: 0.45rem; }
         <span><i class="sw line" style="background:var(--emulsion)"></i>The real test calendar</span></div>
       <svg id="c-nuc-corr" viewBox="0 0 760 250" role="img" aria-label="The corrected ratio for plates near tests against the test calendar shifted by years"></svg>
       <div class="cap">{{nuc-corr-caption}}</div>
-    </div>
-  </div>
-  <div class="step">
-    <div class="step-copy"><div class="step-h"><span class="step-n">3</span><h3>{{nuc-checks-title|inline}}</h3></div><div class="step-text">{{nuc-checks-text}}</div></div>
-    <div class="chart">
-      <svg id="c-nuc-checks" viewBox="0 0 760 520" role="img" aria-label="The corrected ratio under each further check: plate properties, what counts as a transient, and each test series left out"></svg>
-      <div class="cap">{{nuc-checks-caption}}</div>
-    </div>
-  </div>
-  <div class="step">
-    <div class="step-copy"><div class="step-h"><span class="step-n">4</span><h3>{{nuc-global-title|inline}}</h3></div><div class="step-text">{{nuc-global-text}}</div></div>
-    <div class="chart">
-      <div class="blink-btns" id="nuc-toggle"><button data-key="r" class="on">Every plate</button><button data-key="r_without">Without XE524, XE429, and XE296</button></div>
-      <svg id="c-nuc-windows" viewBox="0 0 760 300" role="img" aria-label="The result for every window that includes the test day, up to a week before and after, one block per window, with a toggle that moves the blocks to their results without the three richest plates"></svg>
-      <div class="cap">{{nuc-global-caption}}</div>
     </div>
   </div>
   <div class="verdict"><div class="vlab">{{nuclear-verdict-title|inline}}</div><div class="vtext">{{nuclear-verdict}}</div></div>

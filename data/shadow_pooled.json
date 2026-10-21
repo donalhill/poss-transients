@@ -19,19 +19,19 @@
   "plates_worth": 3.34,
   "avg_per_plate": 158.5,
   "observed": 335,
-  "expected": 529.5,
+  "expected": 528.8,
   "binom_sd": 22.9,
   "binom_z": -8.5,
   "hosts": {
    "plates": 624,
-   "closest_deg": 0.73,
-   "within_2deg": 7
+   "closest_deg": 0.21,
+   "within_2deg": 8
   },
-  "p_random": 0.173,
+  "p_random": 0.174,
   "pointing": {
-   "expected": 549.9,
-   "null_mean": 517.1,
-   "p": 0.141,
+   "expected": 549.2,
+   "null_mean": 516.3,
+   "p": 0.143,
    "plates": {
     "XE355": [
      8,
@@ -75,30 +75,38 @@
     ]
    }
   },
-  "p_near": 0.12,
+  "p_near": 0.078,
+  "near": {
+   "max_deg": 20.0,
+   "hosts": 36,
+   "shadow_deg": [
+    4.4,
+    11.5
+   ]
+  },
   "centre": {
    "observed": 63,
-   "expected": 115.6,
+   "expected": 115.5,
    "p_random": 0.123
   }
  },
  "ours_topo": {
-  "plates": 7,
+  "plates": 6,
   "whole": [
    "XE422"
   ],
-  "plates_worth": 3.17,
+  "plates_worth": 3.28,
   "avg_per_plate": 158.5,
-  "observed": 283,
-  "expected": 502.9,
-  "binom_sd": 22.4,
+  "observed": 297,
+  "expected": 519.3,
+  "binom_sd": 22.7,
   "binom_z": -9.8,
   "hosts": {
    "plates": 624,
-   "closest_deg": 0.73,
-   "within_2deg": 7
+   "closest_deg": 0.21,
+   "within_2deg": 8
   },
-  "p_random": 0.139,
+  "p_random": 0.153,
   "p_near": null
  }
 }

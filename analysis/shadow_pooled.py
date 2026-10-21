@@ -27,6 +27,7 @@ from shadow import CELL, GX, GY, HALF, SHADOW_DEG, antisun_geocentric, deproject
 
 ROOT = Path(__file__).resolve().parents[1]
 NREP = 20000
+NEAR = 20.0                          # deg: "near" host plates lie within this of the anti-sun point
 NG = int(round(2 * HALF / CELL))
 R2 = np.hypot(GX, GY) < 2
 
@@ -122,11 +123,13 @@ if __name__ == "__main__":
         else:
             sums, res["p_random"] = paste(c, plates, masks, res["observed"], lambda k: allp, rng)
         if geom == "geo":
-            # random plates only from those 10-45 deg from the anti-sun point at their own time, as the shadow plates are
+            # random plates only from those pointed close to the anti-sun point at their own time, as the shadow plates
+            # are (their centres lie 4-12 deg from it), with each count scaled by pointing as above
             sun = get_sun(Time(plates.ut.values))
             dA = pd.Series(np.degrees(np.arccos(np.clip(np.sum(unit(plates.ra_c.values, plates.dec_c.values) * -unit(sun.ra.deg, sun.dec.deg), 1), -1, 1))), plates.index)
-            nearp = allp[((dA > 10) & (dA < 45)).reindex(allp).values]
-            _, res["p_near"] = paste(c, plates, masks, res["observed"], lambda k: nearp, rng)
+            nearp = allp[(dA < NEAR).reindex(allp).values]
+            *_, res["p_near"] = paste(c, plates, masks, res["observed"], lambda k: nearp, rng, E=E_pt)
+            res["near"] = {"max_deg": NEAR, "hosts": len(nearp), "shadow_deg": [round(float(dA[list(masks)].min()), 1), round(float(dA[list(masks)].max()), 1)]}
             # VASCO's check within 2 deg of the plate centre
             c2 = c[np.hypot(c.xi, c.eta) < 2]
             obs2 = int(sum(masks[k][c2.cell[c2.plate == k].values].sum() for k in masks))

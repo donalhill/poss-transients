@@ -18,8 +18,8 @@ a box around the candidate,
     mu_r = pi * N * n * (2 n p)^(r-2) * d^r / (r * (r-2)!),   n = N / A,
 with N transients in a square box max(10', 1.5 d) on a side centred on the candidate, d its length and p the largest
 offset of its members from the line joining the end points (at least 1", their narrowest strip; under 10", their widest).
-This reproduces their Table 2 (candidates 1, 4* and 5*: 0.0436, 0.0033 and 0.00012 against their 0.044, 0.003 and
-0.0001). Only candidates passing their selection, |Pearson r| > 0.99 between the members' two coordinates, and with
+Checked by hand against their Table 2, from the N, d and p it lists (candidates 1, 4* and 5*: 0.0436, 0.0033 and
+0.00012 against their 0.044, 0.003 and 0.0001); those inputs are not in this repository. Only candidates passing their selection, |Pearson r| > 0.99 between the members' two coordinates, and with
 mu <= 1 are scored.
 
 Track score: VASCO's expected number of chance alignments, built from the same box, but in every direction (no

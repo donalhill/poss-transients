@@ -2,8 +2,9 @@
 
 For each plate: known numbered asteroids on the plate (SkyBoT), JPL Horizons astrometric ephemeris from Palomar (675)
 at 1-min steps, a DSS cutout from the same plate, a local Gaia-based astrometric recalibration, then the trail centroid
-projected onto the ephemeris track gives the mid-exposure UT. Compared with the header DATE-OBS (normalised),
-DATE-OBS - EXPOSURE (if it were the end time) and the time implied by OBSHA.
+projected onto the ephemeris track gives the mid-exposure UT. Compared with the header DATE-OBS, read as hours and
+minutes as in VASCO's catalogue (06:82 becomes 07:22; the exposure in fact starts at 06:49, the field being hundredths of
+an hour: see date_check.resolve), and with the time implied by OBSHA.
 
 Usage: python analysis/asteroid_clock.py XE422 XE369 ...
 """

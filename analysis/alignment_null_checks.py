@@ -21,8 +21,8 @@ repository.
    tracks found as 4-transient tracks at a pass mark of 3 chance ones (the page's copies), diagonal, east-west and in any
    direction, as on the page. A box too small leaves close pairs counted twice, and the two kinds of copy disagree.
 
-python analysis/alignment_null_checks.py [boxes] -> data/alignment_null_checks.json ("boxes" recomputes section 6 alone,
-in place)"""
+python analysis/alignment_null_checks.py [boxes | absorption] -> data/alignment_null_checks.json ("boxes" recomputes
+section 6 alone, in place; "absorption" section 5's histograms)"""
 import json
 import sys
 from multiprocessing import get_context
@@ -119,6 +119,21 @@ def boxes():
     return rows
 
 
+def absorb_job(seed):
+    return AL.score(copy(INJ, seed, *PAGE))[4]                         # track score histograms, four sizes
+
+
+def absorption_hist():
+    """Section 5 bin by bin: the track score histograms of the catalogue holding the added tracks, and the mean of its
+    copies (the page's seeds), for alignment_fit.py to set the share taken in at each score."""
+    with get_context("fork").Pool(8) as pool:
+        H = np.array(pool.map(absorb_job, [3000 + s for s in range(AL.NSHUF)]))
+    return {"hist_injected": AL.score(INJ)[4].tolist(), "hist_injected_copies_mean": H.mean(0).round(4).tolist()}
+
+
+if __name__ == "__main__" and sys.argv[1:] == ["absorption"]:
+    f = ROOT / "data/alignment_null_checks.json"; out = json.loads(f.read_text()); out["absorption"].update(absorption_hist())
+    f.write_text(json.dumps(out, indent=1)); raise SystemExit
 if __name__ == "__main__" and sys.argv[1:] == ["boxes"]:
     f = ROOT / "data/alignment_null_checks.json"; out = json.loads(f.read_text()); out["boxes"] = boxes()
     f.write_text(json.dumps(out, indent=1)); raise SystemExit
@@ -163,5 +178,6 @@ if __name__ == "__main__":
         out["absorption"] = {"copies_of_injected_mean": np.array([r_[0] for r_ in R]).mean(0).round(3).tolist(),
                              "copies_of_plain_mean": out["results"][0]["track_mean"]}
         print(out["absorption"], flush=True)
+    out["absorption"].update(absorption_hist())
     out["boxes"] = boxes()
     (ROOT / "data/alignment_null_checks.json").write_text(json.dumps(out, indent=1))
