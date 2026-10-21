@@ -13,7 +13,10 @@ from Palomar's log (sample.py).
 
 2. Two corrections with physical reasons, one at a time: transients per photograph, and against what each photograph's
    pointing predicts; each against VASCO's null and against the real test calendar shifted by 1 to 5 years and up to two
-   months, leaving out plates taken within two weeks of a real test.
+   months, leaving out plates taken within two weeks of a real test. The pointing curve refitted without the plates
+   near tests, as a check that they do not shape their own expected counts. Checks on the null: how close any plate a
+   shifted calendar counts comes to a real test, and an excess put into the plates near tests (scaled by 1.5 and 2),
+   measured against the shifted calendars.
 3. Everything else measurable about a plate, other definitions of a transient, and each test series left out.
 4. Every window that includes the test day, up to a week either side; the rich plates that move the result between
    windows, and the windows without them.
@@ -93,10 +96,7 @@ y_raw = P.n.values.astype(float)
 
 SHIFTS = [365 * k + d for k in (-5, -4, -3, -2, -1, 1, 2, 3, 4, 5) for d in range(-60, 61)]
 
-X = np.asarray(patsy.dmatrix("bs(b, df=4) + lebv + ecl_lat", PP.standardised(P))); a = 0.5
-for _ in range(4):
-    E = np.asarray(sm.GLM(y_raw, X, family=sm.families.NegativeBinomial(alpha=a)).fit().fittedvalues)
-    a = float(np.sum(((y_raw - E) ** 2 - E) / E ** 2) / (len(y_raw) - X.shape[1]))
+E, X, a = PP.pointing(P)                                                      # the pointing curve (plate_properties.py)
 m0 = near(day)
 per_night = lambda lab: values[lab].mean() / values[~lab].mean()
 ratio = lambda m, e: (y_raw[m].sum() / e[m].sum()) / (y_raw[~m].sum() / e[~m].sum())
@@ -124,10 +124,36 @@ out["corrected"] = {"real": r3(r_c), "p": r3((np.sum(C >= r_c) + 1) / (len(C) + 
                     "median": r3(np.median(C)), "hist": np.histogram(C, np.arange(0, 3.01, 0.05))[0].tolist()}
 
 
+def curve(y, use):
+    """The pointing curve fitted to the plates in use, predicting every plate."""
+    a_ = 0.5
+    for _ in range(4):
+        fit = sm.GLM(y[use], X[use], family=sm.families.NegativeBinomial(alpha=a_)).fit()
+        E_ = fit.predict(X[use]); a_ = float(np.sum(((y[use] - E_) ** 2 - E_) / E_ ** 2) / (use.sum() - X.shape[1]))
+    return fit.predict(X)
+
+
+# the same curve fitted without the plates near tests, so they cannot shape their own expected counts
+out["corrected"]["held_out"] = r3(ratio(m0, curve(y_raw, ~m0)))
+# the null holds no real effect: every plate a shifted calendar counts is more than two weeks from a real test
+counted = np.any([slid_plates[i] for i in keep], 0)
+gap = int(np.abs(day[counted][:, None] - TESTS[None, :]).min())
+assert gap > CLEAR
+# and it does not absorb one put in: transients on the plates near tests scaled up, the curve refitted, measured as above
+inj = []
+for f in (1.5, 2.0):
+    y_ = np.where(m0, np.round(y_raw * f), y_raw); E_ = curve(y_, np.ones(len(y_), bool))
+    rat = lambda m: (y_[m].sum() / E_[m].sum()) / (y_[~m].sum() / E_[~m].sum())
+    r_ = rat(m0); C_ = np.array([rat(slid_plates[i]) for i in keep])
+    inj.append({"factor": f, "measured": r3(r_), "measured_over_real": r3(r_ / r_c), "null_median": r3(np.median(C_)),
+                "p": r3((np.sum(C_ >= r_) + 1) / (len(C_) + 1))})
+out["null_checks"] = {"closest_test_days": gap, "injected": inj}
+
+
 # everything else checked, each on top of the corrected measure: every other plate property, other definitions of a
 # transient, and each test series left out; each against its own slid calendars
 def expected(y, terms=()):
-    X_ = np.asarray(patsy.dmatrix(" + ".join(["bs(b, df=4)", "lebv", "ecl_lat", *terms]), PP.standardised(P))); a_ = 0.5
+    X_ = np.asarray(patsy.dmatrix(" + ".join([PP.POINTING, *terms]), PP.standardised(P))); a_ = 0.5
     for _ in range(4):
         mu = np.asarray(sm.GLM(y, X_, family=sm.families.NegativeBinomial(alpha=a_)).fit().fittedvalues)
         a_ = float(np.sum(((y - mu) ** 2 - mu) / mu ** 2) / (len(y) - X_.shape[1]))

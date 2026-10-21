@@ -1,4 +1,4 @@
-"""Fitting a star (or any compact source) on a scan: an elliptical Gaussian on a small stamp. Shared by tail_shapes.py and
+"""Fitting a star (or any compact source) on a scan: an elliptical Gaussian on a small stamp. Used by
 plate_depth.py."""
 import numpy as np
 from scipy.optimize import curve_fit

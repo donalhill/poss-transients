@@ -5,6 +5,9 @@ Hits: the transients on a plate (positions in arcsec on the plate's tangent plan
 hits up to 15' apart (the end points), the r - 2 hits lying between them that sit closest to the line joining them, for
 r = 3..6, kept if every hit lies within 15" of that line and no two hits are closer than 8" along it (two-hit
 resolution: the pipeline does not separate closer sources, so the copies would otherwise gain pairs the real one lacks).
+For VASCO's score the hits are the r - 2 closest to the line, as in their search. For ours they are occupied boxes
+(Lezama et al. 2015): picked closest to the line first, skipping any hit within 20" along the track of the end points or
+of one already picked, so a close group of transients counts once and cannot make a line look stronger.
 
 Track fit: each candidate is fitted with a straight line (total least squares) and scored by
     chi2 = sum(perpendicular residual^2) / sigma^2,   ndof = r - 2,   sigma = 1" (the plates' positional precision).
@@ -27,6 +30,10 @@ at least 1% (with 1" per transient). Like the track fit, it is calibrated agains
 Isolation: the number of other transients within 2' of the segment between the end points (the 2D counterpart of the
 occupancy of a cone around a reconstructed track); the track fit's distributions are also kept in bins of isolation.
 
+Clumps: a candidate may not hold three or more transients that link up within 20" (friends of friends), in the
+catalogue being scored. The copies move such a group as one piece, so a line inside it would appear in every copy;
+the rule applies alike to the real catalogue, the copies and the injected catalogues.
+
 Multiple candidates: one line of transients yields many overlapping candidates (every shorter line inside it). Each test
 arbitrates its own candidates: best score first (chi2/ndof, or mu), and any candidate sharing a transient with one already
 kept is dropped, within each size for the histograms; for VASCO's counts, across sizes (mu is comparable between sizes).
@@ -34,7 +41,8 @@ The real catalogue, every copy and every injected catalogue go through the same 
 
 Null: copies with every real line broken but the clustering kept: transients within 20" of one another (friends of
 friends) move together as a rigid clump, rotated about its centre and shifted by up to 20", and lone transients are
-shifted by up to 20". Signal: 100
+shifted by up to 20"; a move that brings a transient within 20" of one outside its clump is redrawn, so each copy has
+exactly the catalogue's clumps. Signal: 100
 artificial glint tracks (4-6 hits at least 8" apart, 2-10' long, with 1", 0.5" or 2" scatter, starting anywhere on a
 plate) added to the real catalogue.
 
@@ -62,6 +70,7 @@ LMAX = 900.0                         # arcsec: longest track candidate
 HMAX, HMAX_V = 15.0, 10.0            # arcsec: widest offset from the line, track fit and VASCO's score
 MINSEP = 8.0                         # arcsec: two-hit resolution along the track; the released catalogue has no two
                                      # transients on a plate closer than this, bar two pairs
+BOX = 20.0                           # arcsec: our tracks count occupied boxes this long, so a close group counts once
 SHIFT, LINK = 20.0, 20.0             # arcsec: largest move of a transient or clump in the copies; clump linking length
 EDGES = np.round(np.arange(-4.0, 3.0001, 0.1), 3)   # log10(chi2/ndof) bins
 BINS = np.round(np.arange(-8.0, 0.0001, 0.1), 3)    # log10(mu) bins; candidates with mu > 1 are unremarkable even to VASCO
@@ -84,13 +93,108 @@ cat = cat[cat.plate != ""][["plate", "xi", "eta"]].assign(x=lambda d: d.xi * 360
 
 
 @njit(cache=True)
-def plate_kernel(P, xs_order, xs, pairs, nb_ptr, nb_idx, minsep, hmax, hmax_v, riso, chi2max, out_i, out_f, out_mem):
-    """Every track candidate on a plate: out_i (size, within VASCO's strip, passes VASCO's selection, isolation: other
-    transients within riso of the segment between the end points), out_f (log10 chi2/ndof, log10 mu or +inf, strip p
-    in arcsec, length in arcsec, log10 of the track score), out_mem (members, -1 padded).
-    Returns the number written."""
-    nout = 0
-    hk = np.empty(4); kk = np.empty(4, np.int64); tk = np.empty(4); sv = np.empty(6)
+def emit(P, xs_order, xs, i, j, L, ux, uy, hk, kk, tk, nk, minsep, hmax_v, riso, chi2max, NC, sv, out_i, out_f, out_mem, nout):
+    """The candidates of sizes 3-6 with end points i, j and hits kk (offsets hk, ascending; positions along the track
+    tk), written from row nout: out_i (size, within VASCO's strip, passes VASCO's selection, isolation: other transients
+    within riso of the segment between the end points), out_f (log10 chi2/ndof, log10 mu or +inf, strip p in arcsec,
+    length in arcsec, log10 of the track score), out_mem (members, -1 padded). NC caches what depends on the end points
+    only (transients in VASCO's box, their density, transients within riso). Returns the next free row."""
+    for r in range(3, 7):
+        m = r - 2
+        if nk < m:
+            break
+        # two-hit resolution: every pair of hits at least minsep apart along the track
+        sv[0] = 0.0; sv[1] = L
+        for a in range(m):
+            sv[2 + a] = tk[a]
+        srt = np.sort(sv[:r])
+        ok = True
+        for a in range(r - 1):
+            if srt[a + 1] - srt[a] < minsep:
+                ok = False
+        if not ok:
+            continue
+        # isolation: transients within riso of the segment i-j (the members lie inside it)
+        if NC[1] < 0:
+            a0 = np.searchsorted(xs, min(P[i, 0], P[j, 0]) - riso, side="left")
+            a1 = np.searchsorted(xs, max(P[i, 0], P[j, 0]) + riso, side="right")
+            C = 0
+            for a in range(a0, a1):
+                k = xs_order[a]
+                vx, vy = P[k, 0] - P[i, 0], P[k, 1] - P[i, 1]
+                t = (vx * ux + vy * uy) / L
+                if t < 0.0:
+                    d = np.sqrt(vx * vx + vy * vy)
+                elif t > 1.0:
+                    d = np.sqrt((P[k, 0] - P[j, 0]) ** 2 + (P[k, 1] - P[j, 1]) ** 2)
+                else:
+                    d = abs(vx * uy - vy * ux)
+                if d <= riso:
+                    C += 1
+            NC[1] = C
+        # straight-line fit by total least squares
+        sx = P[i, 0] + P[j, 0]; sy = P[i, 1] + P[j, 1]
+        for a in range(m):
+            sx += P[kk[a], 0]; sy += P[kk[a], 1]
+        cx, cy = sx / r, sy / r
+        sxx = syy = sxy = 0.0
+        for a in range(-2, m):
+            b = i if a == -2 else (j if a == -1 else kk[a])
+            ex, ey = P[b, 0] - cx, P[b, 1] - cy
+            sxx += ex * ex; syy += ey * ey; sxy += ex * ey
+        tr, det = sxx + syy, sxx * syy - sxy * sxy
+        lam = 0.5 * (tr - np.sqrt(max(tr * tr - 4.0 * det, 0.0)))    # sum of squared perpendicular residuals
+        # transients in the box around the candidate (VASCO's box), for both scores
+        if NC[0] < 0:
+            side = max(600.0, 1.5 * L); hs = side / 2
+            mx, my = (P[i, 0] + P[j, 0]) / 2, (P[i, 1] + P[j, 1]) / 2
+            a0 = np.searchsorted(xs, mx - hs, side="left"); a1 = np.searchsorted(xs, mx + hs, side="right")
+            N = 0
+            for a in range(a0, a1):
+                if abs(P[xs_order[a], 1] - my) <= hs:
+                    N += 1
+            NC[0] = N; NC[2] = N / (side / 60.0) ** 2
+        N, n = NC[0], NC[2]
+        # VASCO's score, for candidates within their strip: widest offset from the line through the end points
+        strip = hk[m - 1] < hmax_v
+        lmu = np.inf
+        if strip:
+            mu = np.pi * N * n * (2.0 * n * max(hk[m - 1], 1.0) / 60.0) ** m * (L / 60.0) ** r / (r * FACT[r])
+            lmu = np.log10(mu) if mu > 0 else -99.0
+        # the track score: the same expected number, with the strip the widest residual from the fitted line
+        phi = 0.5 * np.arctan2(2.0 * sxy, sxx - syy); nx_, ny_ = -np.sin(phi), np.cos(phi)
+        w = 0.0
+        for a in range(-2, m):
+            b = i if a == -2 else (j if a == -1 else kk[a])
+            w = max(w, abs((P[b, 0] - cx) * nx_ + (P[b, 1] - cy) * ny_))
+        lam_ = np.pi * N * n * (2.0 * n * max(w, 1.0) / 60.0) ** m * (L / 60.0) ** r / (r * FACT[r])
+        llam = np.log10(lam_) if lam_ > 0 else -99.0
+        if lam > chi2max[m]:                                             # not straight to the plates' precision: no track
+            llam = np.inf
+        out_i[nout, 0] = r; out_i[nout, 1] = strip; out_i[nout, 3] = int(NC[1]) - r
+        out_i[nout, 2] = not (sxx > 0.0 and syy > 0.0 and abs(sxy / np.sqrt(sxx * syy)) <= 0.99)
+        out_f[nout, 0] = np.log10(max(lam, 1e-12) / m); out_f[nout, 1] = lmu; out_f[nout, 4] = llam
+        out_f[nout, 2] = max(hk[m - 1], 1.0); out_f[nout, 3] = L
+        out_mem[nout, 0] = i; out_mem[nout, 1] = j
+        for a in range(4):
+            out_mem[nout, 2 + a] = kk[a] if a < m else -1
+        nout += 1
+    return nout
+
+
+@njit(cache=True)
+def plate_kernel(P, xs_order, xs, pairs, nb_ptr, nb_idx, minsep, box, hmax, hmax_v, riso, chi2max, oa_i, oa_f, oa_mem, ob_i, ob_f, ob_mem):
+    """Every track candidate on a plate, two ways, from one pass over the pairs of end points: oa_* with the hits the
+    four closest to the line (VASCO's search), ob_* with occupied boxes (ours): hits picked closest to the line first,
+    skipping any within box (along the track) of the end points or of one already picked, so a close group of
+    transients counts once. Columns as in emit(). Returns the number of rows written to each."""
+    na = nb = 0
+    hk = np.empty(4); kk = np.empty(4, np.int64); tk = np.empty(4); sv = np.empty(6); NC = np.empty(3)
+    hb = np.empty(4); kb = np.empty(4, np.int64); tb = np.empty(4)
+    nmax = 0
+    for a in range(len(nb_ptr) - 1):
+        nmax = max(nmax, nb_ptr[a + 1] - nb_ptr[a])
+    ch = np.empty(nmax); ck = np.empty(nmax, np.int64); ct = np.empty(nmax)
     for q in range(pairs.shape[0]):
         i, j = pairs[q, 0], pairs[q, 1]
         dx, dy = P[j, 0] - P[i, 0], P[j, 1] - P[i, 1]
@@ -98,7 +202,7 @@ def plate_kernel(P, xs_order, xs, pairs, nb_ptr, nb_idx, minsep, hmax, hmax_v, r
         if L < minsep:
             continue
         ux, uy = dx / L, dy / L
-        nk = 0
+        nk = 0; nc = 0
         for a in range(nb_ptr[i], nb_ptr[i + 1]):
             k = nb_idx[a]
             if k == i or k == j:
@@ -110,6 +214,7 @@ def plate_kernel(P, xs_order, xs, pairs, nb_ptr, nb_idx, minsep, hmax, hmax_v, r
             h = abs(vx * uy - vy * ux)
             if h >= hmax:
                 continue
+            ch[nc] = h; ck[nc] = k; ct[nc] = t * L; nc += 1
             # keep the four smallest offsets, sorted
             if nk < 4:
                 pos = nk; nk += 1
@@ -120,87 +225,26 @@ def plate_kernel(P, xs_order, xs, pairs, nb_ptr, nb_idx, minsep, hmax, hmax_v, r
             while pos > 0 and hk[pos - 1] > h:
                 hk[pos] = hk[pos - 1]; kk[pos] = kk[pos - 1]; tk[pos] = tk[pos - 1]; pos -= 1
             hk[pos] = h; kk[pos] = k; tk[pos] = t * L
-        N = -1                                                         # transients in VASCO's box, counted when first needed
-        C = -1                                                         # transients within riso of the segment, likewise
-        for r in range(3, 7):
-            m = r - 2
-            if nk < m:
-                break
-            # two-hit resolution: every pair of hits at least minsep apart along the track
-            sv[0] = 0.0; sv[1] = L
-            for a in range(m):
-                sv[2 + a] = tk[a]
-            srt = np.sort(sv[:r])
-            ok = True
-            for a in range(r - 1):
-                if srt[a + 1] - srt[a] < minsep:
-                    ok = False
-            if not ok:
+        if nk == 0:
+            continue
+        NC[0] = NC[1] = NC[2] = -1.0
+        na = emit(P, xs_order, xs, i, j, L, ux, uy, hk, kk, tk, nk, minsep, hmax_v, riso, chi2max, NC, sv, oa_i, oa_f, oa_mem, na)
+        if L < box:
+            continue
+        mb = 0                                                         # occupied boxes, closest to the line first
+        for a in np.argsort(ch[:nc]):
+            if ct[a] < box or L - ct[a] < box:
                 continue
-            # isolation: transients within riso of the segment i-j (the members lie inside it)
-            if C < 0:
-                a0 = np.searchsorted(xs, min(P[i, 0], P[j, 0]) - riso, side="left")
-                a1 = np.searchsorted(xs, max(P[i, 0], P[j, 0]) + riso, side="right")
-                C = 0
-                for a in range(a0, a1):
-                    k = xs_order[a]
-                    vx, vy = P[k, 0] - P[i, 0], P[k, 1] - P[i, 1]
-                    t = (vx * ux + vy * uy) / L
-                    if t < 0.0:
-                        d = np.sqrt(vx * vx + vy * vy)
-                    elif t > 1.0:
-                        d = np.sqrt((P[k, 0] - P[j, 0]) ** 2 + (P[k, 1] - P[j, 1]) ** 2)
-                    else:
-                        d = abs(vx * uy - vy * ux)
-                    if d <= riso:
-                        C += 1
-            # straight-line fit by total least squares
-            sx = P[i, 0] + P[j, 0]; sy = P[i, 1] + P[j, 1]
-            for a in range(m):
-                sx += P[kk[a], 0]; sy += P[kk[a], 1]
-            cx, cy = sx / r, sy / r
-            sxx = syy = sxy = 0.0
-            for a in range(-2, m):
-                b = i if a == -2 else (j if a == -1 else kk[a])
-                ex, ey = P[b, 0] - cx, P[b, 1] - cy
-                sxx += ex * ex; syy += ey * ey; sxy += ex * ey
-            tr, det = sxx + syy, sxx * syy - sxy * sxy
-            lam = 0.5 * (tr - np.sqrt(max(tr * tr - 4.0 * det, 0.0)))    # sum of squared perpendicular residuals
-            # transients in the box around the candidate (VASCO's box), for both scores
-            if N < 0:
-                side = max(600.0, 1.5 * L); hs = side / 2
-                mx, my = (P[i, 0] + P[j, 0]) / 2, (P[i, 1] + P[j, 1]) / 2
-                a0 = np.searchsorted(xs, mx - hs, side="left"); a1 = np.searchsorted(xs, mx + hs, side="right")
-                N = 0
-                for a in range(a0, a1):
-                    if abs(P[xs_order[a], 1] - my) <= hs:
-                        N += 1
-                n = N / (side / 60.0) ** 2
-            # VASCO's score, for candidates within their strip: widest offset from the line through the end points
-            strip = hk[m - 1] < hmax_v
-            lmu = np.inf
-            if strip:
-                mu = np.pi * N * n * (2.0 * n * max(hk[m - 1], 1.0) / 60.0) ** m * (L / 60.0) ** r / (r * FACT[r])
-                lmu = np.log10(mu) if mu > 0 else -99.0
-            # the track score: the same expected number, with the strip the widest residual from the fitted line
-            phi = 0.5 * np.arctan2(2.0 * sxy, sxx - syy); nx_, ny_ = -np.sin(phi), np.cos(phi)
-            w = 0.0
-            for a in range(-2, m):
-                b = i if a == -2 else (j if a == -1 else kk[a])
-                w = max(w, abs((P[b, 0] - cx) * nx_ + (P[b, 1] - cy) * ny_))
-            lam_ = np.pi * N * n * (2.0 * n * max(w, 1.0) / 60.0) ** m * (L / 60.0) ** r / (r * FACT[r])
-            llam = np.log10(lam_) if lam_ > 0 else -99.0
-            if lam > chi2max[m]:                                         # not straight to the plates' precision: no track
-                llam = np.inf
-            out_i[nout, 0] = r; out_i[nout, 1] = strip; out_i[nout, 3] = C - r
-            out_i[nout, 2] = not (sxx > 0.0 and syy > 0.0 and abs(sxy / np.sqrt(sxx * syy)) <= 0.99)
-            out_f[nout, 0] = np.log10(max(lam, 1e-12) / m); out_f[nout, 1] = lmu; out_f[nout, 4] = llam
-            out_f[nout, 2] = max(hk[m - 1], 1.0); out_f[nout, 3] = L
-            out_mem[nout, 0] = i; out_mem[nout, 1] = j
-            for a in range(4):
-                out_mem[nout, 2 + a] = kk[a] if a < m else -1
-            nout += 1
-    return nout
+            free = True
+            for b in range(mb):
+                if abs(ct[a] - tb[b]) < box:
+                    free = False; break
+            if free:
+                hb[mb] = ch[a]; kb[mb] = ck[a]; tb[mb] = ct[a]; mb += 1
+                if mb == 4:
+                    break
+        nb = emit(P, xs_order, xs, i, j, L, ux, uy, hb, kb, tb, mb, minsep, hmax_v, riso, chi2max, NC, sv, ob_i, ob_f, ob_mem, nb)
+    return na, nb
 
 
 @njit(cache=True)
@@ -241,42 +285,51 @@ def score(df, detail=False):
         pairs = tree.query_pairs(LMAX, output_type="ndarray")
         if len(pairs) == 0:
             continue
-        nb = tree.query_ball_point(P, LMAX)
-        ptr = np.zeros(len(nb) + 1, np.int64); ptr[1:] = np.cumsum([len(n) for n in nb])
-        idx = np.fromiter((k for n in nb for k in n), np.int64, ptr[-1])
+        src, dst = np.r_[pairs[:, 0], pairs[:, 1]], np.r_[pairs[:, 1], pairs[:, 0]]   # each transient's neighbours, by index
+        o = np.lexsort((dst, src)); idx = dst[o].astype(np.int64)
+        ptr = np.zeros(len(P) + 1, np.int64); ptr[1:] = np.cumsum(np.bincount(src, minlength=len(P)))
         order = np.argsort(P[:, 0], kind="stable"); n = len(pairs) * 4
-        out_i, out_f, out_mem = np.zeros((n, 4), np.int64), np.zeros((n, 5)), np.zeros((n, 6), np.int64)
-        k = plate_kernel(P, order, P[order, 0].copy(), pairs.astype(np.int64), ptr, idx, MINSEP, HMAX, HMAX_V, RISO, CHI2MAX, out_i, out_f, out_mem)
-        r, strip, pear, iso = out_i[:k, 0], out_i[:k, 1].astype(bool), out_i[:k, 2].astype(bool), out_i[:k, 3]
-        lchi, lmu, llam, mem = out_f[:k, 0], out_f[:k, 1], out_f[:k, 4], out_mem[:k]
-        scored = strip & (lmu <= 0)                                    # within VASCO's strip, mu <= 1
-        vasco = scored & pear
+        # no candidate may hold three or more transients from one clump: a clump moves as one piece in the copies, so
+        # any line inside it would appear in every copy
+        lab = np.r_[clump_labels(len(P), tree.query_pairs(LINK, output_type="ndarray").astype(np.int64))[0], -1]
+
+        buf = [a_ for _ in range(2) for a_ in (np.zeros((n, 4), np.int64), np.zeros((n, 5)), np.zeros((n, 6), np.int64))]
+        ka, kb = plate_kernel(P, order, P[order, 0].copy(), pairs.astype(np.int64), ptr, idx, MINSEP, BOX, HMAX, HMAX_V, RISO, CHI2MAX, *buf)
+
+        def candidates(out_i, out_f, out_mem, k):
+            L = lab[out_mem[:k]]; ok = ((L[:, :, None] == L[:, None, :]) & (L[:, None, :] >= 0)).sum(2).max(1) < 3
+            out_i, out_f, out_mem = out_i[:k][ok], out_f[:k][ok], out_mem[:k][ok]
+            strip = out_i[:, 1].astype(bool)
+            return {"r": out_i[:, 0], "strip": strip, "vasco": strip & (out_f[:, 1] <= 0) & out_i[:, 2].astype(bool), "iso": out_i[:, 3],
+                    "lchi": out_f[:, 0], "lmu": out_f[:, 1], "llam": out_f[:, 4], "f": out_f, "mem": out_mem}
+
+        V, T = candidates(*buf[:3], ka), candidates(*buf[3:], kb)      # VASCO's selection; ours, in occupied boxes
         for s in RS:
-            sel = np.flatnonzero(r == s)
-            kept = arbitrate(sel[np.argsort(lchi[sel], kind="stable")], mem, r, len(P))
-            inr = kept & (lchi < EDGES[-1])
-            np.add.at(Ht[s - 3], binned(lchi[inr], EDGES), 1)
-            np.add.at(Hi[s - 3], (np.searchsorted(ISO, iso[inr], side="right") - 1, binned(lchi[inr], EDGES)), 1)
-            sel = np.flatnonzero((r == s) & vasco)
-            kept = arbitrate(sel[np.argsort(lmu[sel], kind="stable")], mem, r, len(P))
-            np.add.at(Hv[s - 3], binned(lmu[kept], BINS), 1)
-            sel = np.flatnonzero((r == s) & (llam <= 0))
-            kept = arbitrate(sel[np.argsort(llam[sel], kind="stable")], mem, r, len(P))
-            np.add.at(Hl[s - 3], binned(llam[kept], BINS), 1)
+            sel = np.flatnonzero(T["r"] == s)
+            kept = arbitrate(sel[np.argsort(T["lchi"][sel], kind="stable")], T["mem"], T["r"], len(P))
+            inr = kept & (T["lchi"] < EDGES[-1])
+            np.add.at(Ht[s - 3], binned(T["lchi"][inr], EDGES), 1)
+            np.add.at(Hi[s - 3], (np.searchsorted(ISO, T["iso"][inr], side="right") - 1, binned(T["lchi"][inr], EDGES)), 1)
+            sel = np.flatnonzero((V["r"] == s) & V["vasco"])
+            kept = arbitrate(sel[np.argsort(V["lmu"][sel], kind="stable")], V["mem"], V["r"], len(P))
+            np.add.at(Hv[s - 3], binned(V["lmu"][kept], BINS), 1)
+            sel = np.flatnonzero((T["r"] == s) & (T["llam"] <= 0))
+            kept = arbitrate(sel[np.argsort(T["llam"][sel], kind="stable")], T["mem"], T["r"], len(P))
+            np.add.at(Hl[s - 3], binned(T["llam"][kept], BINS), 1)
         if detail:
-            both.append(np.c_[lmu, llam, r, vasco, np.isfinite(llam) & (llam <= 0)])
-        for scr, msk in ((0, scored), (1, vasco)):
-            np.add.at(H2, (r[msk] - 3, scr, binned(lmu[msk], BINS), binned(lchi[msk], EDGES)), 1)
-        for c in np.flatnonzero(np.isfinite(llam) & (llam <= np.log10(KEEP))):
-            m_ = mem[c][mem[c] >= 0]
-            keep_t.append({"plate": plate, "ids": g.index.values[m_].tolist(), "r": int(r[c]), "mu": float(10 ** llam[c]), "iso": int(iso[c]),
-                           "chi2ndof": float(10 ** lchi[c]), "d_arcmin": float(out_f[c, 3] / 60), "vasco": bool(vasco[c]),
-                           "x": P[m_, 0].tolist(), "y": P[m_, 1].tolist()})
-        for c in np.flatnonzero(vasco & (lmu <= np.log10(KEEP))):
-            m_ = mem[c][mem[c] >= 0]
-            keep.append({"plate": plate, "ids": g.index.values[m_].tolist(), "r": int(r[c]), "mu": float(10 ** lmu[c]), "iso": int(iso[c]),
-                         "chi2ndof": float(10 ** lchi[c]), "p_arcsec": float(out_f[c, 2]), "d_arcmin": float(out_f[c, 3] / 60),
-                         "x": P[m_, 0].tolist(), "y": P[m_, 1].tolist()})
+            both.append(np.c_[V["lmu"], V["llam"], V["r"], V["vasco"], np.isfinite(V["llam"]) & (V["llam"] <= 0)])
+        for scr, msk in ((0, V["strip"] & (V["lmu"] <= 0)), (1, V["vasco"])):
+            np.add.at(H2, (V["r"][msk] - 3, scr, binned(V["lmu"][msk], BINS), binned(V["lchi"][msk], EDGES)), 1)
+        for c in np.flatnonzero(np.isfinite(T["llam"]) & (T["llam"] <= np.log10(KEEP))):
+            m_ = T["mem"][c][T["mem"][c] >= 0]
+            keep_t.append({"plate": plate, "ids": g.index.values[m_].tolist(), "r": int(T["r"][c]), "mu": float(10 ** T["llam"][c]),
+                           "iso": int(T["iso"][c]), "chi2ndof": float(10 ** T["lchi"][c]), "d_arcmin": float(T["f"][c, 3] / 60),
+                           "vasco": bool(T["vasco"][c]), "x": P[m_, 0].tolist(), "y": P[m_, 1].tolist()})
+        for c in np.flatnonzero(V["vasco"] & (V["lmu"] <= np.log10(KEEP))):
+            m_ = V["mem"][c][V["mem"][c] >= 0]
+            keep.append({"plate": plate, "ids": g.index.values[m_].tolist(), "r": int(V["r"][c]), "mu": float(10 ** V["lmu"][c]),
+                         "iso": int(V["iso"][c]), "chi2ndof": float(10 ** V["lchi"][c]), "p_arcsec": float(V["f"][c, 2]),
+                         "d_arcmin": float(V["f"][c, 3] / 60), "x": P[m_, 0].tolist(), "y": P[m_, 1].tolist()})
     return (Ht, Hv, H2, Hi, Hl, keep, keep_t) + ((np.concatenate(both),) if detail else ())
 
 
@@ -352,28 +405,45 @@ def clumps(df, link=LINK):
     return clump_labels(len(df), cKDTree(np.c_[df.x.values + off, df.y.values]).query_pairs(link, output_type="ndarray").astype(np.int64))
 
 
-def clump_copy(df, seed, link=LINK, shift=SHIFT):
+def clump_copy(df, seed, link=LINK, shift=SHIFT, gauss=False, sep=None):
     """A copy with every real line broken but the clustering kept: transients within link of one another (friends of
     friends, never across plates) form a clump, each clump rotated about its centre by a random angle and moved by up
-    to shift as a rigid unit; lone transients are just moved."""
+    to shift as a rigid unit (or, with gauss, by a Gaussian of rms shift per axis); lone transients are just moved. A
+    move that brings a transient within sep (default link) of one outside its clump is drawn again, so the copy has
+    exactly the catalogue's clumps: none merged, none new."""
+    sep = link if sep is None else sep
     rng = np.random.default_rng(seed)
     x, y = df.x.values, df.y.values
     lab, G = clumps(df, link)
     cnt = np.bincount(lab, minlength=G); cx = np.bincount(lab, x, G) / cnt; cy = np.bincount(lab, y, G) / cnt
-    th = rng.uniform(0, 2 * np.pi, G); rr = shift * np.sqrt(rng.uniform(0, 1, G)); a = rng.uniform(0, 2 * np.pi, G)
-    c, s = np.cos(th)[lab], np.sin(th)[lab]; dx, dy = x - cx[lab], y - cy[lab]
-    return df.assign(x=cx[lab] + c * dx - s * dy + (rr * np.cos(a))[lab], y=cy[lab] + s * dx + c * dy + (rr * np.sin(a))[lab])
+    dx, dy = x - cx[lab], y - cy[lab]; off = pd.factorize(df.plate)[0] * 1e7
+    th, mx, my = np.empty(G), np.empty(G), np.empty(G); redo = np.arange(G)
+    for _ in range(100):
+        th[redo] = rng.uniform(0, 2 * np.pi, len(redo))
+        if gauss:
+            mx[redo], my[redo] = rng.normal(0, shift, len(redo)), rng.normal(0, shift, len(redo))
+        else:
+            rr = shift * np.sqrt(rng.uniform(0, 1, len(redo))); a = rng.uniform(0, 2 * np.pi, len(redo))
+            mx[redo], my[redo] = rr * np.cos(a), rr * np.sin(a)
+        c, s = np.cos(th)[lab], np.sin(th)[lab]
+        nx, ny = cx[lab] + c * dx - s * dy + mx[lab], cy[lab] + s * dx + c * dy + my[lab]
+        P = cKDTree(np.c_[nx + off, ny]).query_pairs(sep, output_type="ndarray")
+        P = P[lab[P[:, 0]] != lab[P[:, 1]]]
+        if len(P) == 0:
+            break
+        redo = np.unique(lab[P[:, 1]])
+    return df.assign(x=nx, y=ny)
 
 
-def with_tracks(n=100, seed=7, scatter=1.0, angle=None):
-    """The real catalogue with n artificial glint tracks added (4-6 hits, 2-10' long, given scatter; any direction, or at
-    a given angle in degrees from east-west, 0 being the track a geostationary object would leave). Tracks start anywhere
-    on a plate's searched area (within 2.9 deg of the centre), as glints from orbit would, and their hits are at least
-    MINSEP apart along the track, as the plates can resolve."""
+def with_tracks(n=100, seed=7, scatter=1.0, angle=None, hits=(4, 6)):
+    """The real catalogue with n artificial glint tracks added (hits[0] to hits[1] hits, 2-10' long, given scatter; any
+    direction, or at a given angle in degrees from east-west, 0 being the track a geostationary object would leave).
+    Tracks start anywhere on a plate's searched area (within 2.9 deg of the centre), as glints from orbit would, and their
+    hits are at least MINSEP apart along the track, as the plates can resolve."""
     rng, rows, plates, nid = np.random.default_rng(seed), [], cat.plate.unique(), 10_000_000
     for _ in range(n):
         plate = rng.choice(plates)
-        r = int(rng.integers(4, 7)); L = rng.uniform(120, 600); th = rng.uniform(0, np.pi) if angle is None else np.radians(angle) * rng.choice([-1, 1])
+        r = int(rng.integers(hits[0], hits[1] + 1)); L = rng.uniform(120, 600); th = rng.uniform(0, np.pi) if angle is None else np.radians(angle) * rng.choice([-1, 1])
         x0, y0 = rng.uniform(-2.9 * 3600 + L, 2.9 * 3600 - L, 2)
         s = np.sort(rng.uniform(0, L, r))
         while np.min(np.diff(s)) < MINSEP:

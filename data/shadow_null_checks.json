@@ -1,0 +1,57 @@
+{
+ "observed": 335,
+ "page": {
+  "null_mean": 516.1,
+  "p": 0.137
+ },
+ "calibration": {
+  "runs": 500,
+  "share_below": {
+   "0.05": 0.05,
+   "0.11": 0.1,
+   "0.25": 0.258,
+   "0.5": 0.494
+  }
+ },
+ "hosts_crossed": 0,
+ "injected": {
+  "0.2": {
+   "observed": 263,
+   "p": 0.035
+  },
+  "0.4": {
+   "observed": 210,
+   "p": 0.008
+  },
+  "0.6": {
+   "observed": 142,
+   "p": 0.0
+  }
+ },
+ "terms": {
+  "milky_way": {
+   "expected": 600.7,
+   "p": 0.11
+  },
+  "milky_way_dust": {
+   "expected": 625.3,
+   "p": 0.086
+  },
+  "milky_way_dust_ecliptic": {
+   "expected": 604.1,
+   "p": 0.106
+  },
+  "ecliptic": {
+   "expected": 603.2,
+   "p": 0.131
+  },
+  "centre_dust_with_equatorial_row": {
+   "expected": 554.2,
+   "p": 0.135
+  },
+  "page_curve": {
+   "expected": 549.9,
+   "p": 0.138
+  }
+ }
+}

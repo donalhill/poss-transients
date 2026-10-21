@@ -18,9 +18,8 @@ NUCLEAR  := $(D)/nuclear.json
 PROPS    := $(A)/plate_properties.py $(DUST) $(DEPTH) $(D)/xe_headers.parquet
 ALIGN    := $(D)/alignments.json
 VCAND    := $(D)/vasco_candidates.json
-SHAPES   := $(D)/tail_shapes.json
-SECOND   := $(D)/second_copy.json
-TRAIL    := $(D)/xe492_trail.json
+AFIT     := $(D)/alignment_fit.json
+NULLCHK  := $(D)/alignment_null_checks.json
 SITE     := docs/data/site.json
 PAGE     := docs/index.html
 
@@ -28,7 +27,7 @@ PAGE     := docs/index.html
 EVIDENCE := $(D)/label_readings.csv $(D)/extra_labels.csv $(D)/date_check_summary.csv $(D)/xe_headers.parquet $(D)/xe_plate_centres.csv
 SAMPLE   := $(A)/sample.py $(DATES) $(LOG) $(EXT)
 
-.PHONY: all help catalogue dates shadow nuclear alignments tracks site page
+.PHONY: all help catalogue dates shadow nuclear alignments null-checks shadow-checks site page
 all: page
 
 help:
@@ -38,7 +37,8 @@ help:
 	@echo "make shadow     Earth's shadow: pooled count and fit     -> $(POOLED) $(FIT)"
 	@echo "make nuclear    nights near US nuclear tests             -> $(NUCLEAR)"
 	@echo "make alignments track search over 1,000 shifted copies   -> $(ALIGN)  (slow)"
-	@echo "make tracks     the strongest tracks on the plates       -> $(SHAPES) $(SECOND) $(TRAIL)"
+	@echo "make null-checks the alignment null made other ways      -> $(NULLCHK)  (slow; only on request)"
+	@echo "make shadow-checks the pooled shadow null: calibration, leak, injection -> $(D)/shadow_null_checks.json  (on request)"
 	@echo "make site       charts and numbers for the page          -> $(SITE)"
 	@echo "make page       the page                                 -> $(PAGE)"
 
@@ -46,8 +46,11 @@ catalogue: $(PLATES)
 dates: $(DATES)
 shadow: $(POOLED) $(FIT) $(SOUTH)
 nuclear: $(NUCLEAR)
-alignments: $(ALIGN) $(VCAND)
-tracks: $(SHAPES) $(SECOND) $(TRAIL)
+alignments: $(ALIGN) $(AFIT) $(VCAND)
+shadow-checks:
+	$(PY) $(A)/shadow_null_checks.py
+null-checks:
+	$(PY) $(A)/alignment_null_checks.py
 site: $(SITE)
 page: $(PAGE)
 
@@ -67,7 +70,7 @@ $(DATES): $(A)/date_corrections.py $(PLATES) $(LOG) $(EVIDENCE)
 $(DUST): $(A)/plate_dust.py $(SAMPLE)
 	$(PY) $<
 
-$(POOLED): $(A)/shadow_pooled.py $(A)/shadow.py $(A)/geometry.py $(SAMPLE)
+$(POOLED): $(A)/shadow_pooled.py $(A)/shadow.py $(A)/geometry.py $(SAMPLE) $(PROPS)
 	$(PY) $<
 
 $(SOUTH): $(A)/shadow_plates_log.py $(A)/shadow.py $(DATES) $(LOG)
@@ -88,16 +91,10 @@ $(ALIGN): $(A)/alignments.py $(PLATES)
 $(VCAND): $(A)/vasco_candidates.py $(D)/vasco_2025_candidates.csv $(EXT) $(D)/xe_headers.parquet $(D)/xe_plate_centres.csv
 	$(PY) $<
 
-$(SHAPES): $(A)/tail_shapes.py $(A)/stars.py $(A)/geometry.py $(ALIGN) $(DATES)
+$(AFIT): $(A)/alignment_fit.py $(A)/alignments.py $(ALIGN) $(NULLCHK)
 	$(PY) $<
 
-$(SECOND): $(A)/second_copy.py $(A)/geometry.py $(ALIGN) $(DATES)
-	$(PY) $<
-
-$(TRAIL): $(A)/xe492_trail.py $(A)/geometry.py $(ALIGN) $(DATES)
-	$(PY) $<
-
-$(SITE): $(A)/build_site.py $(A)/shadow.py $(A)/asteroid_clock.py $(A)/fetch_labels.py $(SAMPLE) $(EVIDENCE) $(DUST) $(POOLED) $(SOUTH) $(FIT) $(NUCLEAR) $(ALIGN) $(VCAND) $(SHAPES) $(SECOND) $(TRAIL)
+$(SITE): $(A)/build_site.py $(A)/shadow.py $(A)/asteroid_clock.py $(A)/fetch_labels.py $(SAMPLE) $(EVIDENCE) $(DUST) $(PROPS) $(POOLED) $(SOUTH) $(FIT) $(NUCLEAR) $(ALIGN) $(AFIT) $(VCAND) $(NULLCHK)
 	$(PY) $<
 
 $(PAGE): site/assemble.py site/copy.md site/template.html $(SITE)

@@ -66,6 +66,10 @@ def headline(s):
     return f'<div class="big">{big}</div>' + (f'<div class="gloss">{gloss}</div>' if gloss else "")
 
 
+EQS = {"track-score": '<i>μ</i> = <span class="frac"><span>π <i>N</i> <i>n</i> (2<i>n</i><i>w</i>)<sup><i>r</i>−2</sup> <i>L</i><sup><i>r</i></sup></span>'
+                        '<span><i>r</i> (<i>r</i> − 2)!</span></span>'}
+
+
 def numbers():
     return json.loads((ROOT / "docs/data/site.json").read_text()).get("numbers", {})
 
@@ -94,6 +98,8 @@ def render(copy_path, edit=False):
         # {2_circle_symbol} in the copy becomes an inline copy of the numbered step marker
         out = re.sub(r"\{(\d+)_circle_symbol\}", r'<span class="step-ref" data-step="\1" contenteditable="false">\1</span>', out)
         out = re.sub(r"\{n:([\w.-]+)\}", num, out)
+        # {eq:name} on a line of its own becomes that typeset equation, centred
+        out = re.sub(r"<p>\{eq:([\w-]+)\}</p>", lambda m: f'<p class="eq-line"><span class="eq" data-eq="{m.group(1)}" contenteditable="false">{EQS[m.group(1)]}</span></p>', out)
         if edit:
             tag = "span" if mode == "inline" else "div"
             out = f'<{tag} class="slot" data-slot="{key}" data-mode="{mode}">{out}</{tag}>'
@@ -101,6 +107,9 @@ def render(copy_path, edit=False):
 
     html = re.sub(r"\{\{([\w-]+)(?:\|(inline|headline))?\}\}", sub, tpl)
     html = re.sub(r"\{n:([\w.-]+)\}", lambda m: re.sub(r"<[^>]+>", "", num(m)), html)   # numbers in the template itself, always plain
+    # exactly one standard deviation reads as such: "1.0 standard deviations" becomes "1 standard deviation"
+    if not edit:                                                                  # the editor shows the copy as written
+        html = re.sub(r"\b1\.0((?:</span>)?)( |&nbsp;)standard deviations", r"1\1\2standard deviation", html)
     unused = sorted(set(slots) - set(re.findall(r"\{\{([\w-]+)", tpl)))
     if unknown:
         raise SystemExit(f"numbers with no value in docs/data/site.json: {sorted(set(unknown))}")

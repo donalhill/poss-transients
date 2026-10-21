@@ -161,19 +161,21 @@ EDITOR = r"""
   let mode = "text", notes = [];
 
   // ---------- text editing ----------
-  const clean = html => html.replace(/<span[^>]*data-step="(\d+)"[^>]*>.*?<\/span>/g, "{$1_circle_symbol}").replace(/<span[^>]*data-num="([\w.-]+)"[^>]*>.*?<\/span>/g, "{n:$1}").replace(/<(?!\/?em>)[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&")
+  const clean = html => html.replace(/<span[^>]*data-eq="([\w-]+)"[^>]*>.*<\/span>/g, "{eq:$1}").replace(/<span[^>]*data-step="(\d+)"[^>]*>.*?<\/span>/g, "{$1_circle_symbol}").replace(/<span[^>]*data-num="([\w.-]+)"[^>]*>.*?<\/span>/g, "{n:$1}").replace(/<(\/?)b>/g, "<$1strong>").replace(/<(?!\/?(?:em|strong)>)[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/\s+/g, " ").trim();
+  // line breaks typed in the editor arrive as <br> or as new <div>/<p> blocks: keep them as paragraph breaks
+  const paras = html => html.replace(/<br\s*\/?>/gi, "\n\n").replace(/<\/(div|p)>/gi, "\n\n").split(/\n\s*\n/).map(clean).filter(Boolean);
   function slotText(el) {
     const m = el.dataset.mode;
-    if (m === "inline") return clean(el.innerHTML);
+    if (m === "inline") return paras(el.innerHTML).join(" ");
     if (m === "headline") return [clean((el.querySelector(".big") || el).innerHTML), clean((el.querySelector(".gloss") || {innerHTML: ""}).innerHTML)].filter(Boolean).join("\n");
     const out = [];
     const kids = [...el.children].flatMap(c => c.classList.contains("keep") ? [...c.children] : [c]);
     for (const c of kids) {
       if (c.tagName === "UL") out.push([...c.children].map(li => "- " + clean(li.innerHTML)).join("\n"));
-      else { const t = clean(c.innerHTML); if (t) out.push(t); }
+      else out.push(...paras(c.innerHTML));
     }
-    if (!el.children.length) out.push(clean(el.innerHTML));
+    if (!el.children.length) out.push(...paras(el.innerHTML));
     return out.join("\n\n");
   }
   function setMode(m) {

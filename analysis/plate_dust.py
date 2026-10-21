@@ -1,5 +1,7 @@
 """Interstellar dust towards each plate: E(B-V) at the plate centre from the Schlegel, Finkbeiner & Davis (1998) map,
-queried from IRSA's dust service, with the plate's number of transients (every catalogue plate).
+queried from IRSA's dust service; and E(B-V) averaged over the plate's searched area (6 x 6 deg, a 25 x 25 grid), from the
+same map read locally (the SFD files, fetched once into data/external/dustmaps/sfd). Dust is patchy on scales smaller than
+a plate, so the plate average is what filters a plate's transients. With the plate's number of transients.
 python analysis/plate_dust.py -> data/plate_dust.csv"""
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -14,6 +16,27 @@ sys.path.insert(0, str(Path(__file__).parent))
 import sample                                                                  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
+SFD = ROOT / "data/external/dustmaps/sfd"
+SFD_URL = "https://github.com/kbarbary/sfddata/raw/master/"                     # a mirror of the SFD files used by sfdmap
+
+
+def plate_mean(pl):
+    """E(B-V) averaged over each plate's central 6 x 6 deg, on a 25 x 25 grid of points."""
+    import numpy as np
+    import requests
+    from dustmaps.sfd import SFDQuery
+    from geometry import deproject
+    SFD.mkdir(parents=True, exist_ok=True)
+    for f in ("SFD_dust_4096_ngp.fits", "SFD_dust_4096_sgp.fits"):
+        if not (SFD / f).exists():
+            (SFD / f).write_bytes(requests.get(SFD_URL + f, timeout=600).content)
+    q = SFDQuery(map_dir=str(SFD))
+    g = np.linspace(-3, 3, 25); gx, gy = [a.ravel() for a in np.meshgrid(g, g)]
+    out = []
+    for _, p in pl.iterrows():
+        ra, dec = deproject(gx, gy, np.full(gx.size, p.ra_c), np.full(gx.size, p.dec_c))
+        out.append(float(np.mean(q(SkyCoord(ra * u.deg, dec * u.deg)))))
+    return out
 
 if __name__ == "__main__":
     cat, pl = sample.ours()
@@ -31,6 +54,7 @@ if __name__ == "__main__":
     with ThreadPoolExecutor(8) as ex:
         todo = [q for q in n.index if q not in known.index or pd.isna(known.get(q))]
         d = pd.concat([known[known.index.isin(n.index)], pd.Series(dict(zip(todo, ex.map(ebv, todo))), dtype=float)]).rename("ebv").rename_axis("plate").to_frame()
+    d["ebv_plate"] = plate_mean(pl.reindex(d.index))
     d["n"] = n
     d.to_csv(ROOT / "data/plate_dust.csv")
     print(d.describe())

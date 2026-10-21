@@ -11,7 +11,7 @@ The binomial treats transients as spread evenly and independently within a plate
 holes). So the fit is calibrated with toys:
   - from the fitted model (parametric): checks that the fit returns what went in, with the coverage it claims;
   - from the data: each real shadow footprint (its exact shape and place on the plate) laid on another catalogue plate the
-    shadow never crosses, with a similar number of transients; the toy's counts are that plate's real transients inside
+    shadow never crosses (geocentric or topocentric), with a similar number of transients; the toy's counts are that plate's real transients inside
     and outside the footprint. An effect r < 1 is injected by removing transients inside at random, r > 1 by removing
     sunlit ones. Fitted exactly like the data: the no-effect distribution, and a Neyman interval on r.
 Cross-checks: host plates chosen differently (any plate; the nearest on the sky); the shadow moved at random over its
@@ -115,8 +115,10 @@ def placements(P_, want=6000, batch=512):
 if __name__ == "__main__":
     cat, pl = sample.ours()
     cat = cat[(cat.xi.abs() < HALF) & (cat.eta.abs() < HALF)]
-    shadow9 = sorted(pd.read_parquet(ROOT / "data/shadow_plates.parquet").query("f_area > 0").index)
-    hosts = {q: gq for q, gq in cat[~cat.plate.isin(shadow9)].groupby("plate")}
+    SPL = pd.read_parquet(ROOT / "data/shadow_plates.parquet")
+    shadow9 = sorted(SPL.query("f_area > 0").index)
+    # hosts: plates neither shadow (geocentric or topocentric) crosses, so no toy can hold a real effect
+    hosts = {q: gq for q, gq in cat[~cat.plate.isin(SPL.query("f_area > 0 or f_area_topo > 0").index)].groupby("plate")}
     # acceptance: the average density of transients over the face of a plate (each plate other than the shadow plates
     # counted equally); a cell's shadowed share is weighted by it, so edges and corners count for what they hold
     ACC = np.mean([cell_counts(gq.xi.values, gq.eta.values) / len(gq) for gq in hosts.values()], 0)
@@ -171,7 +173,9 @@ if __name__ == "__main__":
     # come back as high as it does on the real plates
     V_ = json.loads((ROOT / "data/shadow_pooled.json").read_text())["vasco_geo"]
     r_v = round(V_["observed"] / V_["expected"], 2)
-    out["injected"] = {"r_true": r_v, "p_as_high": round(float(np.mean(fit(*toys_from_hosts(P, pick, r_v, T)) >= r_hat)), 3)}
+    d_v = fit(*toys_from_hosts(P, pick, r_v, T))
+    out["injected"] = {"r_true": r_v, "p_as_high": round(float(np.mean(d_v >= r_hat)), 3),
+                       "hist": np.histogram(d_v, np.linspace(0, 3, 61))[0].tolist()}
     print("injected", out["injected"])
 
     # 3. cross-checks: other host choices; the shadow moved over its own plate; each plate left out

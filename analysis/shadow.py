@@ -21,10 +21,20 @@ R_GEO = 42164.0
 SHADOW_DEG = 8.50  # geocentric half-angle used by VASCO / Doherty
 
 
+def distinct(t):
+    """The distinct times in t, and where each element of t sits among them (the Sun is then found once per time)."""
+    if t.isscalar:
+        return t, None
+    _, i, inv = np.unique(np.c_[t.jd1, t.jd2], axis=0, return_index=True, return_inverse=True)
+    return t[i], inv.ravel()
+
+
 def antisun_axis(t):
     """Unit vector of the anti-solar direction (GCRS: ICRS-aligned, J2000 axes)."""
-    s = get_sun(t)
-    return -unit(s.ra.deg, s.dec.deg)
+    tu, inv = distinct(t)
+    s = get_sun(tu)
+    a = -unit(s.ra.deg, s.dec.deg)
+    return a if inv is None else a[inv]
 
 
 def antisun_geocentric(ra, dec, t):
@@ -37,7 +47,9 @@ def sep_topocentric(ra, dec, t, r_orbit=R_GEO, return_alt=False):
     """Geocentric angle from the shadow axis of the point where the line of sight from Palomar
     meets the sphere of radius r_orbit (km). Comparable to SHADOW_DEG."""
     d = unit(ra, dec)
-    obs = PALOMAR.get_gcrs(t).cartesian.xyz.to(u.km).value.T  # (N, 3)
+    tu, inv = distinct(t)
+    obs = PALOMAR.get_gcrs(tu).cartesian.xyz.to(u.km).value.T  # (N, 3)
+    obs = obs if inv is None else obs[inv]
     a = np.sum(obs * d, axis=-1)
     b = np.sum(obs**2, axis=-1) - r_orbit**2
     rng = -a + np.sqrt(a**2 - b)  # forward root; observer is inside the sphere

@@ -22,12 +22,64 @@
   "expected": 529.5,
   "binom_sd": 22.9,
   "binom_z": -8.5,
+  "hosts": {
+   "plates": 624,
+   "closest_deg": 0.73,
+   "within_2deg": 7
+  },
   "p_random": 0.173,
-  "p_near": 0.118,
+  "pointing": {
+   "expected": 549.9,
+   "null_mean": 517.1,
+   "p": 0.141,
+   "plates": {
+    "XE355": [
+     8,
+     223.8
+    ],
+    "XE356": [
+     100,
+     196.2
+    ],
+    "XE358": [
+     262,
+     162.0
+    ],
+    "XE369": [
+     84,
+     239.8
+    ],
+    "XE413": [
+     157,
+     225.4
+    ],
+    "XE415": [
+     301,
+     176.4
+    ],
+    "XE422": [
+     122,
+     105.9
+    ],
+    "XE472": [
+     7,
+     294.4
+    ],
+    "XE617": [
+     36,
+     79.5
+    ],
+    "XE640": [
+     177,
+     76.8
+    ]
+   }
+  },
+  "p_near": 0.12,
   "centre": {
    "observed": 63,
    "expected": 115.6,
-   "p_random": 0.133
+   "p_random": 0.123
   }
  },
  "ours_topo": {
@@ -41,7 +93,12 @@
   "expected": 502.9,
   "binom_sd": 22.4,
   "binom_z": -9.8,
-  "p_random": 0.14,
+  "hosts": {
+   "plates": 624,
+   "closest_deg": 0.73,
+   "within_2deg": 7
+  },
+  "p_random": 0.139,
   "p_near": null
  }
 }

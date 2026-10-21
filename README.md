@@ -27,14 +27,15 @@ flowchart LR
   plates --> dates[date_corrections.py<br>corrected dates]
   evidence[labels, asteroid dating,<br>DSS headers, Palomar log] --> dates
   dates --> sample((sample.py))
-  sample --> pooled[shadow_pooled.py] --> fit[shadow_fit.py]
   sample --> dust[plate_dust.py] & depth[plate_depth.py]
-  dust & depth --> props((plate_properties.py))
+  dust & depth --> props((plate_properties.py<br>pointing curve))
+  sample & props --> pooled[shadow_pooled.py] --> fit[shadow_fit.py]
   sample & props --> nuclear[nuclear.py<br>nuclear tests]
   dates --> south[shadow_plates_log.py]
-  plates --> align[alignments.py] --> shapes[tail_shapes.py] & second[second_copy.py] & trail[xe492_trail.py]
+  plates --> align[alignments.py] --> afit[alignment_fit.py]
+  align -.-> checks[alignment_null_checks.py<br>on request]
   cands[vasco_candidates.py]
-  pooled & fit & nuclear & dust & south & align & shapes & second & trail & cands --> site[build_site.py<br>site.json: charts and numbers]
+  pooled & fit & nuclear & dust & south & align & afit & checks & cands --> site[build_site.py<br>site.json: charts and numbers]
   site --> page[site/assemble.py<br>docs/index.html]
   copy[site/copy.md<br>the text] --> page
 ```
@@ -58,8 +59,7 @@ Two samples, defined once in `analysis/sample.py`:
 ## Inputs
 
 Downloaded when missing, and not kept here: VASCO's catalogue, random positions, night list, and test list
-(`fetch_external.py`), and DSS scans and cutouts, which STScI does not allow to be redistributed. `tail_shapes.py`
-keeps its fits to the stars beside each cutout, so reruns skip them.
+(`fetch_external.py`), and DSS scans and cutouts, which STScI does not allow to be redistributed.
 
 Kept in the repository, because they were made by hand or take hours of calls to public services:
 
@@ -72,6 +72,8 @@ Kept in the repository, because they were made by hand or take hours of calls to
 | `data/plate_dust.csv` | dust towards each plate | `plate_dust.py` (IRSA), run by `make` for new plates only |
 | `data/plate_depth.csv` | each plate's depth and sharpness, measured on Gaia stars in DSS cutouts | `plate_depth.py`, run by `make` when its inputs change |
 | `data/us_shot_times.csv` | the time of each US shot, by test series | compiled from DOE/NV-209, with a source for each row |
+| `data/shadow_null_checks.json` | the pooled shadow null checked: calibration on plates the shadow never crossed, no leak, injected shortfalls recovered, and the pointing curve term by term | `shadow_null_checks.py` (`make shadow-checks`) |
+| `data/alignment_null_checks.json` | the alignment null made other ways, as a check on it | `alignment_null_checks.py` (`make null-checks`), which repeats the slow search |
 | `data/vasco_2025_candidates.csv` | VASCO's five shortlisted alignments | from the tables in their 2025 paper |
 
 ## Choices worth knowing
@@ -82,9 +84,25 @@ Kept in the repository, because they were made by hand or take hours of calls to
   plate-by-plate fit, each part of a plate is weighted by the average density of transients there, measured on plates
   the shadow never crossed, so the weights cannot absorb a real shortfall in the shadow. Injected shortfalls are
   recovered (`shadow_fit.py`).
+- **Pointing.** Plates differ in how many transients they hold depending on where the telescope pointed: distance
+  from the Milky Way, dust, and distance from the ecliptic; and the row of plates centred on the celestial equator holds
+  about a third as many as the rest, already so in Solano et al.'s published list (on the same sky, about two-fifths as
+  many as the row to its north), so the curve has a term for it. One curve (`plate_properties.pointing`) gives every plate
+  an expected count. The pooled shadow test scales each random placement to the shadow plate's pointing, with the curve
+  fitted without the plates the shadow crosses; the nuclear test measures plates against it, also refitted without the
+  plates near tests. `shadow_null_checks.py` checks the scaled shadow null gives the right share of
+  low results on plates the shadow never crossed, and recovers injected shortfalls.
 - **Calibration by the real data.** Counting statistics treat transients as independent; they are not. Every
   significance on the page comes from the real data: shadow outlines laid on other plates, the test calendar shifted
   to other years, and copies of the catalogue with real lines broken but the clumps kept.
+- **Alignments.** A track counts its transients in 20″ boxes along it (Lezama et al. 2015), so a close pair counts
+  once. The copies move each clump of transients (within 20″ of one another) as one piece and keep exactly the real
+  clumps; a track holding three or more transients from one clump is left out, in the data and the copies alike.
+  `alignment_null_checks.py` checks that the copies keep the real pair counts, break added tracks without absorbing
+  them, and give the same answer when made other ways, including with no clumps kept. `alignment_fit.py` fits the four
+  score distributions with the random catalogues as background and artificial glint tracks of 3, 4, 5, and 6 flashes as
+  signal (each glint's candidates of every size kept together), and sets a 95% limit on the number of each from toys,
+  allowing for the share of a signal the random catalogues take in.
 - **Nuclear tests.** Transients are counted per photograph and measured against what each plate's pointing predicts.
   The test calendar is shifted by 1 to 5 years and up to two months, keeping each test's time of year and the gaps
   between tests, and plates from the two weeks around real tests are left out of every shifted calendar.

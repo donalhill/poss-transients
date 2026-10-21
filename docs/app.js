@@ -1,4 +1,5 @@
 const tip = document.getElementById("tip");
+const sdText = v => v.toFixed(1) === "1.0" ? "1 standard deviation" : `${v.toFixed(1)} standard deviations`;   // exactly one reads as such
 const V = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const fmt = d3.format(",");
 function hov(sel, html) {
@@ -52,13 +53,20 @@ function drawSky(D, id, shadow) {   // shadow: pick out the plates the shadow cr
   mw.append("path").datum(plane).attr("d", path).attr("fill", "none").attr("stroke", "#111418").attr("stroke-opacity", 0.85).attr("stroke-width", 1.5).attr("stroke-dasharray", "5 4");
   const sh = shadow ? plates.filter(p => p.circle) : [];
   // the shadow plates outlined in black on a white halo; the shadow itself as a ring in a hue viridis never uses
-  s.append("g").selectAll("path").data(sh).join("path").attr("pointer-events", "none").attr("d", p => path(p.g)).attr("fill", "none").attr("stroke", "#ffffff").attr("stroke-width", 5);
-  s.append("g").selectAll("path").data(sh).join("path").attr("class", "hov").attr("d", p => path(p.g))
+  if (shadow) {                                                                  // the ecliptic, along which the shadow moves through the year
+    const ecl = { type: "LineString", coordinates: d3.range(0, 361, 2).map(l => { const e = 23.44 * DEG, L = l * DEG;
+      return [((Math.atan2(Math.sin(L) * Math.cos(e), Math.cos(L)) / DEG) + 360) % 360, Math.asin(Math.sin(e) * Math.sin(L)) / DEG]; }) };
+    s.append("path").datum(ecl).attr("d", path).attr("fill", "none").attr("stroke", SHADOW).attr("stroke-opacity", 0.55).attr("stroke-width", 1.2)
+      .attr("stroke-dasharray", "1 4").attr("stroke-linecap", "round").attr("pointer-events", "none");
+  }
+  s.append("g").selectAll("path").data(sh).join("path").attr("class", "shp").attr("pointer-events", "none").attr("d", p => path(p.g)).attr("fill", "none").attr("stroke", "#ffffff").attr("stroke-width", 5);
+  s.append("g").selectAll("path").data(sh).join("path").attr("class", "hov shp").attr("d", p => path(p.g))
     .attr("fill", p => p.N !== undefined ? col(Math.max(p.N, 5)) : V("--surface")).attr("stroke", "#111418").attr("stroke-width", 1.8)
     .call(sel => hov(sel, p => `<b>Plate ${p.id}</b> · ${p.date}<br>${fmt(p.N)} transients on the whole plate<br>${Math.round(p.frac * 100)}% of the whole plate inside the shadow<br>${p.obs} transients in the shadowed part; an average plate would have about ${Math.round(p.exp)} there`));
 
-  s.append("g").attr("pointer-events", "none").selectAll("path").data(sh).join("path").attr("d", p => path(ring(p.circle)))
+  s.append("g").attr("pointer-events", "none").selectAll("path").data(sh).join("path").attr("class", "shp").attr("d", p => path(ring(p.circle)))
     .attr("fill", "none").attr("stroke", SHADOW).attr("stroke-width", 2.4);
+  if (shadow) playShadow(s, sh, W);
   const darkHalo = sel => sel.attr("class", "ann").style("font-weight", 600).style("fill", "#111418").style("paint-order", "stroke").style("stroke", "#ffffff").style("stroke-width", "3px");
   for (let h = 0; h < 24; h += 2) {   // hours of right ascension round the rim
     const [x, y] = proj([h * 15, 90 - clip + 0.5]), r = Math.hypot(x - cx, y - cy), R = Rd + 16;
@@ -82,6 +90,29 @@ function drawSky(D, id, shadow) {   // shadow: pick out the plates the shadow cr
   });
   const m = proj(galToEq(100, 0)); s.append("text").attr("x", m[0] + 12).attr("y", m[1] - 10).call(darkHalo).text("Milky Way");
   const t = proj(galToEq(168, -42)); if (!shadow) s.append("text").attr("x", t[0]).attr("y", t[1] + 4).attr("text-anchor", "middle").call(darkHalo).text("Taurus–Perseus");
+}
+
+/* ---------- the shadow plates one at a time, in the order they were taken: each plate and its shadow light up in turn,
+   with a label, then all are shown together ---------- */
+function playShadow(s, sh, W) {
+  const order = sh.slice().sort((a, b) => a.date.localeCompare(b.date));
+  // in the top-right corner, clear of the disc and its hour labels
+  const lab = s.append("text").attr("x", W - 4).attr("y", 18).attr("text-anchor", "end").style("font-size", "15px").style("font-weight", 600).style("fill", V("--ink"));
+  const sub = s.append("text").attr("x", W - 4).attr("y", 38).attr("text-anchor", "end").style("font-size", "14px").style("fill", V("--ink-2"));
+  const day = d3.timeFormat("%b %Y"), all = s.selectAll(".shp");
+  d3.select("#shadow-play").on("click", () => {
+    const step = matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 1300;
+    all.interrupt().style("opacity", 0); lab.text(""); sub.text("");
+    order.forEach((p, i) => {
+      setTimeout(() => {
+        all.filter(q => q === p).transition().duration(step ? 400 : 0).style("opacity", 1);
+        all.filter(q => q !== p && order.indexOf(q) < i).transition().duration(step ? 400 : 0).style("opacity", 0.35);
+        lab.text(`${p.id}, ${day(new Date(p.date))}`);
+        sub.text(`${p.obs} in shadow, ${Math.round(p.exp)} expected`);
+      }, i * step);
+    });
+    setTimeout(() => { all.transition().duration(step ? 400 : 0).style("opacity", 1); lab.text(""); sub.text(""); }, order.length * step + (step ? 600 : 0));
+  });
 }
 
 /* ---------- how many transients a plate holds ---------- */
@@ -114,24 +145,115 @@ function erf(x) {   // Abramowitz and Stegun 7.1.26
 
 /* ---------- 2. two ideas of chance ---------- */
 function drawChance(D) {
-  const P = D.paste, s = svg("c-chance"), W = 760, H = 330, m = { l: 44, r: 16, t: 14, b: 40 };
-  const x = d3.scaleLinear().domain([0, 1600]).range([m.l, W - m.r]);
-  const binw = P.bins[1] - P.bins[0];
-  const dens = P.counts.map((c, i) => ({ x0: P.bins[i], x1: P.bins[i + 1], p: c / P.n / binw }));
-  const mu = P.area_expected, sd = P.binom_sd;
-  const norm = d3.range(mu - 5 * sd, mu + 5 * sd, 0.5).map(v => [v, Math.exp(-0.5 * ((v - mu) / sd) ** 2) / (sd * Math.sqrt(2 * Math.PI))]);
-  const y = d3.scaleLinear().domain([0, d3.max(norm, d => d[1]) * 1.08]).range([H - m.b, m.t]);
-  const y2 = d3.scaleLinear().domain([0, d3.max(dens, d => d.p) * 1.15]).range([H - m.b, m.t + 40]);
-  s.append("g").attr("transform", `translate(0,${H - m.b})`).call(d3.axisBottom(x).ticks(7).tickSizeOuter(0)).call(axisStyle);
+  // The observed count of transients in shadow against two measures of chance, told as slides the reader steps through:
+  // 1 the observed count; 2 VASCO's model (every transient independent), its expected value and standard deviation;
+  // 3 the shortfall in those standard deviations; 4 the real spread, built trial by trial from random plates; 5 the trials
+  // as low as the observed count, shaded exactly (a clip at the observed count splits the bar it falls in); and a summary,
+  // shown on load. Each slide declares its whole end state: what leaves fades out first, then the axis moves, then what
+  // arrives fades in, so nothing from one slide shows on another
+  const P = D.paste, s = svg("c-chance"), W = 760, H = 402, m = { l: 44, r: 16, t: 100, b: 42 };
+  s.attr("viewBox", `0 0 ${W} ${H}`);
+  const binw = P.bins[1] - P.bins[0], bins = P.counts.map((c, i) => ({ x0: P.bins[i], x1: P.bins[i + 1], c })).filter(d => d.x0 < 1600);
+  const mu = P.area_expected, sd = P.binom_sd, obsN = P.observed, wide = [0, 1600], near = [mu - 10.5 * sd, mu + 4.5 * sd];
+  const x = d3.scaleLinear().domain(wide).range([m.l, W - m.r]), yb = d3.scaleLinear().domain([0, d3.max(bins, d => d.c) * 1.05]).range([H - m.b, m.t]);
+  const yn = d3.scaleLinear().domain([0, 1.04]).range([H - m.b, m.t]);
+  const gauss = d3.range(mu - 4.5 * sd, mu + 4.5 * sd + 0.1, sd / 20).map(v => [v, Math.exp(-0.5 * ((v - mu) / sd) ** 2)]);
+  const ink = V("--ink"), ink2 = V("--ink-2"), pur = V("--naive"), blue = V("--ours"), fmtN = d3.format(","), pct = Math.round(P.p * 100);
+  const axis = s.append("g").attr("transform", `translate(0,${H - m.b})`);
+  const drawAxis = dur => axis.transition().duration(dur).call(d3.axisBottom(x).ticks(8).tickFormat(fmtN).tickSizeOuter(0)).on("end", function () { d3.select(this).call(axisStyle); });
   s.append("text").attr("x", (m.l + W - m.r) / 2).attr("y", H - 6).attr("text-anchor", "middle").text("Number of transients inside the shadow");
-  s.append("g").selectAll("rect").data(dens.filter(d => d.x0 < 1600)).join("rect").attr("x", d => x(d.x0) + 0.5).attr("width", d => Math.max(0, x(d.x1) - x(d.x0) - 1))
-    .attr("y", d => y2(d.p)).attr("height", d => y2(0) - y2(d.p)).attr("rx", 1.5).attr("fill", V("--ours")).attr("fill-opacity", 0.75);
-  s.append("path").datum(norm).attr("d", d3.area().x(d => x(d[0])).y0(y(0)).y1(d => y(d[1])).curve(d3.curveBasis))
-    .attr("fill", V("--theirs")).attr("fill-opacity", 0.85);
-  s.append("line").attr("x1", x(P.observed)).attr("x2", x(P.observed)).attr("y1", m.t).attr("y2", H - m.b).attr("stroke", V("--ink")).attr("stroke-width", 2);
-  s.append("text").attr("class", "ann").attr("x", x(P.observed) - 8).attr("y", m.t + 10).attr("text-anchor", "end").text(`Observed: ${P.observed}`);
-  s.append("text").attr("class", "ann").attr("x", W - m.r).attr("y", m.t + 10).attr("text-anchor", "end").style("fill", V("--ink-3")).style("font-size", "11px")
-    .text("Each shape scaled to fit; the orange curve is about 15 times narrower and taller");
+  const t1 = s.append("text").attr("x", m.l).attr("y", 20).style("font-size", "13.5px"), t2 = s.append("text").attr("x", m.l).attr("y", 42).style("font-size", "13.5px");
+  // the real spread: light bars, and a dark copy clipped at the observed count
+  const clip = s.append("defs").append("clipPath").attr("id", "chance-clip").append("rect").attr("x", 0).attr("y", 0).attr("height", H).attr("width", 0);
+  const light = s.append("g").attr("fill", blue).attr("fill-opacity", 0.32), dark = s.append("g").attr("fill", blue).attr("fill-opacity", 0.95).attr("clip-path", "url(#chance-clip)");
+  const barsAt = (g, h) => g.selectAll("rect").data(bins).join("rect").attr("x", d => x(d.x0) + 0.5).attr("width", d => Math.max(0, x(d.x1) - x(d.x0) - 1)).attr("rx", 1.5)
+    .attr("y", (d, i) => yb(h[i])).attr("height", (d, i) => yb(0) - yb(h[i]));
+  const zero = bins.map(() => 0), full = bins.map(d => d.c);
+  // VASCO's model: the curve; its expected value and one standard deviation either side; the shortfall bracket
+  const curve = s.append("path").attr("stroke", pur).attr("stroke-width", 1.8).attr("fill", pur);
+  const sigma = s.append("path").attr("fill", pur).attr("fill-opacity", 0.32);
+  const muLine = s.append("line").attr("stroke", pur).attr("stroke-dasharray", "4 3");
+  const muLab = s.append("text").attr("text-anchor", "middle").style("font-size", "12px").style("fill", pur);
+  const sdLab = s.append("text").style("font-size", "12px").style("fill", pur);
+  const bracket = s.append("g").attr("stroke", pur).attr("fill", "none");
+  const brLab = s.append("text").attr("text-anchor", "middle").style("font-size", "12px").style("font-weight", 600).style("fill", pur);
+  const placeNaive = () => {                                                      // geometry only, for the current axis
+    const area = d3.area().x(d => x(d[0])).y0(yn(0)).y1(d => yn(d[1])).curve(d3.curveBasis);
+    curve.attr("d", area(gauss)); sigma.attr("d", area(gauss.filter(d => Math.abs(d[0] - mu) <= sd)));
+    muLine.attr("x1", x(mu)).attr("x2", x(mu)).attr("y1", yn(0)).attr("y2", yn(1.12)); muLab.attr("x", x(mu)).attr("y", yn(1.12) - 6).text(`Expected ${Math.round(mu)}`);
+    sdLab.attr("x", x(mu + sd) + 6).attr("y", yn(0.62)).text(`±${Math.round(sd)}`);
+    const yB = yn(0.72); bracket.selectAll("*").remove();
+    bracket.append("path").attr("d", `M${x(obsN)},${yB}H${x(mu)}`).attr("stroke-width", 1.5);
+    d3.range(0, Math.floor((mu - obsN) / sd) + 1).forEach(k => bracket.append("path").attr("d", `M${x(mu - k * sd)},${yB - 4}v8`).attr("stroke-width", 1.2));
+    brLab.attr("x", (x(obsN) + x(mu)) / 2).attr("y", yB - 10).text(`${sdText(P.binom_z)}`);
+  };
+  // the observed count, always shown
+  const obsLine = s.append("line").attr("stroke", ink).attr("stroke-width", 2), obsLab = s.append("text").attr("text-anchor", "middle").style("font-size", "12px").style("font-weight", 600).text(`Observed: ${obsN}`);
+  const placeObs = dur => { obsLine.transition().duration(dur).attr("x1", x(obsN)).attr("x2", x(obsN)).attr("y1", m.t - 10).attr("y2", H - m.b); obsLab.transition().duration(dur).attr("x", x(obsN)).attr("y", m.t - 14); };
+  const parts = { curve: [curve], sigma: [sigma, muLine, muLab, sdLab], bracket: [bracket, brLab] };
+  Object.values(parts).flat().forEach(e => e.style("opacity", 0));               // every part starts hidden
+  const slides = [
+    { dom: near, curve: 0, sigma: 0, bracket: 0, bars: "none", shade: "none", text: [[`The shadow holds ${obsN} transients.`, ink, 400]] },
+    { dom: near, curve: 1, sigma: 1, bracket: 0, bars: "none", shade: "none",
+      text: [[`If every transient were independent, as in VASCO’s model, the shadow should hold ${Math.round(mu)} ± ${Math.round(sd)} transients.`, pur, 400]] },
+    { dom: near, curve: 1, sigma: 1, bracket: 1, bars: "none", shade: "none",
+      text: [[`The shortfall is then ${sdText(P.binom_z)}: far beyond chance, on this model.`, pur, 400]] },
+    { dom: wide, curve: 0, sigma: 0, bracket: 0, bars: "build", shade: "none",
+      text: [["But plates differ far more than counting allows. So we lay the real shadows on random plates, trial after trial.", ink, 400]] },
+    { dom: wide, curve: 0, sigma: 0, bracket: 0, bars: "full", shade: "sweep",
+      text: [[`${pct}% of the trials are as low as observed: ${sdText(P.sig)}.`, blue, 600]] },
+    { dom: wide, curve: 0.12, sigma: 0, bracket: 0, bars: "full", shade: "full",
+      text: [[`If every transient were independent (purple): ${sdText(P.binom_z)}`, pur, 400],
+             [`Laid on random plates (blue): ${pct}% of trials as low, ${sdText(P.sig)}`, blue, 600]] }
+  ];
+  const last = slides.length - 1, op = { curve: 0, sigma: 0, bracket: 0 };      // what each part currently shows
+  let cur = -1, timers = [];
+  const at = (ms, f) => timers.push(setTimeout(f, ms));
+  const setText = (sl, dur) => [t1, t2].forEach((el, i) => { const tx = sl.text[i];
+    el.interrupt().style("opacity", 0).text(tx ? tx[0] : "").style("fill", tx ? tx[1] : ink).style("font-weight", tx ? tx[2] : 400).transition().duration(dur).style("opacity", 1); });
+  const tally = k => t2.interrupt().style("opacity", 1).style("fill", ink2).style("font-weight", 400).text(`${fmtN(k)} trials`);
+  const show = (k, dur) => {
+    timers.forEach(clearTimeout); timers = []; s.selectAll("*").interrupt();
+    const sl = slides[k], moved = sl.dom !== x.domain() && (sl.dom[0] !== x.domain()[0] || sl.dom[1] !== x.domain()[1]);
+    const out = dur ? 250 : 0, move = moved && dur ? 800 : 0;
+    // 1. leave: parts not on the new slide (or on a moving axis) fade out; the shading and texts go at once
+    for (const [key, els] of Object.entries(parts)) if (op[key] && (!sl[key] || moved)) { els.forEach(e => e.transition().duration(out).style("opacity", 0)); op[key] = 0; }
+    t1.style("opacity", 0); t2.style("opacity", 0);
+    if (sl.shade !== "full" && sl.shade !== "sweep") clip.attr("width", 0);
+    if (moved || sl.bars === "none") { barsAt(light, sl.bars === "none" || moved ? zero : full); barsAt(dark, sl.bars === "none" || moved ? zero : full); }
+    // 2. move the axis
+    at(out, () => { x.domain(sl.dom); drawAxis(move); placeObs(move); });
+    // 3. arrive: the new parts at their places, then faded in; the bars and shading as the slide asks
+    at(out + move, () => {
+      placeNaive(); curve.attr("fill-opacity", sl.curve === 1 ? 0.22 : 0.12).attr("stroke-opacity", sl.curve === 1 ? 1 : 0.8);
+      for (const [key, els] of Object.entries(parts)) if (sl[key] && op[key] !== sl[key]) { els.forEach(e => e.style("opacity", 0).transition().duration(dur ? 450 : 0).style("opacity", 1)); op[key] = sl[key]; }
+      setText(sl, dur ? 400 : 0);
+      if (sl.bars === "full") { barsAt(light, full); barsAt(dark, full); }
+      if (sl.bars === "build") {
+        barsAt(dark, full); clip.attr("width", 0);
+        if (!dur) { barsAt(light, full); return tally(P.n); }
+        const cum = d3.cumsum(full), tot = cum[cum.length - 1]; let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+        const h = bins.map(() => 0); let done = 0; barsAt(light, h);
+        for (let k2 = 1; k2 <= 48; k2++) at(400 + k2 * 60, () => { const target = Math.round(P.n * (k2 / 48) ** 2.2);
+          for (; done < target; done++) h[d3.bisectRight(cum, rnd() * tot)] += 1; barsAt(light, h); tally(done); });
+        at(400 + 49 * 60, () => { barsAt(light, full); tally(P.n); });
+      }
+      if (sl.shade === "full") clip.attr("width", x(obsN));
+      if (sl.shade === "sweep") clip.attr("width", x(0)).transition().duration(dur ? 1200 : 0).ease(d3.easeCubicInOut).attr("width", x(obsN));
+    });
+    cur = k;
+  };
+  // the controls
+  const ctl = d3.select("#chance-steps"), back = ctl.select(".back"), next = ctl.select(".next"), pos = ctl.select(".pos");
+  const go = (k, instant) => {
+    show(k, instant || matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 1);
+    back.property("disabled", k === 0);
+    next.text(k === last ? "Step through ›" : k === last - 1 ? "Summary ›" : "Next ›");
+    pos.text(k === last ? "Summary" : `${k + 1} of ${last}`);
+  };
+  back.on("click", () => go(cur - 1));
+  next.on("click", () => go(cur === last ? 0 : cur + 1));
+  x.domain(wide); drawAxis(0); placeObs(0); go(last, true);                      // the summary at once on load
 }
 
 
@@ -219,22 +341,86 @@ function drawForest(D, id) {
 /* ---------- the fitted ratio on toys with no shadow effect: the real shadow outlines laid on other plates,
    against the ratio fitted on the real plates ---------- */
 function drawRatioNull(D, id) {
+  // slides the reader steps through: 1 the fit on trials with no shadow effect, built up, with its middle 68%; 2 the fit
+  // on the real plates; 3 the same trials with a shortfall as large as VASCO's put in, and the share of them that still
+  // fit as high as the real plates; and a summary, shown on load. Each slide declares its end state
   const Z = D.shadow, s = svg(id);
   if (!Z || !Z.toys) return;
-  const R = Z.toys, W = 760, H = 320, m = { l: 20, r: 20, t: 40, b: 46 }, bw = 3 / R.hist_null.length, n = d3.sum(R.hist_null);
-  const bins = R.hist_null.map((c, i) => ({ x0: i * bw, x1: (i + 1) * bw, p: c / n }));
-  const x = d3.scaleLinear().domain([0.2, 2.6]).range([m.l, W - m.r]);
-  const y = d3.scaleLinear().domain([0, d3.max(bins, d => d.p) * 1.1]).range([H - m.b, m.t]);
+  const R = Z.toys, I = Z.injected, W = 760, H = 384, m = { l: 20, r: 20, t: 116, b: 46 }, bw = 3 / R.hist_null.length;
+  s.attr("viewBox", `0 0 ${W} ${H}`);
+  const keep = (h) => h.map((c, i) => ({ x0: i * bw, x1: (i + 1) * bw, c })).filter(d => d.x0 >= 0.2 - 1e-9 && d.x1 <= 2.6 + 1e-9);
+  const B0 = keep(R.hist_null), B1 = keep(I.hist), n0 = d3.sum(R.hist_null), r = Z.fit.r;
+  const x = d3.scaleLinear().domain([0.2, 2.6]).range([m.l, W - m.r]), y = d3.scaleLinear().domain([0, d3.max(B0.concat(B1), d => d.c) * 1.08]).range([H - m.b, m.t]);
+  const ink = V("--ink"), ink2 = V("--ink-2"), grey = V("--ink-3"), blue = V("--ours"), pur = V("--naive"), fmtN = d3.format(",");
   s.append("g").attr("transform", `translate(0,${H - m.b})`).call(d3.axisBottom(x).ticks(12).tickSizeOuter(0)).call(axisStyle);
-  s.append("text").attr("x", (m.l + W - m.r) / 2).attr("y", H - 8).attr("text-anchor", "middle")
-    .text(`Best fit ratio (r) across ${Z.plates.length} plates`);
-  s.append("g").selectAll("rect").data(bins.filter(d => d.x0 >= 0.2 && d.x1 <= 2.6)).join("rect")
-    .attr("x", d => x(d.x0) + 0.5).attr("width", d => Math.max(0, x(d.x1) - x(d.x0) - 1)).attr("y", d => y(d.p)).attr("height", d => y(0) - y(d.p)).attr("rx", 1.5)
-    .attr("fill", V("--ink-3")).attr("fill-opacity", 0.55);
-  const halo = sel => sel.attr("class", "ann").style("paint-order", "stroke").style("stroke", V("--surface")).style("stroke-width", "4px");
-  s.append("line").attr("x1", x(Z.fit.r)).attr("x2", x(Z.fit.r)).attr("y1", m.t - 6).attr("y2", H - m.b).attr("stroke", V("--ours")).attr("stroke-width", 2.4);
-  s.append("text").attr("x", x(Z.fit.r) + 8).attr("y", m.t + 4).call(halo).style("fill", V("--ours"))
-    .text(`Fit result on real plates (${Z.fit.r.toFixed(2)})`);
+  s.append("text").attr("x", (m.l + W - m.r) / 2).attr("y", H - 8).attr("text-anchor", "middle").text(`Best fit ratio (r) across ${Z.plates.length} plates`);
+  const t1 = s.append("text").attr("x", m.l).attr("y", 20).style("font-size", "13.5px"), t2 = s.append("text").attr("x", m.l).attr("y", 42).style("font-size", "13.5px");
+  const bars = (g, B, h) => g.selectAll("rect").data(B).join("rect").attr("x", d => x(d.x0) + 0.5).attr("width", d => Math.max(0, x(d.x1) - x(d.x0) - 1)).attr("rx", 1.5)
+    .attr("y", (d, i) => y(h[i])).attr("height", (d, i) => y(0) - y(h[i]));
+  // the null: grey bars, its middle 68% marked beneath
+  const nullG = s.append("g").attr("fill", grey).attr("fill-opacity", 0.55);
+  const band = s.append("g"), [lo, hi] = [R.null.q16, R.null.q84], yB = H - m.b + 0;
+  band.append("rect").attr("x", x(lo)).attr("width", x(hi) - x(lo)).attr("y", m.t - 6).attr("height", H - m.b - m.t + 6).attr("fill", grey).attr("fill-opacity", 0.1);
+  band.append("text").attr("x", (x(lo) + x(hi)) / 2).attr("y", m.t - 10).attr("text-anchor", "middle").style("font-size", "12px").style("fill", ink2).text("Middle 68% of trials");
+  // the injected shortfall: purple outline bars, with those as high as the real plates shaded
+  const injG = s.append("g").attr("fill", pur).attr("fill-opacity", 0.14).attr("stroke", pur).attr("stroke-opacity", 0.6);
+  const cid = `${id}-clip`, clip = s.append("defs").append("clipPath").attr("id", cid).append("rect").attr("y", 0).attr("height", H).attr("x", x(r)).attr("width", 0);
+  const injHi = s.append("g").attr("fill", pur).attr("fill-opacity", 0.75).attr("clip-path", `url(#${cid})`);
+  const injLab = s.append("text").attr("x", x(I.r_true)).attr("text-anchor", "middle").style("font-size", "12px").style("fill", pur);
+  // the real plates
+  const obs = s.append("g");
+  obs.append("line").attr("x1", x(r)).attr("x2", x(r)).attr("y1", m.t - 26).attr("y2", H - m.b).attr("stroke", blue).attr("stroke-width", 2.4);
+  obs.append("text").attr("x", x(r)).attr("y", m.t - 30).attr("text-anchor", "middle").style("font-size", "12px").style("font-weight", 600).style("fill", blue).text(`Real plates: ${r.toFixed(2)}`);
+  const parts = { band: [band], obs: [obs], inj: [injG, injHi, injLab] };
+  Object.values(parts).flat().forEach(e => e.style("opacity", 0));
+  const full0 = B0.map(d => d.c), full1 = B1.map(d => d.c), zero = B0.map(() => 0);
+  const cl = Math.round(100 * (1 - I.p_as_high)), pv = Math.round(100 * I.p_as_high);
+  const slides = [
+    { band: 0, obs: 0, inj: 0, build: true, text: [["We run the fit many times with the real shadow outlines laid on random plates, which the shadow never crossed.", ink, 400],
+      [`On average it finds no effect (a ratio of ${R.null.median.toFixed(2)}); the spread is from chance, due to fitting only ${Z.plates.length} plates.`, ink, 400]] },
+    { band: 0, obs: 1, inj: 0, text: [[`The real plates give ${r.toFixed(2)}: no sign of fewer transients in shadow.`, blue, 600]] },
+    { band: 0, obs: 1, inj: 1, shade: true, text: [[`Had transients been as rare in shadow as VASCO’s count implies (r = ${I.r_true.toFixed(2)}), a fit this high would occur ${pv}% of the time.`, pur, 400],
+      [`A shortfall of that size is excluded at ${cl}% confidence.`, pur, 600]] },
+    { band: 0, obs: 1, inj: 1, shade: true, text: [[[[`Fit result on real plates (${r.toFixed(2)})`, blue], [" falls within random trials with no shadow effect.", ink]], ink, 400],
+      [`A shortfall as large as VASCO’s (purple) is excluded at ${cl}% confidence.`, pur, 600]] }
+  ];
+  const last = slides.length - 1, op = { band: 0, obs: 0, inj: 0 };
+  let cur = -1, timers = [];
+  const at = (ms, f) => timers.push(setTimeout(f, ms));
+  const show = (k, dur) => {
+    timers.forEach(clearTimeout); timers = []; s.selectAll("*").interrupt();
+    const sl = slides[k], out = dur ? 250 : 0;
+    for (const [key, els] of Object.entries(parts)) if (op[key] && !sl[key]) { els.forEach(e => e.transition().duration(out).style("opacity", 0)); op[key] = 0; }
+    t1.style("opacity", 0); t2.style("opacity", 0);
+    if (!sl.shade) clip.attr("width", 0);
+    if (sl.build && dur) bars(nullG, B0, zero);
+    at(out, () => {
+      bars(injG, B1, full1); bars(injHi, B1, full1); injLab.attr("y", y(d3.max(full1)) - 8).text(`VASCO-sized shortfall (r = ${I.r_true.toFixed(2)})`);
+      [t1, t2].forEach((el, i) => { const tx = sl.text[i];                      // a line is a string, or [text, colour] pieces
+        el.text("").style("fill", tx ? tx[1] : ink).style("font-weight", tx ? tx[2] : 400);
+        if (tx && Array.isArray(tx[0])) tx[0].forEach(([str, col]) => el.append("tspan").style("fill", col).text(str)); else el.text(tx ? tx[0] : "");
+        el.transition().duration(dur ? 400 : 0).style("opacity", 1); });
+      for (const [key, els] of Object.entries(parts)) if (sl[key] && !op[key]) { els.forEach(e => e.style("opacity", 0).transition().duration(dur ? 450 : 0).style("opacity", 1)); op[key] = 1; }
+      if (sl.shade) clip.attr("width", dur && cur !== last ? 0 : W - x(r)).transition().delay(dur ? 450 : 0).duration(dur ? 1000 : 0).attr("width", W - x(r));
+      if (!(sl.build && dur)) return bars(nullG, B0, full0);
+      const cum = d3.cumsum(full0), tot = cum[cum.length - 1]; let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+      const h = zero.slice(); let done = 0; const N = Math.round(n0);
+      for (let k2 = 1; k2 <= 40; k2++) at(200 + k2 * 60, () => { const target = Math.round(N * (k2 / 40) ** 2.2);
+        for (; done < target; done++) h[d3.bisectRight(cum, rnd() * tot)] += 1; bars(nullG, B0, h); });
+      at(200 + 41 * 60, () => bars(nullG, B0, full0));
+    });
+    cur = k;
+  };
+  const ctl = d3.select("#ratio-steps"), back = ctl.select(".back"), next = ctl.select(".next"), pos = ctl.select(".pos");
+  const go = (k, instant) => {
+    show(k, instant || matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 1);
+    back.property("disabled", k === 0);
+    next.text(k === last ? "Step through ›" : k === last - 1 ? "Summary ›" : "Next ›");
+    pos.text(k === last ? "Summary" : `${k + 1} of ${last}`);
+  };
+  back.on("click", () => go(cur - 1));
+  next.on("click", () => go(cur === last ? 0 : cur + 1));
+  go(last, true);
 }
 
 
@@ -296,7 +482,7 @@ function drawCompare(D, id) {
   s.append("g").attr("transform", `translate(0,${b})`).call(d3.axisBottom(xr).tickValues([0, 15, 30, 45, 60, 75, 90]).tickFormat(v => `${v}°`).tickSize(3)).call(axisStyle);
   s.append("g").attr("transform", `translate(${x1},0)`).call(d3.axisLeft(yr).tickValues([0, 25, 50, 75, 100]).tickFormat(v => `${v}%`).tickSize(3)).call(axisStyle);
   s.append("text").attr("x", x1 + w1 / 2).attr("y", b + 34).attr("text-anchor", "middle").style("font-size", "12px").text("Direction of the artificial track, from east–west");
-  s.append("text").attr("x", x1).attr("y", top - 22).style("font-weight", 600).style("font-size", "12.5px").text("Artificial tracks found");
+  s.append("text").attr("x", x1).attr("y", top - 22).style("font-weight", 600).style("font-size", "12.5px").text("Track-finding efficiency, ε");
   s.append("text").attr("x", x1).attr("y", top - 8).style("font-size", "11px").style("fill", V("--ink-2")).text(`Pass mark: ${Rc.false_alarms} chance candidates across the survey`);
   [["track", V("--ours"), "Track score"], ["vasco", V("--theirs"), "VASCO’s score"]].forEach(([k, c, lab], i) => {
     const pts = Rc.angles.map((a, j) => [a, Rc[k][j]]);
@@ -311,170 +497,29 @@ function drawCompare(D, id) {
   s.append("text").attr("x", xr(87.5)).attr("y", top + 14).attr("text-anchor", "middle").style("font-size", "10.5px").style("fill", V("--teal")).text("N–S");
 }
 
-/* ---------- the strongest tracks against the star model of their plates: one row per track with the model, each
-   transient on the same scale (and its width as a multiple of the stars'), the light away from the centre relative to
-   the stars (1 for star-shaped images; above 1 for wider), and the call; then the typical transient, from transients
-   picked at random ---------- */
-function drawWidths(D, id) {
-  const Z = D.widths, s = svg(id);
-  if (!Z) return;
-  const W = 790, St = 44, rowH = 92, top = 40, slot = 50, xM = 84, xT = 162, xP = 488, wP = 112, hP = 48, xV = 636;
-  const rows = Z.tracks.length + 1, yKey = top + rows * rowH + 8, H = yKey + 40;
-  s.attr("viewBox", `0 0 ${W} ${H}`);
-  const grey = d3.scaleSequential(d3.interpolateGreys).domain([-0.05, 1]).clamp(true);
-  // a 13 x 13 stamp, cut to a circle; pixels nearer another source than the transient come as nulls and are left blank
-  const pic = (x, y, arr) => {
-    const cell = St / 13, g = s.append("g").attr("transform", `translate(${x},${y})`);
-    g.selectAll("rect").data(arr.flatMap((row, i) => row.map((v, j) => ({ i, j, v }))).filter(d => d.v != null && Math.hypot(d.i - 6, d.j - 6) <= 6.3)).join("rect")
-      .attr("x", d => d.j * cell).attr("y", d => d.i * cell).attr("width", cell + 0.15).attr("height", cell + 0.15).attr("fill", d => grey(d.v));
-    g.append("circle").attr("cx", St / 2).attr("cy", St / 2).attr("r", St / 2).attr("fill", "none").attr("stroke", V("--rule"));
-  };
-  const txt = (x, y, t, o = {}) => s.append("text").attr("x", x).attr("y", y).attr("text-anchor", o.anchor || "start").style("font-size", o.size || "11px")
-    .style("font-weight", o.bold ? 600 : null).style("fill", o.col || null).text(t);
-  // light away from the centre relative to a star: the band real stars give, the track's band, and its average
-  const xr = d3.scaleLinear().domain([0, d3.max(Z.r)]).range([0, wP]), yr = d3.scaleLog().domain([0.6, 3.2]).range([hP, 0]).clamp(true);
-  const prof = (y, P) => {
-    const g = s.append("g").attr("transform", `translate(${xP},${y})`);
-    const band = (lo, hi) => d3.area().x((_, i) => xr(Z.r[i])).y0((_, i) => yr(lo[i])).y1((_, i) => yr(hi[i]))(Z.r);
-    g.append("rect").attr("width", wP).attr("height", hP).attr("fill", "none").attr("stroke", V("--rule"));
-    g.append("path").attr("d", band(P.stars_lo, P.stars_hi)).attr("fill", V("--ink-3")).attr("fill-opacity", 0.22);
-    g.append("line").attr("x1", 0).attr("x2", wP).attr("y1", yr(1)).attr("y2", yr(1)).attr("stroke", V("--ink-3")).attr("stroke-dasharray", "2 3");
-    g.append("path").attr("d", band(P.lo, P.hi)).attr("fill", V("--emulsion")).attr("fill-opacity", 0.25);
-    g.append("path").attr("d", d3.line().x((_, i) => xr(Z.r[i])).y(v => yr(v))(P.mid)).attr("fill", "none").attr("stroke", V("--emulsion")).attr("stroke-width", 2);
-    [1, 2].forEach(v => g.append("text").attr("x", -4).attr("y", yr(v) + 3.5).attr("text-anchor", "end").style("font-size", "9.5px").style("fill", V("--ink-3")).text(`${v}×`));
-    g.append("g").attr("transform", `translate(0,${hP})`).call(d3.axisBottom(xr).tickValues([0, 1, 2, 3]).tickFormat(v => `${v}″`).tickSize(2)).call(axisStyle)
-      .selectAll("text").style("font-size", "9.5px");
-    g.append("text").attr("x", wP / 2).attr("y", hP + 25).attr("text-anchor", "middle").style("font-size", "9.5px").style("fill", V("--ink-3")).text("Distance from centre");
-  };
-  const odds = p => p < 1 / 20000 ? "under 1 in 20,000" : `1 in ${d3.format(",")(1 / p < 10 ? Math.round(1 / p) : +d3.format(".2r")(1 / p))}`;
-  const colour = { wider: V("--emulsion"), narrower: V("--ours"), "like the stars": V("--ink-2") };
-  const verdict = (y0, t) => {
-    txt(xV, y0 + 18, t.call === "like the stars" ? "Like the stars" : `${t.call[0].toUpperCase()}${t.call.slice(1)} than the stars`, { bold: true, size: "12px", col: colour[t.call] });
-    if (t.call === "like the stars") txt(xV, y0 + 34, "Within the range of real stars", { col: V("--ink-2") });
-    else {
-      txt(xV, y0 + 34, `Real stars spread this ${t.call === "wider" ? "wide" : "narrow"}:`, { col: V("--ink-2") });
-      txt(xV, y0 + 48, odds(t.call === "wider" ? t.p_wider : t.p_narrower), { col: V("--ink-2") });
-    }
-  };
-  const width = (x, y, r) => txt(x + St / 2, y + St + 13, `${r.toFixed(1)}×`, { anchor: "middle", size: "10.5px", col: V("--ink-2") });
-  [["Star model", xM], ["VASCO transients (width compared to typical star below)", xT], ["Spread relative to a star", xP], ["Verdict", xV]]
-    .forEach(([t, x]) => txt(x, top - 18, t, { bold: true, size: "11.5px" }));
-  Z.tracks.forEach((t, k) => {
-    const y0 = top + k * rowH;
-    txt(0, y0 + St / 2 + 4, t.plate, { bold: true, size: "12.5px" });
-    pic(xM, y0, t.model);
-    t.transients.forEach((r, i) => { pic(xT + i * slot, y0, r.img); width(xT + i * slot, y0, r.ratio); });
-    prof(y0 - 2, t.profile);
-    verdict(y0, t);
-  });
-  // the typical transient: the average of transients picked at random, set out in the same way
-  const yc = top + Z.tracks.length * rowH + 4, C = Z.control;
-  s.append("line").attr("x1", 0).attr("x2", W).attr("y1", yc - 14).attr("y2", yc - 14).attr("stroke", V("--rule"));
-  txt(0, yc + 16, "Typical", { bold: true, size: "12.5px" }); txt(0, yc + 31, "transient", { bold: true, size: "12.5px" });
-  pic(xM, yc, C.model);
-  pic(xT, yc, C.img); width(xT, yc, C.ratio);
-  txt(xT + slot + 6, yc + 18, `The average of ${C.n} transients picked`, { col: V("--ink-2") });
-  txt(xT + slot + 6, yc + 33, "at random from the catalogue", { col: V("--ink-2") });
-  prof(yc - 2, C.profile);
-  verdict(yc, C);
-  // key for the small plots
-  [[V("--ink-3"), 0.22, false, "Real stars of similar brightness (90% range)"], [V("--emulsion"), 0.25, true, "Average over the transients in a track (68% range)"]].forEach(([c, op, line, lab], i) => {
-    const k = s.append("g").attr("transform", `translate(${xP - 60},${yKey + i * 18})`);
-    k.append("rect").attr("width", 22).attr("height", 10).attr("fill", c).attr("fill-opacity", op);
-    if (line) k.append("line").attr("x1", 0).attr("x2", 22).attr("y1", 5).attr("y2", 5).attr("stroke", c).attr("stroke-width", 2);
-    k.append("text").attr("x", 30).attr("y", 9).style("font-size", "10.5px").style("fill", V("--ink-2")).text(lab);
-  });
-}
-
-/* ---------- the trail on XE492, followed across the plate: the strip along the straight line through the track's
-   transients (vertical scale stretched), with that line, the transients and the fitted arc (top); the trail's offset
-   from the line along its length, against a straight path (bottom) ---------- */
-function drawTrail(D, id) {
-  const T = D.trail, s = svg(id);
-  if (!T) return;
-  const W = 760, m = { l: 46, r: 12 }, top = 18, h1 = 120, gap = 46, h2 = 120, H = top + h1 + gap + h2 + 44;
-  s.attr("viewBox", `0 0 ${W} ${H}`);
-  const a0 = T.start_arcmin, x = d3.scaleLinear().domain([T.along0 - a0, T.along1 - a0]).range([m.l, W - m.r]);
-  const y1 = d3.scaleLinear().domain([T.across[0], T.across[1]]).range([top + h1, top]);
-  s.append("image").attr("href", T.img).attr("x", m.l).attr("y", top).attr("width", W - m.l - m.r).attr("height", h1).attr("preserveAspectRatio", "none");
-  s.append("rect").attr("x", m.l).attr("y", top).attr("width", W - m.l - m.r).attr("height", h1).attr("fill", "none").attr("stroke", V("--ink-3"));
-  s.append("line").attr("x1", m.l).attr("x2", W - m.r).attr("y1", y1(0)).attr("y2", y1(0)).attr("stroke", V("--ours")).attr("stroke-width", 2.4).attr("stroke-dasharray", "6 4");
-  const arc = T.curve[0].map((a, k) => [a - a0, T.curve[1][k]]);                 // the smooth curve through the trail
-  s.append("g").selectAll("circle").data(T.members_along.map((a, k) => [a - a0, T.members_across[k]])).join("circle")
-    .attr("cx", d => x(d[0])).attr("cy", d => y1(d[1])).attr("r", 5).attr("fill", "none").attr("stroke", V("--emulsion")).attr("stroke-width", 1.4);
-  s.append("g").attr("transform", `translate(${m.l},0)`).call(d3.axisLeft(y1).tickValues([-100, 0, 100]).tickFormat(v => `${v}″`).tickSize(3)).call(axisStyle);
-  // offset from the straight line along the trail
-  const yA = top + h1 + gap, ext = d3.extent(T.offset.concat([0, 15])), y2 = d3.scaleLinear().domain([Math.min(ext[0], -60) - 5, Math.max(ext[1], 15)]).range([yA + h2, yA]);
-  s.append("line").attr("x1", x(0)).attr("x2", x(T.end_arcmin - a0)).attr("y1", y2(0)).attr("y2", y2(0)).attr("stroke", V("--ours")).attr("stroke-width", 2.4).attr("stroke-dasharray", "6 4");
-  s.append("text").attr("x", x(T.end_arcmin - a0) - 4).attr("y", y2(0) - 8).attr("text-anchor", "end").style("font-size", "10.5px").style("fill", V("--ours")).text("Track fit to transients");
-  // traced points; any left out of the fit (a step that strayed off the trail) drawn hollow
-  s.append("g").selectAll("circle").data(T.s.map((a, k) => [a - a0, T.offset[k], T.used ? T.used[k] : true])).join("circle").attr("cx", d => x(d[0])).attr("cy", d => y2(d[1])).attr("r", 2.6)
-    .attr("fill", d => d[2] ? V("--ink-2") : "none").attr("stroke", d => d[2] ? "none" : V("--ink-3")).attr("stroke-width", 1.2);
-  s.append("path").attr("d", d3.line().x(d => x(d[0])).y(d => y2(d[1]))(arc)).attr("fill", "none").attr("stroke", V("--emulsion")).attr("stroke-width", 1.6);
-  s.append("text").attr("x", x(arc[Math.floor(arc.length * 0.15)][0])).attr("y", y2(arc[Math.floor(arc.length * 0.15)][1]) + 18).style("font-size", "10.5px").style("fill", V("--emulsion"))
-    .text("Smooth fit to full trail");
-  s.append("g").selectAll("circle.m").data(T.members_along.map((a, k) => [a - a0, T.members_across[k]])).join("circle")
-    .attr("cx", d => x(d[0])).attr("cy", d => y2(d[1])).attr("r", 5).attr("fill", "none").attr("stroke", V("--emulsion")).attr("stroke-width", 1.4);
-  s.append("g").attr("transform", `translate(${m.l},0)`).call(d3.axisLeft(y2).ticks(4).tickFormat(v => `${v}″`).tickSize(3)).call(axisStyle);
-  s.append("g").attr("transform", `translate(0,${yA + h2})`).call(d3.axisBottom(x).ticks(9).tickFormat(v => `${v}′`).tickSize(3)).call(axisStyle);
-  s.append("text").attr("x", (m.l + W - m.r) / 2).attr("y", H - 6).attr("text-anchor", "middle").style("font-size", "11.5px")
-    .text(`Distance along the trail from where it starts (our scans of this plate end at ${(T.end_arcmin - a0).toFixed(0)}′)`);
-}
-
-/* ---------- the tracks that stand out: each field as a blink comparison between the red plate the transients were found
-   on, the blue plate taken the same night and the second survey's red plate (one pixel grid, rings and fitted track
-   fixed on top), with a second panel where it shows what made the track; findings from the copy ---------- */
-function drawTail(D, id) {
-  const T = D.tail_tracks, host = document.getElementById(id);
-  if (!T || !host) return;
-  const notes = {};
-  document.querySelectorAll("#tail-findings p").forEach(p => { const m = p.textContent.match(/^(XE\d+):\s*([^|]*)\|\s*(.*)$/); if (m) notes[m[1]] = [m[2].trim(), m[3].trim()]; });
-  host.innerHTML = "";
-  const fmtOdds = v => (1 / v >= 1e6 ? `1 in ${(1 / v / 1e6).toFixed(1)} million` : `1 in ${d3.format(",")(+d3.format(".2r")(1 / v))}`), S = 240;
-  const overlay = (s, xs, ys, line) => {
-    const M = xs.map((f, i) => [f * S, ys[i] * S]).filter(d => d[0] >= 0 && d[0] <= S && d[1] >= 0 && d[1] <= S);
-    if (line && M.length > 1) {
-      const [a, b] = d3.greatest(d3.cross(M, M), ([p, q]) => Math.hypot(p[0] - q[0], p[1] - q[1]));
-      const L = Math.hypot(b[0] - a[0], b[1] - a[1]), ux = (b[0] - a[0]) / L, uy = (b[1] - a[1]) / L;
-      s.append("line").attr("x1", a[0] - 12 * ux).attr("y1", a[1] - 12 * uy).attr("x2", b[0] + 12 * ux).attr("y2", b[1] + 12 * uy)
-        .attr("stroke", V("--ours")).attr("stroke-width", 2.2).attr("stroke-dasharray", "6 4");
-    }
-    s.append("g").selectAll("circle").data(M).join("circle").attr("cx", d => d[0]).attr("cy", d => d[1]).attr("r", 7)
-      .attr("fill", "none").attr("stroke", V("--emulsion")).attr("stroke-width", 1.5);
-  };
-  const frame = (el, label) => {
-    el.append("div").attr("class", "tail-lab").text(label);
-    const s = el.append("svg").attr("viewBox", `0 0 ${S} ${S}`);
-    return s;
-  };
-  T.tracks.forEach(t => {
-    const card = d3.select(host).append("figure").attr("class", "tail-card"), row = card.append("div").attr("class", "tail-imgs");
-    const len = t.length < 1 ? `${Math.round(t.length * 60)}″` : `${t.length.toFixed(1)}′`;
-    // blink panel
-    const left = row.append("div"), labs = [`Red plate, ${t.years[0]}`, `Blue plate, same night`, `Red plate, ${t.years[2]}`];
-    const lab = left.append("div").attr("class", "tail-lab").text(labs[0]);
-    const s = left.append("svg").attr("viewBox", `0 0 ${S} ${S}`).attr("role", "img").attr("aria-label", `${t.plate}: the field on three plates`);
-    t.blink.forEach(src => { new Image().src = src; });                // preload, so the blink is instant
-    const img = s.append("image").attr("href", t.blink[0]).attr("width", S).attr("height", S).attr("preserveAspectRatio", "none");
-    s.append("rect").attr("width", S).attr("height", S).attr("fill", "none").attr("stroke", V("--ink-3"));
-    overlay(s, t.mx, t.my, true);
-    const btns = left.append("div").attr("class", "blink-btns");
-    ["Red", "Blue", `${t.years[2]}`].forEach((b, k) => btns.append("button").attr("type", "button").classed("on", !k).text(b)
-      .on("click", function () { img.attr("href", t.blink[k]); lab.text(labs[k]); btns.selectAll("button").classed("on", false); d3.select(this).classed("on", true); }));
-    // evidence panel, or the caption beside the blink panel
-    const right = row.append("div");
-    if (t.evidence) {
-      const e = t.evidence, es = frame(right, e.kind === "zoom" ? `Red plate, high contrast, ${e.size}′` : `Red plate, ${e.size}′ across`);
-      es.append("image").attr("href", e.img).attr("width", S).attr("height", S).attr("preserveAspectRatio", "none");
-      es.append("rect").attr("width", S).attr("height", S).attr("fill", "none").attr("stroke", V("--ink-3"));
-      overlay(es, e.x, e.y, e.kind === "zoom");
-    }
-    const cap = (t.evidence ? card : right).append("figcaption");
-    cap.append("div").attr("class", "tail-head").html(`<b>${t.plate}</b>`);
-    // the track's measures on one line, the checks on its images on the next
-    [[`${t.r} transients`, `${len} long`, `Track score ${fmtOdds(t.score)}`, `χ²/ndof ${t.chi2.toFixed(1)}`],
-     t.width ? [`Images ${t.width.toFixed(1)}× star width`] : []]
-      .filter(line => line.length).forEach(line => { const st = cap.append("div").attr("class", "tail-stats"); line.forEach(v => st.append("span").text(v)); });
+/* ---------- the limits on glint tracks of 3, 4, 5, and 6 transients: in each panel, the probability of each number of
+   them, given the data (every number equally likely beforehand), with the bars holding 95% of the probability shaded ---------- */
+function drawLimit(D, id) {
+  const L = D.limit, s = svg(id);
+  if (!L) return;
+  const W = 760, pw = 306, ph = 150, gx = 72, gy = 78, m = { l: 64, t: 34 }, keys = ["3", "4", "5", "6"];   // 64 + 2 x 306 + 72 = 748
+  s.attr("viewBox", `0 0 ${W} ${m.t + 2 * ph + gy + 44}`);
+  keys.forEach((f, i) => {
+    const P = L[f], x0 = m.l + (i % 2) * (pw + gx), y0 = m.t + Math.floor(i / 2) * (ph + gy);
+    const ns = d3.range(P.p.length), g = s.append("g").attr("transform", `translate(${x0},${y0})`);
+    const x = d3.scaleBand().domain(ns).range([0, pw]).padding(0.15);
+    const y = d3.scaleLinear().domain([0, Math.ceil(d3.max(P.p) * 10) / 10]).range([ph, 0]);
+    g.selectAll("rect").data(ns).join("rect").attr("x", n => x(n)).attr("width", x.bandwidth()).attr("y", n => y(P.p[n])).attr("height", n => ph - y(P.p[n]))
+      .attr("fill", n => n <= P.s95 ? V("--ours") : V("--ink-3")).attr("fill-opacity", n => n <= P.s95 ? 0.85 : 0.45)
+      .call(sel => hov(sel, n => `Glint tracks of ${f} transients: ${n} in the catalogue, probability ${d3.format(".1%")(P.p[n])}`));
+    const step = ns.length > 30 ? 10 : ns.length > 12 ? 5 : ns.length > 6 ? 2 : 1;
+    g.append("g").attr("transform", `translate(0,${ph})`).call(d3.axisBottom(x).tickValues(ns.filter(n => n % step === 0)).tickSizeOuter(0)).call(axisStyle);
+    g.append("g").call(d3.axisLeft(y).ticks(3).tickFormat(d3.format(".0%")).tickSize(3)).call(axisStyle);
+    g.append("text").attr("x", 0).attr("y", -12).style("font-weight", 600).style("font-size", "12.5px").text(`${f} transients`);
+    g.append("text").attr("x", pw).attr("y", -12).attr("text-anchor", "end").style("font-size", "12px").style("fill", V("--ink-2"))
+      .text(`95% probability: at most ${P.s95}`);
+    if (i >= 2) g.append("text").attr("x", pw / 2).attr("y", ph + 34).attr("text-anchor", "middle").text("Glint tracks in the catalogue");
+    g.append("text").attr("transform", `translate(-46,${ph / 2}) rotate(-90)`).attr("text-anchor", "middle").text("Probability");
   });
 }
 
@@ -484,7 +529,7 @@ function drawTail(D, id) {
 function drawTracks(D) {
   drawDist(D.trackdist, "c-counts", { dom: [-7, 0], step: 0.2, ticks: [-6, -4, -2, 0], fmt: { "-6": "10⁻⁶", "-4": "10⁻⁴", "-2": "0.01", "0": "1" },
     xlab: "Track score: expected number of such tracks by chance (lower is less likely)", what: "track score",
-    rowlab: "Number of track candidates at each score", floor: 0.01, yticks: [0.01, 1, 100] });
+    rowlab: "Number of track candidates at each score", floor: 0.01, yticks: [0.01, 0.1, 1, 10, 100] });
 }
 function drawDist(T, id, o) {
   const s = svg(id), W = 760, m = { l: 52, r: 10, t: 44, b: 52 }, gx = 12;
@@ -574,12 +619,13 @@ function drawRadialMap(D) {
   s.append("text").attr("transform", `translate(${bx - 8},${top + bh / 2}) rotate(-90)`).attr("text-anchor", "middle").attr("fill", V("--ink-2")).text("Density relative to the centre");
 }
 function drawRadial(D) {
-  const R = D.radial, s = svg("c-radial"), W = 760, H = 320, m = { l: 44, r: 16, t: 14, b: 42 };
+  const R = D.radial, s = svg("c-radial"), W = 760, H = 320, m = { l: 62, r: 16, t: 14, b: 42 };
   const x = d3.scaleLinear().domain([0, 3]).range([m.l, W - m.r]);
   const y = d3.scaleLinear().domain([0, 3]).range([H - m.b, m.t]);
   s.append("g").attr("transform", `translate(0,${H - m.b})`).call(d3.axisBottom(x).ticks(6).tickFormat(d => d + "°").tickSizeOuter(0)).call(axisStyle);
   s.append("g").attr("transform", `translate(${m.l},0)`).call(d3.axisLeft(y).ticks(6).tickFormat(d => d + "×").tickSize(3)).call(axisStyle);
   s.append("text").attr("x", (m.l + W - m.r) / 2).attr("y", H - 6).attr("text-anchor", "middle").text("Distance from the centre of the plate");
+  s.append("text").attr("transform", `translate(16,${(m.t + H - m.b) / 2}) rotate(-90)`).attr("text-anchor", "middle").text("Density relative to the centre");
   const line = k => d3.line().x((v, i) => x(R.r[i])).y(v => y(v)).curve(d3.curveMonotoneX)(R[k]);
   s.append("path").attr("d", d3.area().x((v, i) => x(R.r[i])).y0((v, i) => y(R.lo[i])).y1((v, i) => y(R.hi[i])).curve(d3.curveMonotoneX)(R.r)).attr("fill", V("--ours-soft"));
   s.append("path").attr("d", line("control")).attr("fill", "none").attr("stroke", V("--ink-3")).attr("stroke-width", 2).attr("stroke-dasharray", "4 3");
@@ -587,30 +633,130 @@ function drawRadial(D) {
   s.append("g").selectAll("circle").data(R.transients).join("circle").attr("cx", (v, i) => x(R.r[i])).attr("cy", v => y(v)).attr("r", 3.5).attr("fill", V("--ours"))
     .call(sel => hov(sel, (v, i) => `${v.toFixed(1)} times the density near the centre`));
 }
+let crowdState = "graph";
 function drawCrowd(D) {
-  const s = svg("c-crowd"), W = 760, H = 320, m = { l: 52, r: 16, t: 14, b: 42 };
-  const pts = D.crowding;
-  const half = 6;   // quartiles over a sliding 12-degree window, stepped every 2 degrees
-  const bins = d3.range(2, 79, 2).map(c => {
-    const v = pts.filter(p => Math.abs(p.b - c) <= half).map(p => p.N).sort(d3.ascending);
-    return { b: c, n: v.length, q25: d3.quantile(v, 0.25), q50: d3.quantile(v, 0.5), q75: d3.quantile(v, 0.75) };
-  }).filter(d => d.n >= 20);
-  const w = [1, 2, 3, 2, 1];   // light triangular smoothing of the three curves across neighbouring points
-  for (const k of ["q25", "q50", "q75"]) {
-    const raw = bins.map(d => d[k]);
-    bins.forEach((d, i) => { let t = 0, ws = 0; w.forEach((wj, j) => { const v = raw[i + j - 2]; if (v !== undefined) { t += wj * v; ws += wj; } }); d[k] = t / ws; });
-  }
-  const x = d3.scaleLinear().domain([0, 80]).range([m.l, W - m.r]);
-  const y = d3.scaleLinear().domain([0, 400]).range([H - m.b, m.t]);
-  s.append("g").attr("transform", `translate(0,${H - m.b})`).call(d3.axisBottom(x).ticks(8).tickFormat(d => d + "°").tickSizeOuter(0)).call(axisStyle);
-  s.append("g").attr("transform", `translate(${m.l},0)`).call(d3.axisLeft(y).ticks(5).tickSize(3)).call(axisStyle);
-  s.append("text").attr("x", (m.l + W - m.r) / 2).attr("y", H - 6).attr("text-anchor", "middle").text("Degrees from the plane of the Milky Way");
-  s.append("text").attr("transform", `translate(14,${(m.t + H - m.b) / 2}) rotate(-90)`).attr("text-anchor", "middle").text("Transients per plate");
-  s.append("path").datum(bins).attr("d", d3.area().x(d => x(d.b)).y0(d => y(d.q25)).y1(d => y(d.q75)).curve(d3.curveMonotoneX)).attr("fill", V("--ours-soft"));
-  s.append("path").datum(bins).attr("d", d3.line().x(d => x(d.b)).y(d => y(d.q50)).curve(d3.curveMonotoneX)).attr("fill", "none").attr("stroke", V("--ours")).attr("stroke-width", 2.4);
-  s.append("g").selectAll("circle").data(bins).join("circle").attr("cx", d => x(d.b)).attr("cy", d => y(d.q50)).attr("r", 3.5).attr("fill", V("--ours"))
-    .attr("stroke", V("--surface")).attr("stroke-width", 6).attr("stroke-opacity", 0.01)
-    .call(sel => hov(sel, d => `${Math.max(0, d.b - half)}° to ${d.b + half}° from the Milky Way: ${d.n} plates<br>Median ${Math.round(d.q50)} transients; middle half ${Math.round(d.q25)} to ${Math.round(d.q75)}`));
+  // every plate as on the sky map; the buttons morph each one between its place on the sky and a tile at its distance from
+  // the Milky Way and its count, with a fit for the typical plate
+  const s = svg("c-crowd"), W = 760, H = 400, m = { l: 56, r: 16, t: 14, b: 42 }, F = D.crowd_fit;
+  s.attr("viewBox", `0 0 ${W} ${H}`);
+  const poly = new Map(D.plates.map(p => [p.id, p.poly])), pts = D.crowding.filter(p => poly.has(p.id));
+  const x = d3.scaleLinear().domain([0, 90]).range([m.l, W - m.r]);
+  const y = d3.scaleLog().domain([3, 3000]).range([H - m.b, m.t]).clamp(true);
+  const col = d3.scaleSequentialLog(d3.interpolateViridis).domain([5, 1500]).clamp(true);
+  // the sky map's projection, scaled to this chart
+  const clip = d3.max(D.plates.flatMap(p => p.poly), v => 90 - v[1]) + 2.5, Rd = (H - 20) / 2, cx = W / 2, cy = H / 2;
+  const proj = d3.geoAzimuthalEqualArea().reflectX(true).rotate([0, -90]).clipAngle(clip).scale(Rd / (2 * Math.sin(clip * DEG / 2))).translate([cx, cy]);
+  const K = 24, xyz = ([l, b]) => [Math.cos(b * DEG) * Math.cos(l * DEG), Math.cos(b * DEG) * Math.sin(l * DEG), Math.sin(b * DEG)];
+  const lonlat = v => { const n = Math.hypot(...v); return [Math.atan2(v[1], v[0]) / DEG, Math.asin(v[2] / n) / DEG]; };
+  const area = a => d3.sum(a, (p, i) => p[0] * a[(i + 1) % a.length][1] - a[(i + 1) % a.length][0] * p[1]);
+  const start = a => { const i = d3.minIndex(a, p => p[0] + p[1]); return a.slice(i).concat(a.slice(0, i)); };   // from the top-left
+  const norm = a => start(area(a) < 0 ? a.slice().reverse() : a);
+  const resample = a => {                                                       // exactly K points, evenly spaced round the outline
+    const L = [0]; a.forEach((p, i) => { const q = a[(i + 1) % a.length]; L.push(L[i] + Math.hypot(q[0] - p[0], q[1] - p[1])); });
+    return d3.range(K).map(k => { const s_ = k / K * L[a.length]; let i = d3.bisectRight(L, s_) - 1; i = Math.min(i, a.length - 1);
+      const p = a[i], q = a[(i + 1) % a.length], f = (s_ - L[i]) / ((L[i + 1] - L[i]) || 1); return [p[0] + (q[0] - p[0]) * f, p[1] + (q[1] - p[1]) * f]; });
+  };
+  const skyShape = id => {                                                     // the plate outline, traced finely, then K points
+    const c = poly.get(id), out = [];
+    c.forEach((v, i) => { const a = xyz(v), b = xyz(c[(i + 1) % c.length]);
+      for (let j = 0; j < 12; j++) { const t = j / 12; out.push(proj(lonlat(a.map((q, k) => q + (b[k] - q) * t)))); } });
+    return norm(resample(out));
+  };
+  const tile = 6.5, sqShape = p => {                                            // a small square at the plate's place on the graph
+    const X = x(p.b), Y = y(Math.max(p.N, 3)), h = tile / 2, c = [[X - h, Y - h], [X + h, Y - h], [X + h, Y + h], [X - h, Y + h]], out = [];
+    c.forEach((a, i) => { const b = c[(i + 1) % 4]; for (let j = 0; j < K / 4; j++) { const t = j / (K / 4); out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]); } });
+    return norm(out);
+  };
+  const shapes = new Map(pts.map(p => [p.id, { sky: skyShape(p.id), graph: sqShape(p) }]));
+  const d = a => "M" + a.map(q => q.map(v => v.toFixed(1)).join(",")).join("L") + "Z";
+  // the graph's furniture
+  const G = s.append("g");
+  G.append("path").attr("d", d3.area().x((_, i) => x(F.b[i])).y0((_, i) => y(F.q25[i])).y1((_, i) => y(F.q75[i])).curve(d3.curveMonotoneX)(F.b)).attr("fill", V("--ours")).attr("fill-opacity", 0.16);
+  G.append("g").attr("transform", `translate(0,${H - m.b})`).call(d3.axisBottom(x).ticks(9).tickFormat(v => v + "°").tickSizeOuter(0)).call(axisStyle);
+  G.append("g").attr("transform", `translate(${m.l},0)`).call(d3.axisLeft(y).tickValues([3, 10, 30, 100, 300, 1000, 3000]).tickFormat(d3.format(",")).tickSize(3)).call(axisStyle);
+  G.append("text").attr("x", (m.l + W - m.r) / 2).attr("y", H - 6).attr("text-anchor", "middle").text("Degrees from the plane of the Milky Way");
+  G.append("text").attr("transform", `translate(14,${(m.t + H - m.b) / 2}) rotate(-90)`).attr("text-anchor", "middle").text("Transients per plate");
+  // the sky's furniture
+  const path = d3.geoPath(proj), S = s.append("g");
+  S.append("path").datum({ type: "Sphere" }).attr("d", path).attr("fill", V("--paper")).attr("stroke", V("--rule"));
+  const plates = s.append("g").selectAll("path").data(pts).join("path").attr("fill", p => col(Math.max(p.N, 5))).attr("stroke", V("--surface")).attr("stroke-width", 0.5)
+    .call(sel => hov(sel, p => `${p.id}: ${fmt(p.N)} transients, ${p.b}° from the Milky Way`));
+  const plane = { type: "LineString", coordinates: d3.range(0, 361, 2).map(l => galToEq(l, 0)) };
+  const mw = s.append("g").attr("pointer-events", "none");                       // as on the sky map: a soft band with a dashed centre line
+  mw.append("path").datum(plane).attr("d", path).attr("fill", "none").attr("stroke", "#ffffff").attr("stroke-opacity", 0.38).attr("stroke-width", 10).attr("stroke-linecap", "round");
+  mw.append("path").datum(plane).attr("d", path).attr("fill", "none").attr("stroke", "#111418").attr("stroke-opacity", 0.85).attr("stroke-width", 1.5).attr("stroke-dasharray", "5 4");
+  S.lower(); G.lower();
+  const fitG = s.append("g").attr("pointer-events", "none"), line = k => d3.line().x((_, i) => x(F.b[i])).y(v => y(v)).curve(d3.curveMonotoneX)(F[k]);
+  fitG.append("path").attr("d", line("mid")).attr("fill", "none").attr("stroke", V("--surface")).attr("stroke-width", 6);
+  fitG.append("path").attr("d", line("mid")).attr("fill", "none").attr("stroke", V("--ours")).attr("stroke-width", 3);
+  const layers = { sky: [S, mw], graph: [G, fitG] };
+  const show = (key, t) => {
+    const from = crowdState; crowdState = key;
+    d3.selectAll("#c-crowd").each(function () { const L = d3.select(this.parentNode);
+      for (const k of ["sky", "graph"]) L.selectAll(`.crowd-${k}`).style("display", k === key ? null : "none"); });
+    // the furniture of the view being left goes first, then the plates move, then the new view's furniture arrives
+    const lead = t && from !== "sky" ? 600 : 0, toSky = key === "sky";
+    plates.transition().duration(t).delay(p => t ? lead + (toSky ? 90 - p.b : p.b) * 12 : 0).ease(d3.easeCubicInOut)
+      .attrTween("d", p => { const i = d3.interpolate(shapes.get(p.id)[from], shapes.get(p.id)[key]); return t_ => d(i(t_)); })
+      .attr("stroke-width", toSky ? 0.5 : 0.6);
+    if (!t) plates.attr("d", p => d(shapes.get(p.id)[key]));
+    const fade = (sel, on, wait) => sel.transition().duration(t ? 450 : 0).delay(t ? wait : 0).style("opacity", on ? 1 : 0);
+    for (const [k, ls] of Object.entries(layers)) ls.forEach((l, j) => k === key ? fade(l, true, lead + t + 500 + 300 * j) : fade(l, false, 150 * j));
+  };
+  show(crowdState, 0);
+  d3.selectAll("#crowd-toggle button").on("click", function () {
+    if (this.dataset.key === crowdState) return;
+    d3.selectAll("#crowd-toggle button").classed("on", false); d3.select(this).classed("on", true);
+    show(this.dataset.key, matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 1100);
+  }).classed("on", function () { return this.dataset.key === crowdState; });
+}
+
+/* ---------- the pointing curve's calibration (plate_properties.pointing): every plate's actual count against its predicted
+   count, and in eight groups by prediction, each group's average actual count against its average prediction ---------- */
+function drawPointing(D) {
+  const s = svg("c-pointing"), W = 760, H = 400, m = { l: 56, r: 16, t: 14, b: 42 }, PF = D.pointing_fit, pts = D.crowding;
+  s.attr("viewBox", `0 0 ${W} ${H}`);
+  const [e0, e1] = d3.extent(pts, p => p.E), x = d3.scaleLog().domain([e0 / 1.15, e1 * 1.15]).range([m.l, W - m.r]);   // the predictions' range
+  const y = d3.scaleLog().domain([2, 5000]).range([H - m.b, m.t]).clamp(true);
+  const col = d3.scaleSequentialLog(d3.interpolateViridis).domain([5, 1500]).clamp(true);
+  s.append("g").attr("transform", `translate(0,${H - m.b})`).call(d3.axisBottom(x).tickValues([3, 5, 10, 20, 30, 50, 100, 200, 300, 500].filter(v => v >= x.domain()[0] && v <= x.domain()[1]))
+    .tickFormat(d3.format(",")).tickSizeOuter(0)).call(axisStyle);
+  s.append("g").attr("transform", `translate(${m.l},0)`).call(d3.axisLeft(y).tickValues([3, 10, 30, 100, 300, 1000, 3000]).tickFormat(d3.format(",")).tickSize(3)).call(axisStyle);
+  s.append("text").attr("x", (m.l + W - m.r) / 2).attr("y", H - 6).attr("text-anchor", "middle").text("Transients the plate’s pointing predicts");
+  s.append("text").attr("transform", `translate(14,${(m.t + H - m.b) / 2}) rotate(-90)`).attr("text-anchor", "middle").text("Transients on the plate");
+  const t = 6;
+  s.append("g").selectAll("rect").data(pts).join("rect").attr("x", p => x(p.E) - t / 2).attr("y", p => y(Math.max(p.N, 2)) - t / 2).attr("width", t).attr("height", t).attr("rx", 1)
+    .attr("fill", p => col(Math.max(p.N, 5))).attr("fill-opacity", 0.45)
+    .call(sel => hov(sel, p => `${p.id}: ${fmt(p.N)} transients, ${Math.round(p.E)} predicted from its pointing`));
+  const diag = `M${x(x.domain()[0])},${y(x.domain()[0])}L${x(x.domain()[1])},${y(x.domain()[1])}`;
+  s.append("path").attr("d", diag).attr("stroke", V("--surface")).attr("stroke-width", 6).attr("pointer-events", "none");
+  s.append("path").attr("d", diag).attr("stroke", V("--ours")).attr("stroke-width", 2.5).attr("pointer-events", "none");
+  const G = s.append("g").selectAll("g").data(PF.calibration).join("g");
+  G.append("line").attr("x1", c => x(c.E)).attr("x2", c => x(c.E)).attr("y1", c => y(c.lo)).attr("y2", c => y(c.hi)).attr("stroke", V("--ink")).attr("stroke-width", 2);
+  G.append("circle").attr("cx", c => x(c.E)).attr("cy", c => y(c.N)).attr("r", 5.5).attr("fill", V("--ink")).attr("stroke", V("--surface")).attr("stroke-width", 1.5)
+    .call(sel => hov(sel, c => `${c.n} plates predicted ${Math.round(c.E)} on average<br>Actual average ${Math.round(c.N)} (${Math.round(c.lo)} to ${Math.round(c.hi)})`));
+}
+
+/* ---------- the equatorial row: each plate's count over what its pointing predicts without the row term, by the declination
+   of its centre, with each row of plates' median ---------- */
+function drawRows(D) {
+  const R = D.rows, s = svg("c-rows"), W = 760, H = 300, m = { l: 56, r: 16, t: 14, b: 42 };
+  if (!R) return;
+  s.attr("viewBox", `0 0 ${W} ${H}`);
+  const x = d3.scaleLinear().domain([-3, 90]).range([m.l, W - m.r]), y = d3.scaleLog().domain([0.01, 20]).range([H - m.b, m.t]).clamp(true);
+  s.append("rect").attr("x", x(-3)).attr("width", x(3) - x(-3)).attr("y", m.t).attr("height", H - m.b - m.t).attr("fill", V("--theirs")).attr("fill-opacity", 0.08);
+  s.append("g").attr("transform", `translate(0,${H - m.b})`).call(d3.axisBottom(x).tickValues([0, 15, 30, 45, 60, 75, 90]).tickFormat(v => v + "°").tickSizeOuter(0)).call(axisStyle);
+  s.append("g").attr("transform", `translate(${m.l},0)`).call(d3.axisLeft(y).tickValues([0.01, 0.1, 1, 10]).tickFormat(v => v + "×").tickSize(3)).call(axisStyle);
+  s.append("text").attr("x", (m.l + W - m.r) / 2).attr("y", H - 6).attr("text-anchor", "middle").text("Declination of the plate’s centre");
+  s.append("text").attr("transform", `translate(14,${(m.t + H - m.b) / 2}) rotate(-90)`).attr("text-anchor", "middle").text("Transients over prediction");
+  s.append("line").attr("x1", x(-3)).attr("x2", x(90)).attr("y1", y(1)).attr("y2", y(1)).attr("stroke", V("--ink-3")).attr("stroke-dasharray", "3 3");
+  s.append("g").selectAll("circle").data(R.plates).join("circle").attr("cx", p => x(p.dec)).attr("cy", p => y(p.r)).attr("r", 2.6)
+    .attr("fill", V("--ink-3")).attr("fill-opacity", 0.45).call(sel => hov(sel, p => `${p.id}: ${p.r.toFixed(2)} times its prediction, centre at ${p.dec}°`));
+  const eb = s.append("g").attr("stroke", V("--ours")).attr("stroke-width", 2);
+  eb.selectAll("path").data(R.rows).join("path").attr("fill", "none")
+    .attr("d", r => `M${x(r.dec)},${y(r.lo)}V${y(r.hi)}M${x(r.dec) - 5},${y(r.lo)}h10M${x(r.dec) - 5},${y(r.hi)}h10`);
+  s.append("g").selectAll("circle.m").data(R.rows).join("circle").attr("cx", r => x(r.dec)).attr("cy", r => y(r.median)).attr("r", 3.2).attr("fill", V("--ours")).call(sel => hov(sel, r => `Row at ${r.dec}°: ${r.n} plates, median ${r.median.toFixed(2)} times their prediction (${r.lo.toFixed(2)} to ${r.hi.toFixed(2)})`));
+  s.append("text").attr("x", x(3) + 6).attr("y", m.t + 14).style("font-size", "11px").style("fill", V("--theirs")).text("Equatorial row");
 }
 
 /* ---------- nuclear: VASCO's random-night test, the nights near tests against random sets of nights ---------- */
@@ -663,41 +809,184 @@ function drawNucChecks(D, id, key = "nuc_checks") {
   });
 }
 
-/* ---------- nuclear: the result for every window that includes the test day (up to a week each side), with every
-   plate (red outline) and without the few richest plates (grey); VASCO's window marked in each ---------- */
+/* ---------- nuclear: the result for every window that includes the test day (up to a week each side), one block per
+   window stacked by result, coloured by what drives it; a toggle moves the blocks to their results without the three
+   richest plates ---------- */
+const NUC_COL = d3.scaleDiverging(t => d3.interpolateRdBu(1 - t)).domain([0.85, 1, 1.45]).clamp(true);   // blue below no difference, red above
+let nucState = "r";
 function drawNucWindowHist(D, id) {
   const F = D.nuc_windows, s = svg(id); if (!F) return;
-  const A = F.cells.map(d => d.r), B = F.cells.map(d => d.r_without), V_ = F.cells.find(d => d.before === 1 && d.after === 1);
-  const W = 760, H = 300, m = { l: 52, r: 16, t: 46, b: 50 }, bw = 0.025, lo = 0.85, hi = 1.45;
-  const bin = R => d3.bin().domain([lo, hi]).thresholds(d3.range(lo, hi + 1e-9, bw))(R);
-  const bA = bin(A), bB = bin(B);
-  const x = d3.scaleLinear().domain([lo, hi]).range([m.l, W - m.r]);
-  const y = d3.scaleLinear().domain([0, d3.max([...bA, ...bB], b => b.length) + 1]).range([H - m.b, m.t]);
+  const W = 760, H = 300, m = { l: 52, r: 16, t: 30, b: 50 }, bw = 0.025, lo = 0.85, hi = 1.45, nb = Math.round((hi - lo) / bw);
+  const x = d3.scaleLinear().domain([lo, hi]).range([m.l, W - m.r]), bwPx = (W - m.l - m.r) / nb, bh = 9;
   s.append("g").attr("transform", `translate(0,${H - m.b})`).call(d3.axisBottom(x).ticks(7).tickFormat(d => `${d}×`).tickSizeOuter(0)).call(axisStyle);
-  s.append("g").attr("transform", `translate(${m.l},0)`).call(d3.axisLeft(y).ticks(5).tickFormat(d3.format("d")).tickSize(3)).call(axisStyle);
-  const bars = (B_, g) => g.selectAll("rect").data(B_.filter(b => b.length)).join("rect").attr("x", b => x(b.x0) + 1).attr("width", b => Math.max(0, x(b.x1) - x(b.x0) - 2))
-    .attr("y", b => y(b.length)).attr("height", b => y(0) - y(b.length));
-  bars(bB, s.append("g")).attr("fill", V("--ink-3")).attr("fill-opacity", 0.55);
-  bars(bA, s.append("g")).attr("fill", V("--emulsion")).attr("fill-opacity", 0.12).attr("stroke", V("--emulsion")).attr("stroke-width", 1.5);
-  s.append("line").attr("x1", x(1)).attr("x2", x(1)).attr("y1", m.t - 8).attr("y2", H - m.b).attr("stroke", V("--ink")).attr("stroke-width", 1);
-  s.append("text").attr("class", "ann").attr("x", x(1)).attr("y", m.t - 14).attr("text-anchor", "middle").style("fill", V("--ink-2")).text("No difference");
-  const mark = (v, c, dash, t, dy) => {
-    s.append("line").attr("x1", x(v)).attr("x2", x(v)).attr("y1", m.t - 8).attr("y2", H - m.b).attr("stroke", c).attr("stroke-width", 2.2).attr("stroke-dasharray", dash);
-    s.append("text").attr("class", "ann").attr("x", x(v) + 8).attr("y", m.t + dy).style("fill", c).style("font-weight", 600).text(t);
+  s.append("line").attr("x1", x(1)).attr("x2", x(1)).attr("y1", m.t - 6).attr("y2", H - m.b).attr("stroke", V("--ink")).attr("stroke-dasharray", "3 3");
+  s.append("text").attr("class", "ann").attr("x", x(1)).attr("y", m.t - 12).attr("text-anchor", "middle").style("fill", V("--ink-2")).text("No difference");
+  s.append("text").attr("x", (m.l + W - m.r) / 2).attr("y", H - 10).attr("text-anchor", "middle").text("Transients per plate inside the window, relative to plates outside it");
+  s.append("text").attr("transform", `translate(16,${(m.t + H - m.b) / 2}) rotate(-90)`).attr("text-anchor", "middle").text("Windows");
+  // place every block for a state: bin by result, stack within a bin by kind then by window length
+  const isV = c => +(c.before === 1 && c.after === 1);                           // VASCO's window sits on top of its stack
+  const place = key => {
+    const pos = new Map(), binOf = c => Math.min(nb - 1, Math.max(0, Math.floor((c[key] - lo) / bw))), bins = d3.group(F.cells, binOf);
+    // the label starts just left of the block and runs right: clear every stack it spans, and the "no difference" line
+    pos.peak = c => H - m.b - (bh + 1) * d3.max(d3.range(binOf(c) - 1, binOf(c) + Math.ceil(120 / bwPx) + 1), b => (bins.get(b) || []).length) - 22;
+    bins.forEach((cs, b) => cs.sort((p, q) => isV(p) - isV(q) || (p.before + p.after) - (q.before + q.after) || p.before - q.before)
+      .forEach((c, k) => pos.set(c, [m.l + b * bwPx + 1.5, H - m.b - (k + 1) * (bh + 1)])));
+    return pos;
   };
-  mark(V_.r, V("--emulsion"), null, `VASCO’s window: ${V_.r.toFixed(2)}×`, 4);
-  mark(V_.r_without, V("--ink-2"), "5 3", `Without the ${F.without.plates.length} plates: ${V_.r_without.toFixed(2)}×`, 22);
-  s.append("text").attr("x", (m.l + W - m.r) / 2).attr("y", H - 10).attr("text-anchor", "middle").text("Transients near tests relative to the rest, for each window");
-  s.append("text").attr("transform", `translate(14,${(m.t + H - m.b) / 2}) rotate(-90)`).attr("text-anchor", "middle").text("Windows");
+  const blocks = s.append("g").selectAll("rect").data(F.cells).join("rect").attr("width", bwPx - 3).attr("height", bh).attr("rx", 2)
+    .attr("stroke", c => c.before === 1 && c.after === 1 ? V("--ink") : V("--ink-3")).attr("stroke-width", c => c.before === 1 && c.after === 1 ? 2.4 : 0.6)
+    .call(sel => hov(sel, c => `${c.before} day${c.before === 1 ? "" : "s"} before to ${c.after} after: ${c[nucState].toFixed(2)}×`));
+  const vasco = F.cells.find(c => c.before === 1 && c.after === 1);
+  const vlab = s.append("text").attr("class", "ann").attr("text-anchor", "start").style("fill", V("--ink")).style("font-weight", 600).text("VASCO’s window");
+  const vline = s.append("line").attr("stroke", V("--ink")).attr("stroke-width", 1.2);
+  const show = (key, t) => {
+    nucState = key; const pos = place(key);
+    blocks.transition().duration(t).delay((c, i) => t ? (c.before + c.after) * 30 : 0).ease(d3.easeCubicInOut)
+      .attr("x", c => pos.get(c)[0]).attr("y", c => pos.get(c)[1]).attr("fill", c => NUC_COL(c[key]));
+    const [vx, vy] = pos.get(vasco), d_ = t ? (vasco.before + vasco.after) * 30 : 0;
+    const yl = pos.peak(vasco);
+    vlab.transition().duration(t).delay(d_).ease(d3.easeCubicInOut).attr("x", Math.max(vx + bwPx / 2 - 10, x(1) + 6)).attr("y", yl);
+    vline.transition().duration(t).delay(d_).ease(d3.easeCubicInOut).attr("x1", vx + bwPx / 2).attr("x2", vx + bwPx / 2).attr("y1", yl + 4).attr("y2", vy - 1);
+  };
+  show(nucState, 0);
+  d3.selectAll("#nuc-toggle button").on("click", function () {
+    d3.selectAll("#nuc-toggle button").classed("on", false); d3.select(this).classed("on", true);
+    show(this.dataset.key, matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 900);
+  }).classed("on", function () { return this.dataset.key === nucState; });
 }
 
 let DATA = null;
+/* ---------- how the track score rates one real candidate: the candidate on the sky in its box; the straightness test it
+   must pass first (with the close-pair rule as a schematic); and the four numbers that set the score ---------- */
+function drawMethod(D, id) {
+  // slides the reader steps through, in the order the method runs: 1 a real candidate; 2 the close-pair rule that forms
+  // it; 3 the straightness test, which throws away candidates under the cut; 4 the four numbers measured on one that
+  // passes; 5 the track score; and a summary, shown on load. Each slide declares how strongly each part shows
+  const M = D.method, s = svg(id);
+  if (!M) return;
+  const W = 760, H = 398, top = 92, ours = V("--ours"), grey = V("--ink-3"), ink = V("--ink"), ink2 = V("--ink-2"), rule = V("--rule");
+  s.attr("viewBox", `0 0 ${W} ${H}`);
+  const strip = Math.max(M.w, 1), N = M.N, r = M.r, one = d3.format(",")(Math.round(1 / M.score / 100) * 100), pc = Math.round(100 * M.p_chi2);
+  const head = (g, x, t) => g.append("text").attr("x", x).attr("y", top - 14).style("font-weight", 600).style("font-size", "13px").style("fill", ink).text(t);
+  const lab = (g, x, y, t, o = {}) => g.append("text").attr("x", x).attr("y", y).attr("text-anchor", o.anchor || "start")
+    .style("font-size", o.size || "11px").style("font-weight", o.bold ? 600 : null).style("fill", o.col || ink2).text(t);
+  const part = () => s.append("g").style("opacity", 0);
+  const sky = part(), pair = part(), fit = part(), meas = part(), score = part();
+
+  // the candidate on the sky, to scale
+  const S = 196, half = 0.8 * M.side, b = M.side / 2, g1 = sky.append("g").attr("transform", `translate(0,${top})`), m1 = meas.append("g").attr("transform", `translate(0,${top})`);
+  const sx = d3.scaleLinear().domain([-half, half]).range([0, S]), sy = d3.scaleLinear().domain([-half, half]).range([S, 0]);
+  head(sky, 0, `The candidate (${M.plate})`);
+  g1.append("rect").attr("width", S).attr("height", S).attr("rx", 8).attr("fill", V("--surface")).attr("stroke", rule);
+  m1.append("rect").attr("x", sx(-b)).attr("y", sy(b)).attr("width", sx(b) - sx(-b)).attr("height", sy(-b) - sy(b)).attr("fill", "none").attr("stroke", ink2).attr("stroke-dasharray", "4 3");
+  lab(m1, sx(-b), sy(b) - 6, `${Math.round(M.side)}′ box`);
+  const m = M.members, ex = d3.extent(m, d => d[0]), e0 = m.find(d => d[0] === ex[0]), e1 = m.find(d => d[0] === ex[1]);
+  const p0 = [sx(e0[0]), sy(e0[1])], p1 = [sx(e1[0]), sy(e1[1])], dl = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]);
+  const ux = (p1[0] - p0[0]) / dl, uy = (p1[1] - p0[1]) / dl, side = -uy > 0 ? -1 : 1;
+  const at = (t, d) => [p0[0] + ux * t - uy * d * side, p0[1] + uy * t + ux * d * side];
+  g1.append("line").attr("x1", at(-10, 0)[0]).attr("y1", at(-10, 0)[1]).attr("x2", at(dl + 10, 0)[0]).attr("y2", at(dl + 10, 0)[1]).attr("stroke", ours).attr("stroke-opacity", 0.6);
+  g1.selectAll("circle.o").data(M.others.filter(o => !m.some(q => Math.hypot(q[0] - o[0], q[1] - o[1]) < 0.01))).join("circle")
+    .attr("cx", d => sx(d[0])).attr("cy", d => sy(d[1])).attr("r", 3.2).attr("fill", grey).attr("fill-opacity", d => Math.max(Math.abs(d[0]), Math.abs(d[1])) <= b ? 0.95 : 0.4);
+  g1.selectAll("circle.m").data(m).join("circle").attr("cx", d => sx(d[0])).attr("cy", d => sy(d[1])).attr("r", 4.5).attr("fill", ours);
+  const q0 = at(0, 15), q1 = at(dl, 15), lp = at(dl / 2, 40), rp = at(dl * 0.2, -16);
+  m1.append("path").attr("d", `M${q0}L${q1}M${at(0, 11)}L${at(0, 19)}M${at(dl, 11)}L${at(dl, 19)}`).attr("stroke", ink2).attr("fill", "none");
+  lab(m1, lp[0], lp[1] + 4, `L = ${M.L.toFixed(1)}′`, { anchor: "middle", bold: true, col: ours });
+  lab(m1, rp[0], rp[1] + 4, `r = ${r}`, { anchor: "middle", bold: true, col: ours });
+  lab(m1, sx(0), sy(-b) + 16, `N = ${N} in the box`, { anchor: "middle", bold: true, col: ours });
+
+  // the close-pair rule, as a schematic, under the candidate
+  const y3 = top + S + 30, g3 = pair.append("g").attr("transform", `translate(0,${y3})`), xs3 = d3.scaleLinear().domain([0, 160]).range([12, S - 12]), yl = 22;
+  lab(g3, 0, 0, "Close pairs count once (schematic)", { bold: true, col: ink, size: "12px" });
+  g3.append("line").attr("x1", 0).attr("x2", S).attr("y1", yl).attr("y2", yl).attr("stroke", ours);
+  [[15, 3, 1], [92, -3, 1], [104, 8, 0], [150, -3, 1]].forEach(([a, o, keep]) => g3.append("circle").attr("cx", xs3(a)).attr("cy", yl - o).attr("r", 4.5)
+    .attr("fill", keep ? ours : V("--surface")).attr("stroke", ours).attr("stroke-width", keep ? 0 : 1.5));
+  [`Two transients fall within ${M.occupied}″ of each`, "other along the line; the transient", "closer to the line is kept"].forEach((l, i) => lab(g3, 0, yl + 24 + 14 * i, l));
+
+  // the straightness test: the track laid flat, distances across it enlarged, and the chi-squared probability against the cut
+  const x2 = 246, w2 = 248, h2 = 96, g2 = fit.append("g").attr("transform", `translate(${x2},${top})`);
+  head(fit, x2, "1. Is it straight?");
+  g2.append("rect").attr("width", w2).attr("height", h2).attr("rx", 8).attr("fill", V("--surface")).attr("stroke", rule);
+  const k = 20, yc = h2 / 2, xa = d3.scaleLinear().domain([0, M.L]).range([18, w2 - 18]);
+  g2.append("rect").attr("x", 10).attr("width", w2 - 20).attr("y", yc - k).attr("height", 2 * k).attr("fill", ours).attr("fill-opacity", 0.13);
+  g2.append("line").attr("x1", 10).attr("x2", w2 - 10).attr("y1", yc).attr("y2", yc).attr("stroke", ours);
+  M.res.forEach(([a, o]) => {
+    g2.append("line").attr("x1", xa(a)).attr("x2", xa(a)).attr("y1", yc).attr("y2", yc - k * o).attr("stroke", ours);
+    g2.append("circle").attr("cx", xa(a)).attr("cy", yc - k * o).attr("r", 4.5).attr("fill", ours);
+  });
+  lab(g2, w2 - 12, yc + k + 13, "±1″", { anchor: "end" });
+  [[at(-6, 0), [x2, top + 8]], [at(dl + 6, 0), [x2, top + h2 - 8]]].forEach(([pa, pb]) =>
+    fit.append("line").attr("x1", pa[0]).attr("y1", top + pa[1]).attr("x2", pb[0]).attr("y2", pb[1]).attr("stroke", ours).attr("stroke-opacity", 0.3).attr("stroke-dasharray", "2 3"));
+  // the chi-squared probability on a log scale: below the cut a candidate is thrown away
+  const yg = h2 + 34, hg = 16, xg = d3.scaleLog().domain([0.001, 1]).range([0, w2]);
+  lab(g2, 0, yg - 8, "χ² probability of a straight line");
+  g2.append("rect").attr("x", 0).attr("width", xg(M.p_min)).attr("y", yg).attr("height", hg).attr("fill", grey).attr("fill-opacity", 0.35);
+  g2.append("rect").attr("x", xg(M.p_min)).attr("width", w2 - xg(M.p_min)).attr("y", yg).attr("height", hg).attr("fill", ours).attr("fill-opacity", 0.18);
+  lab(g2, xg(M.p_min) / 2, yg + 11.5, "thrown away", { anchor: "middle", size: "10.5px" });
+  lab(g2, (xg(M.p_min) + xg(M.p_chi2)) / 2, yg + 11.5, "kept", { anchor: "middle", size: "10.5px", col: ours });
+  g2.append("line").attr("x1", xg(M.p_chi2)).attr("x2", xg(M.p_chi2)).attr("y1", yg - 3).attr("y2", yg + hg + 3).attr("stroke", ours).attr("stroke-width", 2.5);
+  lab(g2, xg(M.p_chi2), yg - 8, `${pc}%`, { anchor: "middle", bold: true, col: ours });
+  [0.001, 0.01, 0.1, 1].forEach(v => lab(g2, xg(v), yg + hg + 13, `${+(100 * v).toPrecision(1)}%`, { anchor: v === 0.001 ? "start" : v === 1 ? "end" : "middle", size: "10px" }));
+
+  // the score: four numbers in, one out
+  const x4 = 538, g4 = meas.append("g").attr("transform", `translate(${x4},${top})`), g5 = score.append("g").attr("transform", `translate(${x4},${top})`);
+  head(meas, x4, "2. How often would chance do this?");
+  [[`r = ${r}`, "transients"], [`L = ${M.L.toFixed(1)}′`, "long"], [`w = ±${strip.toFixed(0)}″`, "wide"], [`N = ${N}`, "in the box"]].forEach(([v, t], i) => {
+    const cx = (i % 2) * 112, cy = Math.floor(i / 2) * 50;
+    g4.append("rect").attr("x", cx).attr("y", cy).attr("width", 104).attr("height", 40).attr("rx", 8).attr("fill", ours).attr("fill-opacity", 0.1).attr("stroke", ours).attr("stroke-opacity", 0.4);
+    lab(g4, cx + 52, cy + 18, v, { anchor: "middle", bold: true, col: ours, size: "12.5px" });
+    lab(g4, cx + 52, cy + 32, t, { anchor: "middle", size: "10.5px" });
+  });
+  g5.append("path").attr("d", "M108,108 l0,18 m-6,-7 l6,7 l6,-7").attr("stroke", ink2).attr("fill", "none").attr("stroke-width", 1.5);
+  g5.append("text").attr("x", 108).attr("y", 162).attr("text-anchor", "middle").style("font-size", "26px").style("font-weight", 600).style("fill", ours).text(`1 in ${one}`);
+  lab(g5, 108, 182, "expected by chance in the box", { anchor: "middle" });
+
+  const t1 = s.append("text").attr("x", 0).attr("y", 20).style("font-size", "13.5px"), t2 = s.append("text").attr("x", 0).attr("y", 42).style("font-size", "13.5px");
+  const parts = { sky, pair, fit, meas, score }, dim = 0.3;
+  const slides = [
+    { sky: 1, text: [`A track candidate on plate ${M.plate}: two end points up to ${M.lmax}′ apart, and transients between them`,
+      `lying within ${M.hmax}″ of the line joining them.`] },
+    { sky: 1, pair: 1, text: ["Transients close together along the line count once, so a tight group cannot make a line look stronger."] },
+    { sky: dim, pair: dim, fit: 1, text: [`We fit a straight line, allowing ${strip.toFixed(0)}″ per transient, the plates’ precision.`,
+      `Candidates with a χ² probability under ${Math.round(100 * M.p_min)}% are thrown away. This one has ${pc}% and is kept.`] },
+    { sky: 1, pair: dim, fit: dim, meas: 1, text: ["A kept candidate is measured: the number of transients in it (r), its length (L), its width (w, at least 1″),",
+      "and the number of transients in a box around it (N)."] },
+    { sky: dim, pair: dim, fit: dim, meas: 1, score: 1, text: ["Together they give the track score: the number of tracks like this expected by chance in the box.",
+      `For this candidate, about 1 in ${one}.`] },
+    { sky: 1, pair: 1, fit: 1, meas: 1, score: 1, text: ["Each candidate is first tested for straightness. Those that pass get a track score",
+      "from four measured numbers."] }
+  ];
+  const last = slides.length - 1;
+  let cur = -1, timers = [];
+  const at2 = (ms, f) => timers.push(setTimeout(f, ms));
+  const show = (k, dur) => {
+    timers.forEach(clearTimeout); timers = []; s.selectAll("*").interrupt();
+    const sl = slides[k], out = dur ? 250 : 0, lv = key => sl[key] || 0;
+    for (const [key, g] of Object.entries(parts)) if (lv(key) < +g.style("opacity")) g.transition().duration(out).style("opacity", lv(key));
+    [t1, t2].forEach(el => el.transition().duration(out).style("opacity", 0));
+    at2(out, () => {
+      [t1, t2].forEach((el, i) => el.text(sl.text[i] || "").style("fill", ink).transition().duration(dur ? 400 : 0).style("opacity", 1));
+      for (const [key, g] of Object.entries(parts)) if (lv(key) > +g.style("opacity")) g.transition().duration(dur ? 450 : 0).style("opacity", lv(key));
+    });
+    cur = k;
+  };
+  const ctl = d3.select("#method-steps"), back = ctl.select(".back"), next = ctl.select(".next"), pos = ctl.select(".pos");
+  const go = (k, instant) => {
+    show(k, instant || matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 1);
+    back.property("disabled", k === 0);
+    next.text(k === last ? "Step through ›" : k === last - 1 ? "Summary ›" : "Next ›");
+    pos.text(k === last ? "Summary" : `${k + 1} of ${last}`);
+  };
+  back.on("click", () => go(cur - 1));
+  next.on("click", () => go(cur === last ? 0 : cur + 1));
+  go(last, true);
+}
+
 function render() {
   if (!DATA) return;
   drawSky(DATA, "c-sky0", false); drawSpread(DATA); drawSky(DATA, "c-sky", true); drawChance(DATA); drawPerm(DATA, "c-perm-any", "raw", "VASCO’s test");
   drawPerm(DATA, "c-nuc-corr", "corrected", "Per photograph, allowing for pointing", { line: "Plates near tests", trials: "Shifted calendars",
     xlab: "Transients per photograph near the chosen dates, against pointing, relative to the rest", ylab: "Share of shifted calendars" }); drawNucChecks(DATA, "c-nuc-checks"); drawNucWindowHist(DATA, "c-nuc-windows");
-  drawFan(DATA); drawTracks(DATA); drawCompare(DATA, "c-compare"); drawTail(DATA, "tail-gallery"); drawWidths(DATA, "c-widths"); drawTrail(DATA, "c-trail"); fillDates(DATA); drawRadialMap(DATA); drawRadial(DATA); drawCrowd(DATA);
+  drawFan(DATA); drawMethod(DATA, "c-method"); drawTracks(DATA); drawCompare(DATA, "c-compare"); drawLimit(DATA, "c-limit"); fillDates(DATA); drawRadialMap(DATA); drawRadial(DATA); drawCrowd(DATA); drawPointing(DATA); drawRows(DATA);
   drawPlates(DATA, "c-plates"); drawForest(DATA, "c-ratio-vasco"); drawRatioNull(DATA, "c-ratio-null");
 }
 fetch("data/site.json").then(r => r.json()).then(d => { DATA = d; render(); })
