@@ -1,5 +1,7 @@
 # POSS-I transients re-examined
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23549537.svg)](https://doi.org/10.5281/zenodo.23549537)
+
 A re-examination of three statistical claims made by the VASCO project about transients on the red plates of the first
 Palomar Sky Survey (1949–1957): fewer transients inside Earth's shadow, more transients near US nuclear tests, and
 transients lying in straight lines. Also a correction to the archive dates of the plates.
@@ -121,4 +123,5 @@ CC BY 4.0 (`LICENSE-CONTENT.md`). Inputs from others keep their own terms.
 
 ## Citing
 
-See `CITATION.cff`. Each GitHub release is archived on Zenodo with a DOI.
+See `CITATION.cff`. Each GitHub release is archived on Zenodo: [doi:10.5281/zenodo.23549537](https://doi.org/10.5281/zenodo.23549537)
+(all versions; v1.0 is [doi:10.5281/zenodo.23549538](https://doi.org/10.5281/zenodo.23549538)).
