@@ -79,7 +79,7 @@ Kept in the repository, because they were made by hand or take hours of calls to
 | `data/plate_dust.csv` | dust towards each plate | `plate_dust.py` (IRSA), run by `make` for new plates only |
 | `data/plate_depth.csv` | each plate's depth and sharpness, measured on Gaia stars in DSS cutouts | `plate_depth.py`, run by `make` when its inputs change |
 | `data/us_shot_times.csv` | the time of each US shot, by test series, including the eleven of Operation Upshot-Knothole (1953) missing from VASCO's list | compiled from DOE/NV-209, with a source for each row |
-| `data/shadow_null_checks.json` | the pooled shadow null checked: calibration on plates the shadow never crossed, no leak, injected shortfalls recovered, and the pointing curve term by term | `shadow_null_checks.py` (`make shadow-checks`) |
+| `data/shadow_null_checks.json` | the pooled shadow null checked: calibration on plates no shadow reaches, no leak, injected shortfalls recovered, and the pointing curve term by term | `shadow_null_checks.py` (`make shadow-checks`) |
 | `data/alignment_null_checks.json` | the alignment null made other ways, as a check on it | `alignment_null_checks.py` (`make null-checks`), which repeats the slow search |
 | `data/vasco_2025_candidates.csv` | VASCO's five shortlisted alignments | from the tables in their 2025 paper |
 | `data/ml_checks.json` | VASCO-ML's ratings checked: what drives them, the labels, the nuclear test's plate-level weighting, shuffles within plates, position on the plate | `ml_checks.py` (`make ml-checks`) |
@@ -89,7 +89,18 @@ Kept in the repository, because they were made by hand or take hours of calls to
 
 - **Plate area for Earth's shadow.** Each plate is its central 6 × 6 degrees, the plate size VASCO use, which their
   random positions cover evenly. The pooled count and the plate-by-plate fit use the same square. The shadow's radius is
-  8.69°, as in Villarroel et al. (2025); VASCO-ML's code uses 8.50°, and `shadow_pooled.py` repeats the test there.
+  8.69° (where the Earth hides half the Sun), as in Villarroel et al. (2025); VASCO-ML's code uses 8.50°, and `shadow_pooled.py` repeats the test there.
+- **Shadow model.** The shadow is placed as seen from Palomar (topocentric), where it actually fell on the plates; seen
+  this way it slides 1.4 to 1.8° across a plate during an exposure. Each transient counts by the share of its plate's
+  exposure that its place spent in shadow, with the edge following the share of the Sun's disc the Earth hides
+  (`shadow.py`). Placed from the centre of the Earth, as VASCO place it, the shadow sits 2.1 to 3.6° from where it fell, so
+  only VASCO's own construction is also run that way, to reproduce their published result. Every test is repeated under
+  the model's systematics (`shadow.variants`: umbra or penumbra edge, the atmosphere, every plate's times moved by 1 and
+  5 minutes, one instant per exposure, a sharp edge, finer sampling of the exposure).
+- **Plate times.** Mid-exposure times come from each plate's header, whose time field is hours and hundredths of an
+  hour, and its exposure length (`date_corrections.py`); Palomar's log agrees with both on every shadow plate. Asteroid
+  trails on 58 plates time the middle of the exposure independently and agree with ours to 0.7 minutes (robust scatter).
+  Whether an exposure was ever paused cannot be checked; moving every time by 5 minutes stands in for it.
 - **Ratings.** VASCO-ML publishes a rating of how likely each transient is to be real; the catalogue's own rating
   column holds one default value. The shadow test counts each transient by its rating, with the pointing curve fitted to
   the summed ratings, and is also run in each tenth of the ratings (VASCO-ML's decile edges, `sample.decile`), all ten
@@ -99,16 +110,16 @@ Kept in the repository, because they were made by hand or take hours of calls to
   counts each transient once. The plan and the reasoning behind each choice: `analysis/ML_PLAN.md`.
 - **Density across a plate.** Transients are two to three times denser at plate edges and corners. In the
   plate-by-plate fit, each part of a plate is weighted by the average density of transients there, measured on plates
-  the shadow never crossed, so the weights cannot absorb a real shortfall in the shadow. Injected shortfalls are
+  no shadow reaches, so the weights cannot absorb a real shortfall in the shadow. Injected shortfalls are
   recovered (`shadow_fit.py`).
 - **Pointing.** Plates differ in how many transients they hold depending on where the telescope pointed: distance
   from the Milky Way, dust, and distance from the ecliptic; and the row of plates centred on the celestial equator holds
   about a third as many as the rest, already so in Solano et al.'s published list (on the same sky, about two-fifths as
   many as the row to its north), so the curve has a term for it. One curve (`plate_properties.pointing`) gives every plate
   an expected count. The pooled shadow test scales each random placement to the shadow plate's pointing, with the curve
-  fitted without the plates the shadow crosses; the nuclear test measures plates against it, also refitted without the
+  fitted without the plates any shadow reaches; the nuclear test measures plates against it, also refitted without the
   plates near tests. `shadow_null_checks.py` checks the scaled shadow null gives the right share of
-  low results on plates the shadow never crossed, and recovers injected shortfalls.
+  low results on plates no shadow reaches, and recovers injected shortfalls.
 - **Calibration by the real data.** Counting statistics treat transients as independent; they are not. Every
   significance on the page comes from the real data: shadow outlines laid on other plates, the test calendar shifted
   to other years, and copies of the catalogue with real lines broken but the clumps kept.

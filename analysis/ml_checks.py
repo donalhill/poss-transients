@@ -24,8 +24,8 @@ import statsmodels.api as sm
 import plate_properties as PP
 import sample
 import shadow_fit as SF
-from shadow import HALF, SHADOW_DEG, antisun_axis, cell_counts, deproject, shadow_share, unit, vasco_plate
-from astropy.time import Time
+import shadow as SH
+from shadow import HALF
 
 ROOT = Path(__file__).resolve().parents[1]
 NSHUF = 500
@@ -63,12 +63,12 @@ lab["near_vasco"] = (lab.row >= 0) & np.isin(((arch.reindex(lab.row.clip(0)).val
 lab["near_ours"] = lab.plate.map(pd.Series(m0, P.index)).fillna(False).astype(bool)
 grp = lambda m: {"real": int((lab.label[m] == 1).sum()), "flaw": int((lab.label[m] == 0).sum())}
 SPL = pd.read_parquet(ROOT / "data/shadow_plates.parquet")
-shadow_pl = set(SPL.index[SPL.f_area > 0])
+area = {"topo": SPL.f_area}
 out["labels"] = {"total": grp(lab.index == lab.index), "matched": grp(lab.row >= 0),
                  "by_file": {f: grp(lab.label_file == f) for f in lab.label_file.unique()},
                  "near_tests_vasco": grp(lab.near_vasco), "near_tests_ours": grp(lab.near_ours),
                  "near_tests_by_file": {f: grp(lab.near_vasco & (lab.label_file == f)) for f in lab.label_file.unique()},
-                 "on_shadow_plates": grp(lab.plate.isin(shadow_pl)),
+                 "on_shadow_plates": {f: grp(lab.plate.isin(SPL.index[a > 0])) for f, a in area.items()},
                  "share_of_window_transients_labelled": r3(lab.near_vasco.sum() / max(1, near(((arch - DAY0).dt.days).values, (-1, 0, 1), TESTS_V).sum())),
                  "share_of_all_transients_labelled": r3((lab.row >= 0).sum() / len(full)),
                  "mean_rating": {"real": r3(lab.prob[lab.label == 1].mean()), "flaw": r3(lab.prob[lab.label == 0].mean())}}
@@ -136,70 +136,73 @@ def shuffled():
 
 
 c6 = (cat.xi.abs() < HALF) & (cat.eta.abs() < HALF)
-hosts_mask = ~cat.plate.isin(SPL.query("f_area > 0 or f_area_topo > 0").index) & c6
-partial = sorted(SPL.query("0 < f_area < 1").index)
-geo = {}
-for q in partial:
-    p = plates.loc[q]; V = vasco_plate(q, p, cat[c6]); s = shadow_share(V["sub"], p.ut)
-    ax = np.asarray(antisun_axis(Time(pd.Timestamp(p.ut).to_datetime64()))).reshape(3)
-    c = cat[c6 & (cat.plate == q)]
-    geo[q] = dict(s=s, idx=c.index.values, inside=(unit(*deproject(c.xi.values, c.eta.values, p.ra_c, p.dec_c)) @ ax) > np.cos(np.radians(SHADOW_DEG)))
-whole = sorted(SPL.query("f_area >= 1").index)
+hosts_mask = ~cat.plate.isin(SF.crossed_plates()) & c6
 hidx = cat.index[hosts_mask].values; hpl = cat.plate[hosts_mask].values; hx, hy = cat.xi[hosts_mask].values, cat.eta[hosts_mask].values
 hcode = pd.factorize(hpl)[0]
+cats = cat[hosts_mask]
 
 
-def shadow_stats(w):
-    """The pooled weighted count in shadow (every crossed plate) and the plate-by-plate weighted ratio, for ratings w."""
+def outlines(S):
+    """Each plate the shadow (model S) covers for part of its face or exposure: its sub-points' shares, its transients
+    and their shares, and the shadow laid at the same place on every host plate's transients; and the plates it covers
+    throughout."""
+    geo, whole = {}, []
+    for q in sorted(SF.crossed_plates() & set(plates.index)):
+        p = plates.loc[q]; sub = SH.sub_dark(p, S)
+        if not sub.any():
+            continue
+        c = cat[c6 & (cat.plate == q)]
+        if (sub > 1 - 1e-9).all():
+            whole.append(q); continue
+        geo[q] = dict(sub=sub.mean(1), idx=c.index.values, s=SH.dark(c.xi.values, c.eta.values, p, S), hs=SH.dark(hx, hy, p, S))
+    return geo, whole
+
+
+def shadow_stats(w, geo, whole):
+    """The pooled weighted count in shadow (every plate the shadow reaches) and the plate-by-plate weighted ratio (as
+    shadow_fit.measure fits it), for ratings w."""
     ws = pd.Series(w, cat.index)
     g = int(round(2 * HALF / 0.1)); maps = np.zeros((hcode.max() + 1, g * g))
     ix = np.floor((hx + HALF) / 0.1).astype(int); iy = np.floor((hy + HALF) / 0.1).astype(int)
     np.add.at(maps, (hcode, iy * g + ix), ws.reindex(hidx).values)
     acc = (maps / maps.sum(1, keepdims=True)).mean(0); acc /= acc.mean()
-    f = np.array([np.sum(geo[q]["s"] * acc) / acc.sum() for q in partial])
-    O = np.array([ws[geo[q]["idx"]][geo[q]["inside"]].sum() for q in partial]); n = np.array([ws[geo[q]["idx"]].sum() for q in partial])
-    k = np.array([n[j] / (ws[geo[q]["idx"]] ** 2).sum() for j, q in enumerate(partial)])
-    r = float(SF.make_fit(f)((O * k)[None], (n * k)[None])[0])
-    pooled = O.sum() + sum(ws[cat.index[c6 & (cat.plate == q)]].sum() for q in whole)
-    return pooled, r
+    L = 0.0
+    for q, o in geo.items():
+        u = ws[o["idx"]].values
+        L = L + u.sum() / (u ** 2).sum() * SF.curve(o["s"], u, float(o["sub"] @ acc / acc.sum()))
+    pooled = sum(ws[o["idx"]].values @ o["s"] for o in geo.values()) + sum(ws[cat.index[c6 & (cat.plate == q)]].sum() for q in whole)
+    return pooled, float(SF.best(L))
 
 
-real = shadow_stats(cat.w.values)
-sh = np.array([shadow_stats(shuffled()) for _ in range(NSHUF)])
-w_nolab = cat.w.copy(); w_nolab[lab.row[(lab.row >= 0) & lab.plate.isin(shadow_pl)].values] = 0.0   # 2d: weight 0 removes them
-nolab = shadow_stats(w_nolab.values)
-out["shadow"] = {"without_labelled": {"pooled": r3(nolab[0]), "plate_by_plate_r": r3(nolab[1]), "removed": int(lab.plate.isin(shadow_pl).sum())},
-                 "pooled": {"real": r3(real[0]), "shuffled_median": r3(np.median(sh[:, 0])),
-                            "shuffled_90": [r3(np.quantile(sh[:, 0], 0.05)), r3(np.quantile(sh[:, 0], 0.95))],
-                            "p_as_low": r3((np.sum(sh[:, 0] <= real[0]) + 1) / (NSHUF + 1))},
-                 "plate_by_plate_r": {"real": r3(real[1]), "shuffled_median": r3(np.median(sh[:, 1])),
-                                      "shuffled_90": [r3(np.quantile(sh[:, 1], 0.05)), r3(np.quantile(sh[:, 1], 0.95))],
-                                      "p_as_low": r3((np.sum(sh[:, 1] <= real[1]) + 1) / (NSHUF + 1))},
-                 "shuffles": NSHUF}
-
-# 2e: on plates the shadow never crosses, each real outline laid at its place on the plate face: the mean rating of host
-# transients inside it against outside, pooled over every host plate; shuffling within plates keeps each plate's ratings
-# and removes any tie to position
-cats = cat[hosts_mask]
-
-
-def sculpt(w):
+# 2e: on plates no shadow reaches, each real shadow laid at its place on the plate face: the mean rating of host
+# transients in shadow against those in sunlight, each counted by its share in shadow, averaged over the shadows;
+# shuffling within plates keeps each plate's ratings and removes any tie to position
+def sculpt(w, geo):
     ws = pd.Series(w, cat.index).reindex(cats.index).values
-    res = []
-    for q in partial:
-        s = geo[q]["s"]
-        g = int(round(2 * HALF / 0.1)); ix = np.floor((cats.xi.values + HALF) / 0.1).astype(int); iy = np.floor((cats.eta.values + HALF) / 0.1).astype(int)
-        inside = s[iy * g + ix] > 0.5
-        res.append([ws[inside].mean(), ws[~inside].mean()])
-    a = np.array(res)
+    a = np.array([[(ws * o["hs"]).sum() / o["hs"].sum(), (ws * (1 - o["hs"])).sum() / (1 - o["hs"]).sum()] for o in geo.values() if o["hs"].sum() > 0])
     return float(np.mean(a[:, 0] / a[:, 1]))
 
 
-s_real = sculpt(cat.w.values)
-s_null = np.array([sculpt(shuffled()) for _ in range(200)])
-out["sculpting"] = {"inside_over_outside_mean_rating": r3(s_real), "shuffled_median": r3(np.median(s_null)),
-                    "shuffled_90": [r3(np.quantile(s_null, 0.05)), r3(np.quantile(s_null, 0.95))],
-                    "p_two_sided": r3(2 * min(np.mean(s_null >= s_real), np.mean(s_null <= s_real)))}
+out["shadow"], out["sculpting"] = {}, {}
+for S in (SH.MAIN,):
+    geo, whole = outlines(S); on = lab.plate.isin(list(geo) + whole)
+    real = shadow_stats(cat.w.values, geo, whole)
+    sh = np.array([shadow_stats(shuffled(), geo, whole) for _ in range(NSHUF)])
+    w_nolab = cat.w.copy(); w_nolab[lab.row[(lab.row >= 0) & on].values] = 0.0   # 2d: weight 0 removes them
+    nolab = shadow_stats(w_nolab.values, geo, whole)
+    out["shadow"][S.frame] = {"without_labelled": {"pooled": r3(nolab[0]), "plate_by_plate_r": r3(nolab[1]), "removed": int(on.sum())},
+                              "pooled": {"real": r3(real[0]), "shuffled_median": r3(np.median(sh[:, 0])),
+                                         "shuffled_90": [r3(np.quantile(sh[:, 0], 0.05)), r3(np.quantile(sh[:, 0], 0.95))],
+                                         "p_as_low": r3((np.sum(sh[:, 0] <= real[0]) + 1) / (NSHUF + 1))},
+                              "plate_by_plate_r": {"real": r3(real[1]), "shuffled_median": r3(np.median(sh[:, 1])),
+                                                   "shuffled_90": [r3(np.quantile(sh[:, 1], 0.05)), r3(np.quantile(sh[:, 1], 0.95))],
+                                                   "p_as_low": r3((np.sum(sh[:, 1] <= real[1]) + 1) / (NSHUF + 1))},
+                              "shuffles": NSHUF}
+    s_real = sculpt(cat.w.values, geo)
+    s_null = np.array([sculpt(shuffled(), geo) for _ in range(200)])
+    out["sculpting"][S.frame] = {"inside_over_outside_mean_rating": r3(s_real), "shuffled_median": r3(np.median(s_null)),
+                                 "shuffled_90": [r3(np.quantile(s_null, 0.05)), r3(np.quantile(s_null, 0.95))],
+                                 "p_two_sided": r3(2 * min(np.mean(s_null >= s_real), np.mean(s_null <= s_real)))}
 
 (ROOT / "data/ml_checks.json").write_text(json.dumps(out, indent=1))
 print(json.dumps(out, indent=1))

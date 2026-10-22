@@ -1,8 +1,9 @@
 """Which POSS-I red plates, from Palomar's own log, were crossed by Earth's shadow at geostationary height?
 
 For every plate in the log (VizieR VI/25, data/palomar_log_vi25.csv): mid-exposure time in UT (local start time is
-Pacific Standard Time, exposure from the log), the fraction of the plate's 6 x 6 deg area within 8.69 deg of the
-geocentric anti-sun point, and whether the plate is in VASCO's catalogue of 107,875 transients. Plates crossed by the
+Pacific Standard Time, exposure from the log), the share of the plate's central 6 x 6 deg in shadow over its exposure
+under the page's shadow model (shadow.MAIN, seen from Palomar), and whether the plate is in VASCO's catalogue of 107,875
+transients. Plates crossed by the
 shadow but missing from the catalogue are the ones that would enlarge the shadow test.
 
 python analysis/shadow_plates_log.py   -> data/shadow_plates_log.csv"""
@@ -14,12 +15,11 @@ import numpy as np
 import pandas as pd
 import astropy.units as u
 from astropy.coordinates import SkyCoord
-from astropy.time import Time
 
 warnings.simplefilter("ignore")
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "analysis"))
-from shadow import SHADOW_DEG, antisun_geocentric   # noqa: E402
+import shadow as SH   # noqa: E402
 
 log = pd.read_csv(ROOT / "data/palomar_log_vi25.csv").dropna(subset=["red_start_local", "ra_j2000", "dec_j2000"])
 c = SkyCoord(log.ra_j2000.values, log.dec_j2000.values, unit=(u.hourangle, u.deg))
@@ -30,19 +30,9 @@ log["ut"] = (day + pd.to_timedelta(hh, unit="h") + pd.Timedelta(hours=8)
              + pd.to_timedelta(log.red_exposure_min.fillna(45) / 2, unit="m"))
 
 
-def deproject(xi, eta, ra0, dec0):
-    xi, eta, ra0, dec0 = map(np.radians, (xi, eta, ra0, dec0))
-    rho = np.hypot(xi, eta); cc = np.arctan(rho)
-    dec = np.arcsin(np.cos(cc) * np.sin(dec0) + np.where(rho > 0, eta * np.sin(cc) * np.cos(dec0) / np.where(rho > 0, rho, 1), 0))
-    ra = ra0 + np.arctan2(xi * np.sin(cc), rho * np.cos(dec0) * np.cos(cc) - eta * np.sin(dec0) * np.sin(cc))
-    return np.degrees(ra) % 360, np.degrees(dec)
-
-
-g = np.linspace(-3.0, 3.0, 31); X, Y = np.meshgrid(g, g)
-frac = []
-for _, p in log.iterrows():
-    ra, dec = deproject(X.ravel(), Y.ravel(), p.ra, p.dec)
-    frac.append(float(np.mean(antisun_geocentric(ra, dec, Time(np.full(ra.size, p.ut.to_datetime64()))) < SHADOW_DEG)))
+log["exp"] = log.red_exposure_min.fillna(45.0)
+frac = [float(SH.sub_dark(pd.Series({"ra_c": p.ra, "dec_c": p.dec, "ut": p.ut, "exp": p.exp}, name=i), SH.MAIN).mean())
+        for i, p in log.iterrows()]
 log["shadow_fraction"] = frac
 
 pl = pd.read_parquet(ROOT / "data/plates_corrected.parquet")

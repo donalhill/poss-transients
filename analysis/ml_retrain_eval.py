@@ -10,12 +10,12 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from astropy.time import Time
 
 import plate_properties as PP
 import sample
 import shadow_fit as SF
-from shadow import HALF, SHADOW_DEG, antisun_axis, deproject, shadow_share, unit, vasco_plate
+import shadow as SH
+from shadow import HALF
 
 ROOT = Path(__file__).resolve().parents[1]
 RAT = ROOT / "data/external/vasco_ml/ratings"
@@ -42,17 +42,16 @@ keep = [i for i, m in enumerate(slid) if abs(m.sum() - m0.sum()) <= 0.3 * m0.sum
 vwin = near(((vn - DAY0).days).values, (-1, 0, 1), TESTS_V)
 perm = [rng.choice(len(vn), int(vwin.sum()), replace=False) for _ in range(5000)]
 
-# the shadow plate by plate, as shadow_fit.measure fits it (the fitted ratio only)
-SPL = pd.read_parquet(ROOT / "data/shadow_plates.parquet")
+# the shadow plate by plate, as shadow_fit.measure fits it (the fitted ratio only), the shadow seen from Palomar
 c6 = (cat.xi.abs() < HALF) & (cat.eta.abs() < HALF)
-hosts = ~cat.plate.isin(SPL.query("f_area > 0 or f_area_topo > 0").index) & c6
-partial = sorted(SPL.query("0 < f_area < 1").index)
+hosts = ~cat.plate.isin(SF.crossed_plates()) & c6
 geo = {}
-for q in partial:
-    p = plates.loc[q]; V = vasco_plate(q, p, cat[c6]); s = shadow_share(V["sub"], p.ut)
-    ax = np.asarray(antisun_axis(Time(pd.Timestamp(p.ut).to_datetime64()))).reshape(3)
+for q in sorted(SF.crossed_plates() & set(plates.index)):
+    p = plates.loc[q]; sub = SH.sub_dark(p, SH.MAIN)
+    if not sub.any() or (sub > 1 - 1e-9).all():
+        continue
     c = cat[c6 & (cat.plate == q)]
-    geo[q] = dict(s=s, idx=c.index.values, inside=(unit(*deproject(c.xi.values, c.eta.values, p.ra_c, p.dec_c)) @ ax) > np.cos(np.radians(SHADOW_DEG)))
+    geo[q] = dict(sub=sub.mean(1), idx=c.index.values, s=SH.dark(c.xi.values, c.eta.values, p, SH.MAIN))
 hidx = cat.index[hosts].values; hcode = pd.factorize(cat.plate[hosts].values)[0]
 hcell = np.floor((cat.eta[hosts].values + HALF) / 0.1).astype(int) * 60 + np.floor((cat.xi[hosts].values + HALF) / 0.1).astype(int)
 
@@ -60,10 +59,11 @@ hcell = np.floor((cat.eta[hosts].values + HALF) / 0.1).astype(int) * 60 + np.flo
 def shadow_r(ws):
     maps = np.zeros((hcode.max() + 1, 3600)); np.add.at(maps, (hcode, hcell), ws.reindex(hidx).values)
     acc = (maps / maps.sum(1, keepdims=True)).mean(0); acc /= acc.mean()
-    f = np.array([np.sum(geo[q]["s"] * acc) / acc.sum() for q in partial])
-    O = np.array([ws[geo[q]["idx"]][geo[q]["inside"]].sum() for q in partial]); n = np.array([ws[geo[q]["idx"]].sum() for q in partial])
-    k = np.array([n[j] / (ws[geo[q]["idx"]] ** 2).sum() for j, q in enumerate(partial)])
-    return float(SF.make_fit(f)((O * k)[None], (n * k)[None])[0])
+    L = 0.0
+    for o in geo.values():
+        u = ws[o["idx"]].values
+        L = L + u.sum() / (u ** 2).sum() * SF.curve(o["s"], u, float(o["sub"] @ acc / acc.sum()))
+    return float(SF.best(L))
 
 
 def evaluate(prob):

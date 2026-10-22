@@ -1,5 +1,6 @@
 const tip = document.getElementById("tip");
 // a share in words, as the page's text gives it (build_site.frac): "1 time in 7" when small, else the nearest simple fraction
+const pctText = v => v < 0.01 && v > 0 ? (100 * v).toFixed(1) : String(Math.round(100 * v));   // "0.3", "47"
 const shareText = p => {
   if (p < 0.25) return `1 time in ${Math.round(1 / p)}`;
   let best = [1, 2];
@@ -34,7 +35,7 @@ function ring(pts) {   // close a ring and wind it so d3 fills the small side
   if (d3.geoArea(g) > 2 * Math.PI) g = { type: "Polygon", coordinates: [c.slice().reverse()] };
   return g;
 }
-function drawSky(D, id, shadow) {   // shadow: pick out the plates the shadow crossed
+function drawSky(D, id, shadow, play = "shadow-play") {   // shadow: pick out the plates the shadow crossed; play: its button
   const s = svg(id), W = 760, H = 760, cx = W / 2, cy = H / 2, Rd = W / 2 - 44;
   s.attr("viewBox", `0 0 ${W} ${H}`);
   const plates = D.plates.map(p => Object.assign({}, p, { g: ring(p.poly) }));
@@ -69,11 +70,11 @@ function drawSky(D, id, shadow) {   // shadow: pick out the plates the shadow cr
   s.append("g").selectAll("path").data(sh).join("path").attr("class", "shp").attr("pointer-events", "none").attr("d", p => path(p.g)).attr("fill", "none").attr("stroke", "#ffffff").attr("stroke-width", 5);
   s.append("g").selectAll("path").data(sh).join("path").attr("class", "hov shp").attr("d", p => path(p.g))
     .attr("fill", p => p.N !== undefined ? col(Math.max(p.N, 5)) : V("--surface")).attr("stroke", "#111418").attr("stroke-width", 1.8)
-    .call(sel => hov(sel, p => `<b>Plate ${p.id}</b> · ${p.date}<br>${fmt(p.N)} transients on the whole plate<br>${Math.round(p.frac * 100)}% of the central 6 × 6° inside the shadow<br>${p.obs} transients in the shadowed part; an average plate would have about ${Math.round(p.exp)} there`));
+    .call(sel => hov(sel, p => `<b>Plate ${p.id}</b> · ${p.date}<br>${fmt(p.N)} transients on the whole plate<br>${Math.round(p.frac * 100)}% of the central 6 × 6° inside the shadow<br>${p.obs} transients in the shadowed part, each by its share of the exposure there; an average plate would have about ${Math.round(p.exp)} there`));
 
   s.append("g").attr("pointer-events", "none").selectAll("path").data(sh).join("path").attr("class", "shp").attr("d", p => path(ring(p.circle)))
     .attr("fill", "none").attr("stroke", SHADOW).attr("stroke-width", 2.4);
-  if (shadow) playShadow(s, sh, W);
+  if (shadow) playShadow(s, sh, W, play);
   const darkHalo = sel => sel.attr("class", "ann").style("font-weight", 600).style("fill", "#111418").style("paint-order", "stroke").style("stroke", "#ffffff").style("stroke-width", "3px");
   for (let h = 0; h < 24; h += 2) {   // hours of right ascension round the rim
     const [x, y] = proj([h * 15, 90 - clip + 0.5]), r = Math.hypot(x - cx, y - cy), R = Rd + 16;
@@ -101,13 +102,13 @@ function drawSky(D, id, shadow) {   // shadow: pick out the plates the shadow cr
 
 /* ---------- the shadow plates one at a time, in the order they were taken: each plate and its shadow light up in turn,
    with a label, then all are shown together ---------- */
-function playShadow(s, sh, W) {
+function playShadow(s, sh, W, play) {
   const order = sh.slice().sort((a, b) => a.date.localeCompare(b.date));
   // in the top-right corner, clear of the disc and its hour labels
   const lab = s.append("text").attr("x", W - 4).attr("y", 18).attr("text-anchor", "end").style("font-size", "15px").style("font-weight", 600).style("fill", V("--ink"));
   const sub = s.append("text").attr("x", W - 4).attr("y", 38).attr("text-anchor", "end").style("font-size", "14px").style("fill", V("--ink-2"));
   const day = d3.timeFormat("%b %Y"), all = s.selectAll(".shp");
-  d3.select("#shadow-play").on("click", () => {
+  d3.select("#" + play).on("click", () => {
     const step = matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 1300;
     all.interrupt().style("opacity", 0); lab.text(""); sub.text("");
     order.forEach((p, i) => {
@@ -151,14 +152,14 @@ function erf(x) {   // Abramowitz and Stegun 7.1.26
 }
 
 /* ---------- 2. two ideas of chance ---------- */
-function drawChance(D) {
+function drawChance(D, id = "c-chance", steps = "chance-steps") {
   // The observed count of transients in shadow against two measures of chance, told as slides the reader steps through:
   // 1 the observed count; 2 VASCO's model (every transient independent), its expected value and standard deviation;
   // 3 the shortfall in those standard deviations; 4 the real spread, built trial by trial from random plates; 5 the trials
   // as low as the observed count, shaded exactly (a clip at the observed count splits the bar it falls in); and a summary,
   // shown on load. Each slide declares its whole end state: what leaves fades out first, then the axis moves, then what
   // arrives fades in, so nothing from one slide shows on another
-  const P = D.paste, s = svg("c-chance"), W = 760, H = 402, m = { l: 44, r: 16, t: 100, b: 42 };
+  const P = D.paste, s = svg(id), W = 760, H = 402, m = { l: 44, r: 16, t: 100, b: 42 };
   s.attr("viewBox", `0 0 ${W} ${H}`);
   const binw = P.bins[1] - P.bins[0], bins = P.counts.map((c, i) => ({ x0: P.bins[i], x1: P.bins[i + 1], c })).filter(d => d.x0 < P.wide);
   const mu = P.area_expected, sd = P.binom_sd, obsN = Math.round(P.observed), wide = [0, P.wide], near = [mu - 10.5 * sd, mu + 4.5 * sd];
@@ -171,8 +172,8 @@ function drawChance(D) {
   s.append("text").attr("x", (m.l + W - m.r) / 2).attr("y", H - 6).attr("text-anchor", "middle").text("Transients inside the shadow, each counted by its rating");
   const t1 = s.append("text").attr("x", m.l).attr("y", 20).style("font-size", "13.5px"), t2 = s.append("text").attr("x", m.l).attr("y", 42).style("font-size", "13.5px");
   // the real spread: light bars, and a dark copy clipped at the observed count
-  const clip = s.append("defs").append("clipPath").attr("id", "chance-clip").append("rect").attr("x", 0).attr("y", 0).attr("height", H).attr("width", 0);
-  const light = s.append("g").attr("fill", blue).attr("fill-opacity", 0.32), dark = s.append("g").attr("fill", blue).attr("fill-opacity", 0.95).attr("clip-path", "url(#chance-clip)");
+  const clip = s.append("defs").append("clipPath").attr("id", `${id}-clip`).append("rect").attr("x", 0).attr("y", 0).attr("height", H).attr("width", 0);
+  const light = s.append("g").attr("fill", blue).attr("fill-opacity", 0.32), dark = s.append("g").attr("fill", blue).attr("fill-opacity", 0.95).attr("clip-path", `url(#${id}-clip)`);
   const barsAt = (g, h) => g.selectAll("rect").data(bins).join("rect").attr("x", d => x(d.x0) + 0.5).attr("width", d => Math.max(0, x(d.x1) - x(d.x0) - 1)).attr("rx", 1.5)
     .attr("y", (d, i) => yb(h[i])).attr("height", (d, i) => yb(0) - yb(h[i]));
   const zero = bins.map(() => 0), full = bins.map(d => d.c);
@@ -251,7 +252,7 @@ function drawChance(D) {
     cur = k;
   };
   // the controls
-  const ctl = d3.select("#chance-steps"), back = ctl.select(".back"), next = ctl.select(".next"), pos = ctl.select(".pos");
+  const ctl = d3.select("#" + steps), back = ctl.select(".back"), next = ctl.select(".next"), pos = ctl.select(".pos");
   const go = (k, instant) => {
     show(k, instant || matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 1);
     back.property("disabled", k === 0);
@@ -268,37 +269,92 @@ function drawChance(D) {
 /* ---------- the plates partly crossed by Earth's shadow, up close: transients as dots over their density (north
    up, east left), coloured by the side of the shadow's edge they lie on, with each plate's numbers ---------- */
 function drawPlates(D, id) {
+  // each plate as a day-night map: the share of its exposure each place spent in Earth's shadow, from light (sunlit
+  // throughout) to dark (in shadow throughout), the band the shadow's edge swept across in between; the edge itself at the
+  // start (dashed) and the end (solid) of the exposure; every transient as a white dot. The plate the fit rests on is drawn
+  // large, the rest small in order of how much they weigh in the fit; a plate with nothing in or expected in shadow is left
+  // out
   const Z = D.shadow, s = svg(id);
   if (!Z || !Z.plates) return;
-  const cols = Z.plates.length === 9 ? 3 : 4, W = 760, colW = W / cols, S = cols === 3 ? 196 : 156, rowH = S + 64, top = 4, half = Z.half;
-  const H = top + Math.ceil(Z.plates.length / cols) * rowH;
+  const half = Z.half, day = V("--plate-day"), night = V("--plate-night"), edgeC = V("--plate-edge"), ink = V("--ink"), ink2 = V("--ink-2"), ink3 = V("--ink-3");
+  const shade = d3.interpolateLab(day, night), narrow = s.node().getBoundingClientRect().width < 560;
+  const shown = Z.plates.filter(p => p.Ow > 0 || p.E >= 0.05), weight = p => p.nw * p.shadow * (1 - p.shadow);
+  const heroId = Z.checks && Z.checks.single ? Z.checks.single.plate : null;
+  const hero = shown.find(p => p.plate === heroId) || shown.slice().sort((a, b) => weight(b) - weight(a))[0];
+  const rest = shown.filter(p => p !== hero).sort((a, b) => weight(b) - weight(a));
+  // on a narrow screen the chart is laid out on a narrower canvas, so its text stays readable
+  const W = narrow ? 400 : 760, cols = narrow ? 2 : 3, gap = narrow ? 16 : 24, lab = 52, heroLab = 46;
+  const HS = narrow ? W - 20 : 332, SS = narrow ? (W - 20 - gap) / 2 : (W - HS - 40 - 2 * gap) / 3;
+  const heroX = narrow ? 10 : 0, top = 30;
+  const gridX = narrow ? 10 : W - (3 * SS + 2 * gap), gridY = narrow ? top + HS + heroLab + 24 : top;
+  const rows = Math.ceil(rest.length / cols), gridH = rows * SS + (rows - 1) * (lab + 6) + lab;
+  const keyY = (narrow ? gridY + gridH : top + Math.max(HS + heroLab, gridH)) + 34;
+  const H = keyY + 30;
   s.attr("viewBox", `0 0 ${W} ${H}`);
-  const px = v => (half - v) / (2 * half) * S, py = v => (half - v) / (2 * half) * S;
-  Z.plates.forEach((p, k) => {
-    const x0 = (k % cols) * colW + (colW - S) / 2, y0 = top + Math.floor(k / cols) * rowH;
-    const g = s.append("g").attr("transform", `translate(${x0},${y0})`);
-    g.append("clipPath").attr("id", `plate-clip-${k}`).append("rect").attr("width", S).attr("height", S);
-    const inner = g.append("g").attr("clip-path", `url(#plate-clip-${k})`);
-    inner.append("rect").attr("width", S).attr("height", S).attr("fill", V("--paper"));
-    const pts = p.xi.map((v, i) => ({ x: px(v), y: py(p.eta[i]), dark: p.dark[i] === "1", w: p.w[i] }));
-    // the shadow's edge: the circle about the anti-sun point, projected on the plate
-    inner.append("path").attr("d", d3.line().curve(d3.curveLinearClosed)(p.edge.map(e => [px(e[0]), py(e[1])])))
-      .attr("fill", SHADOW).attr("fill-opacity", 0.12).attr("stroke", SHADOW).attr("stroke-width", 2);
-    inner.append("g").selectAll("circle").data(pts).join("circle").attr("cx", d => d.x).attr("cy", d => d.y).attr("r", 1.25)
-      .attr("fill", d => d.dark ? SHADOW : V("--ours")).attr("fill-opacity", d => 0.15 + 0.85 * d.w);
-    g.append("rect").attr("width", S).attr("height", S).attr("fill", "none").attr("stroke", V("--ink-3"));
-    g.append("text").attr("x", S / 2).attr("y", S + 18).attr("text-anchor", "middle").style("font-weight", 600).style("font-size", "13px")
-      .text(`${p.plate} · ${Math.round(p.shadow * 100)}% in shadow`);
-    g.append("text").attr("class", "ann").attr("x", S / 2).attr("y", S + 35).attr("text-anchor", "middle").style("fill", V("--ink-2")).style("font-size", "12px")
-      .text(`${p.Ow.toFixed(1)} in shadow, ${p.E.toFixed(1)} expected`);
-    g.append("text").attr("class", "ann").attr("x", S / 2).attr("y", S + 51).attr("text-anchor", "middle").style("fill", V("--ink-2")).style("font-size", "12px")
-      .text(`ratio ${p.r.toFixed(2)}`);
+
+  function panel(p, x0, y0, S, big) {
+    const k = S / (2 * half), px = v => (half - v) * k, py = v => (half - v) * k;   // east to the left, north up
+    const g = s.append("g").attr("transform", `translate(${x0},${y0})`), cid = `${id}-clip-${p.plate}`;
+    g.append("clipPath").attr("id", cid).append("rect").attr("width", S).attr("height", S);
+    const inner = g.append("g").attr("clip-path", `url(#${cid})`);
+    // the day-night map, one pixel per 0.1 degree cell, smoothed as the browser scales it
+    const nc = Math.round(Math.sqrt(p.cells.length)), cv = document.createElement("canvas"); cv.width = cv.height = nc;
+    const ctx = cv.getContext("2d");
+    for (let r = 0; r < nc; r++) for (let c = 0; c < nc; c++) {
+      ctx.fillStyle = shade(parseInt(p.cells[(nc - 1 - r) * nc + (nc - 1 - c)], 36) / 35); ctx.fillRect(c, r, 1, 1);
+    }
+    inner.append("image").attr("href", cv.toDataURL()).attr("width", S).attr("height", S).attr("preserveAspectRatio", "none");
+    const line = d3.line().x(v => px(v[0])).y(v => py(v[1]));
+    p.edges.forEach((e, i) => inner.append("path").attr("d", line(e)).attr("fill", "none").attr("stroke", edgeC)
+      .attr("stroke-width", big ? 1.8 : 1.3).attr("stroke-dasharray", i === 0 ? (big ? "5 4" : "3 3") : null));
+    inner.append("g").selectAll("circle").data(p.xi.map((v, i) => [px(v), py(p.eta[i])])).join("circle")
+      .attr("cx", d => d[0]).attr("cy", d => d[1]).attr("r", big ? 1.9 : 1.15)
+      .attr("fill", "#ffffff").attr("stroke", "#0d1013").attr("stroke-width", big ? 0.6 : 0.4).attr("stroke-opacity", 0.8);
+    g.append("rect").attr("width", S).attr("height", S).attr("fill", "none").attr("stroke", ink3).attr("stroke-width", 0.8);
+    g.append("text").attr("y", S + (big ? 20 : 17)).style("font-weight", 600).style("font-size", big ? "14px" : "12.5px").style("fill", ink)
+      .text(big ? `${p.plate} · ${pctText(p.shadow)}% in shadow` : `${p.plate} · ${pctText(p.shadow)}%`);
+    (big ? [`${p.Ow.toFixed(1)} in shadow · ${p.E.toFixed(1)} expected`] : [`${p.Ow.toFixed(1)} in shadow`, `${p.E.toFixed(1)} expected`])
+      .forEach((t, i) => g.append("text").attr("y", S + (big ? 38 : 32 + 14 * i)).style("font-size", big ? "12.5px" : "11px").style("fill", ink2).text(t));
     g.append("rect").attr("class", "hov").attr("width", S).attr("height", S).attr("fill", "transparent")
-      .call(sel => hov(sel, () => `<b>Plate ${p.plate}</b><br>${fmt(p.n)} transients, ${Math.round(p.shadow * 100)}% of the plate in shadow<br>` +
-        `${fmt(p.sunlit)} in sunlight, ${p.O} in shadow<br>counted by rating: ${(p.nw - p.Ow).toFixed(1)} in sunlight, ${p.Ow.toFixed(1)} in shadow<br>` +
-        `expected in shadow with no effect: ${p.E.toFixed(1)}<br>` +
-        `ratio ${p.r.toFixed(2)} (${p.lo.toFixed(2)} to ${p.hi == null ? "–" : p.hi.toFixed(2)})`));
-  });
+      .call(sel => hov(sel, () => `<b>Plate ${p.plate}</b><br>${fmt(p.n)} transients, ${pctText(p.shadow)}% of the plate in shadow over the exposure<br>` +
+        `counted by rating and by each transient's share of the exposure in shadow: ${p.Ow.toFixed(1)} in shadow, ${(p.nw - p.Ow).toFixed(1)} in sunlight<br>` +
+        `expected in shadow with no effect: ${p.E.toFixed(1)}<br>ratio ${p.r.toFixed(2)} (${p.lo.toFixed(2)} to ${p.hi == null ? "–" : p.hi.toFixed(2)})`));
+    return { g, px, py };
+  }
+
+  // the plate the fit rests on, its shadow's edges named where they leave the top of the frame, and the way it moved
+  const h = panel(hero, heroX, top, HS, true);
+  h.g.append("text").attr("x", HS).attr("y", HS + 20).attr("text-anchor", "end").style("font-size", "11px").style("fill", ink3).text("North up, east left");
+  const cross = e => { for (let i = 1; i < e.length; i++) { const [a, b] = [e[i - 1], e[i]];
+    if ((a[1] - half) * (b[1] - half) <= 0 && Math.abs(a[0]) <= half && Math.abs(b[0]) <= half) {
+      const t = (half - a[1]) / (b[1] - a[1] || 1); return h.px(a[0] + t * (b[0] - a[0])); } } return null; };
+  const xs = hero.edges.map(cross);
+  if (xs[0] != null && xs[1] != null) {
+    const leftIs = xs[0] < xs[1] ? 0 : 1;
+    ["Edge at the start", "Edge at the end"].forEach((txt, i) => h.g.append("text").attr("x", xs[i] + (i === leftIs ? -5 : 5)).attr("y", -7)
+      .attr("text-anchor", i === leftIs ? "end" : "start").style("font-size", "11.5px").style("fill", ink2).text(txt));
+    // the direction the shadow moved, between the two edges a third of the way down
+    const yy = HS * 0.34, at = e => { let best = null; e.forEach(v => { const Y = h.py(v[1]), X = h.px(v[0]);
+      if (X >= 0 && X <= HS && (!best || Math.abs(Y - yy) < Math.abs(best[1] - yy))) best = [X, Y]; }); return best; };
+    const A = at(hero.edges[0]), B = at(hero.edges[1]);
+    if (A && B && Math.abs(B[0] - A[0]) > 30) {
+      const dir = Math.sign(B[0] - A[0]), mk = `${id}-arrow`;
+      s.append("defs").append("marker").attr("id", mk).attr("viewBox", "0 0 10 10").attr("refX", 9).attr("refY", 5).attr("markerWidth", 6).attr("markerHeight", 6)
+        .attr("orient", "auto").append("path").attr("d", "M0,1L9,5L0,9z").attr("fill", edgeC);
+      h.g.append("line").attr("x1", A[0] + dir * 7).attr("y1", yy).attr("x2", B[0] - dir * 7).attr("y2", yy)
+        .attr("stroke", edgeC).attr("stroke-width", 1.6).attr("marker-end", `url(#${mk})`);
+    }
+  }
+  rest.forEach((p, i) => panel(p, gridX + (i % cols) * (SS + gap), gridY + Math.floor(i / cols) * (SS + lab + 6), SS, false));
+
+  // one key: the share of the exposure in shadow
+  const kw = 220, kx = heroX + (narrow ? (HS - kw) / 2 : 0), key = s.append("g").attr("transform", `translate(${kx},${keyY})`), gid = `${id}-ramp`;
+  const grad = s.append("defs").append("linearGradient").attr("id", gid);
+  d3.range(0, 1.001, 0.1).forEach(t => grad.append("stop").attr("offset", t).attr("stop-color", shade(t)));
+  key.append("rect").attr("width", kw).attr("height", 8).attr("fill", `url(#${gid})`).attr("stroke", ink3).attr("stroke-width", 0.5);
+  key.append("text").attr("y", 22).style("font-size", "11px").style("fill", ink2).text("Sunlit throughout");
+  key.append("text").attr("x", kw).attr("y", 22).attr("text-anchor", "end").style("font-size", "11px").style("fill", ink2).text("In shadow throughout");
+  key.append("text").attr("y", -7).style("font-size", "11px").style("fill", ink2).text("Share of the exposure in shadow");
 }
 
 /* ---------- the ratio plate by plate (shadow_fit.py): each plate's ratio with its counting range, and the best fit across
@@ -306,7 +362,7 @@ function drawPlates(D, id) {
 function drawForest(D, id) {
   const Z = D.shadow, s = svg(id);
   if (!Z || !Z.fit) return;
-  const rows = Z.plates, F = Z.fit;
+  const rows = Z.plates.filter(p => p.Ow > 0 || p.E >= 0.05), F = Z.fit;   // a plate with nothing in or expected in shadow gives no ratio
   const W = 760, rowH = 26, m = { l: 150, r: 24, t: 34, b: 52 }, XMAX = 12;
   const H = m.t + (rows.length + 1.6) * rowH + m.b;
   s.attr("viewBox", `0 0 ${W} ${H}`);
@@ -333,21 +389,23 @@ function drawForest(D, id) {
   };
   rows.forEach((r, i) => {
     s.append("text").attr("x", m.l - 10).attr("y", y(i) + 4).attr("text-anchor", "end").style("fill", V("--ink-2"))
-      .text(`${r.plate} · ${Math.round(r.shadow * 100)}% in shadow`);
+      .text(`${r.plate} · ${pctText(r.shadow)}% in shadow`);
     bar(r.lo, r.hi, y(i), V("--ink-3"), 1.6, 5);
     s.append("circle").attr("class", "hov").attr("cx", x(r.r)).attr("cy", y(i)).attr("r", 4.5).attr("fill", V("--ink-2"))
-      .call(sel => hov(sel, () => `<b>Plate ${r.plate}</b><br>${r.O} of ${fmt(r.n)} transients in shadow; counted by rating, ${r.Ow.toFixed(1)} of ${r.nw.toFixed(1)}, with ${r.E.toFixed(1)} expected with no effect<br>ratio ${r.r.toFixed(2)} (${r.lo.toFixed(2)} to ${r.hi == null ? "–" : r.hi.toFixed(2)}, counting only)`));
+      .call(sel => hov(sel, () => `<b>Plate ${r.plate}</b><br>${r.O.toFixed(1)} of ${fmt(r.n)} transients in shadow, each by its share of the exposure there; counted by rating, ${r.Ow.toFixed(1)} of ${r.nw.toFixed(1)}, with ${r.E.toFixed(1)} expected with no effect<br>ratio ${r.r.toFixed(2)} (${r.lo.toFixed(2)} to ${r.hi == null ? "–" : r.hi.toFixed(2)}, counting only)`));
   });
   s.append("line").attr("x1", m.l - 140).attr("x2", W - m.r).attr("y1", yC - rowH * 0.8).attr("y2", yC - rowH * 0.8).attr("stroke", V("--rule"));
   s.append("text").attr("x", m.l - 10).attr("y", yC + 4).attr("text-anchor", "end").style("font-weight", 600).style("fill", V("--ours")).text("Best fit");
   bar(F.count_lo, F.count_hi, yC, V("--ours"), 2.2, 6);
   s.append("circle").attr("cx", x(F.r)).attr("cy", yC).attr("r", 5.5).attr("fill", V("--ours"));
-  s.append("text").attr("class", "ann").attr("x", x(F.count_hi) + 10).attr("y", yC + 4).style("fill", V("--ours"))
+  // the label right of the bar, or right of the no-effect line when the bar ends short of it, so the line never crosses it
+  s.append("text").attr("class", "ann").attr("x", F.count_hi < 1 ? Math.max(x(F.count_hi), x(1)) + 10 : x(F.count_hi) + 10).attr("y", yC + 4).style("fill", V("--ours"))
     .text(`${F.r.toFixed(2)} (${F.count_lo.toFixed(2)} to ${F.count_hi.toFixed(2)})`);
 }
 
 /* ---------- the ratio in each tenth of VASCO-ML's ratings (shadow_fit.py): each band's fitted ratio with its 68% and 90%
    intervals from trials on other plates, and the fit to every transient weighted by its rating ---------- */
+let bandsTrend = false;                                                         // the trend shown on the bands chart
 function drawBands(D, id) {
   const Z = D.shadow, s = svg(id);
   if (!Z || !Z.bands) return;
@@ -370,10 +428,35 @@ function drawBands(D, id) {
     s.append("circle").attr("class", "hov").attr("cx", x(r.r)).attr("cy", yy).attr("r", 5).attr("fill", col).attr("stroke", V("--paper")).attr("stroke-width", 1.5)
       .call(sel => hov(sel, () => tip));
   };
+  // the trend of the ratio with rating, shown on request (a check, not the main result): the line fitted through the bands,
+  // with its 68% and 90% ranges (slope and intercept together) from the trials on plates no shadow reaches
+  const trendG = s.append("g").attr("pointer-events", "none");
+  if (Z.trend) {
+    const T = Z.trend, ln = i => T.intercept + T.slope * T.mean_rating[i];
+    const area = (lo, hi) => d3.area().y(i => y(i)).x0(i => x(Math.exp(ln(i) + T.line_dev[lo][i]))).x1(i => x(Math.exp(ln(i) + T.line_dev[hi][i])))(d3.range(T.mean_rating.length));
+    const fanG = trendG.append("g");
+    fanG.append("path").attr("fill", V("--ink-3")).attr("fill-opacity", 0.12).attr("d", area("0.05", "0.95"));
+    fanG.append("path").attr("fill", V("--ink-3")).attr("fill-opacity", 0.16).attr("d", area("0.16", "0.84"));
+    const fit = trendG.append("path").attr("fill", "none").attr("stroke", V("--ink")).attr("stroke-width", 1.6).attr("stroke-dasharray", "6 4")
+      .attr("d", d3.line()(T.mean_rating.map((mr, i) => [x(Math.exp(ln(i))), y(i)])));
+    const set = (on, animate) => {
+      const d = animate && !matchMedia("(prefers-reduced-motion: reduce)").matches ? 1 : 0;
+      fanG.interrupt().transition().duration(400 * d).style("opacity", on ? 1 : 0);
+      const L = fit.node().getTotalLength();
+      fit.interrupt().attr("stroke-dasharray", on ? `0 ${L}` : "6 4").style("opacity", on ? 1 : 0);
+      if (on) fit.transition().delay(350 * d).duration(900 * d).attrTween("stroke-dasharray", () => t => {
+        // draw the dashed line from the lowest band up, keeping its dashes
+        const shown = t * L, dash = []; for (let u = 0; u < shown; u += 10) dash.push(Math.min(6, shown - u), 4);
+        return dash.concat([0, L]).join(" "); });
+      d3.select("#bands-trend").attr("aria-pressed", on).classed("on", on).text(on ? "Hide the trend" : "Show the trend with rating");
+      d3.select("#bands-trend-note").text(on ? `Dashed: the fitted trend, with its 68% and 90% ranges (shaded). With no glints, a trend this steep comes up ${Math.round(100 * T.p)}% of the time.` : "");
+    };
+    set(bandsTrend, false);
+    d3.select("#bands-trend").on("click", () => { bandsTrend = !bandsTrend; set(bandsTrend, true); });
+  }
   rows.forEach((r, i) => {
-    const top = i === rows.length - 1, col = top ? V("--naive") : V("--ink-2");
-    row(r, y(i), col, `${r.lo.toFixed(2)} to ${r.hi.toFixed(2)}`,
-      `<b>Ratings ${r.lo.toFixed(2)} to ${r.hi.toFixed(2)}</b><br>${r.O} of ${fmt(r.n)} transients in shadow, on ${r.plates} plates<br>` +
+    row(r, y(i), V("--ink-2"), `${r.lo.toFixed(2)} to ${r.hi.toFixed(2)}`,
+      `<b>Ratings ${r.lo.toFixed(2)} to ${r.hi.toFixed(2)}</b><br>${r.O.toFixed(1)} of ${fmt(r.n)} transients in shadow (each by its share of the exposure there), on ${r.plates} plates<br>` +
       `ratio ${r.r.toFixed(2)}; 68%: ${r.i68[0].toFixed(2)} to ${r.i68[1].toFixed(2)}, 90%: ${r.i90[0].toFixed(2)} to ${r.i90[1].toFixed(2)}<br>` +
       `trials with no effect as low: ${Math.round(r.p_low * 100)}%`);
   });
@@ -385,52 +468,52 @@ function drawBands(D, id) {
 
 /* ---------- the fitted ratio on toys with no shadow effect: the real shadow outlines laid on other plates,
    against the ratio fitted on the real plates ---------- */
-function drawRatioNull(D, id) {
+function drawRatioNull(D, id, steps = "ratio-steps") {
   // slides the reader steps through: 1 the fit on trials with no shadow effect, built up, with its middle 68%; 2 the fit
-  // on the real plates; 3 the same trials with a shortfall as large as VASCO's put in, and the share of them that still
-  // fit as high as the real plates; and a summary, shown on load. Each slide declares its end state
+  // on the real plates; 3 the trials that fit as low as the real plates, shaded (the one-sided chance of a shortfall this
+  // large); and a summary, shown on load. Each slide declares its end state
   const Z = D.shadow, s = svg(id);
   if (!Z || !Z.toys) return;
-  const R = Z.toys, I = Z.injected, W = 760, H = 384, m = { l: 20, r: 20, t: 116, b: 46 }, bw = 3 / R.hist_null.length;
+  const R = Z.toys, W = 760, H = 384, m = { l: 20, r: 20, t: 116, b: 46 }, bw = 3 / R.hist_null.length;
   s.attr("viewBox", `0 0 ${W} ${H}`);
   const keep = (h) => h.map((c, i) => ({ x0: i * bw, x1: (i + 1) * bw, c })).filter(d => d.x0 >= 0.2 - 1e-9 && d.x1 <= 2.6 + 1e-9);
-  const B0 = keep(R.hist_null), B1 = keep(I.hist), n0 = d3.sum(R.hist_null), r = Z.fit.r;
-  const x = d3.scaleLinear().domain([0.2, 2.6]).range([m.l, W - m.r]), y = d3.scaleLinear().domain([0, d3.max(B0.concat(B1), d => d.c) * 1.08]).range([H - m.b, m.t]);
-  const ink = V("--ink"), ink2 = V("--ink-2"), grey = V("--ink-3"), blue = V("--ours"), pur = V("--naive"), fmtN = d3.format(",");
+  const B0 = keep(R.hist_null), n0 = d3.sum(R.hist_null), r = Z.fit.r, pLow = Math.round(100 * R.p_as_low);
+  const x = d3.scaleLinear().domain([0.2, 2.6]).range([m.l, W - m.r]), y = d3.scaleLinear().domain([0, d3.max(B0, d => d.c) * 1.08]).range([H - m.b, m.t]);
+  const ink = V("--ink"), ink2 = V("--ink-2"), grey = V("--ink-3"), blue = V("--ours");
   s.append("g").attr("transform", `translate(0,${H - m.b})`).call(d3.axisBottom(x).ticks(12).tickSizeOuter(0)).call(axisStyle);
-  s.append("text").attr("x", (m.l + W - m.r) / 2).attr("y", H - 8).attr("text-anchor", "middle").text(`Best fit ratio (r) across ${Z.plates.length} plates`);
+  const nP = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"][Z.plates.length] || String(Z.plates.length);
+  s.append("text").attr("x", (m.l + W - m.r) / 2).attr("y", H - 8).attr("text-anchor", "middle").text(`Best-fit ratio, r, across the ${nP} plates`);
   const t1 = s.append("text").attr("x", m.l).attr("y", 20).style("font-size", "13.5px"), t2 = s.append("text").attr("x", m.l).attr("y", 42).style("font-size", "13.5px");
   const bars = (g, B, h) => g.selectAll("rect").data(B).join("rect").attr("x", d => x(d.x0) + 0.5).attr("width", d => Math.max(0, x(d.x1) - x(d.x0) - 1)).attr("rx", 1.5)
     .attr("y", (d, i) => y(h[i])).attr("height", (d, i) => y(0) - y(h[i]));
   // the null: grey bars, its middle 68% marked beneath
   const nullG = s.append("g").attr("fill", grey).attr("fill-opacity", 0.55);
-  const band = s.append("g"), [lo, hi] = [R.null.q16, R.null.q84], yB = H - m.b + 0;
+  const band = s.append("g"), [lo, hi] = [R.null.q16, R.null.q84];
   band.append("rect").attr("x", x(lo)).attr("width", x(hi) - x(lo)).attr("y", m.t - 6).attr("height", H - m.b - m.t + 6).attr("fill", grey).attr("fill-opacity", 0.1);
   band.append("text").attr("x", (x(lo) + x(hi)) / 2).attr("y", m.t - 10).attr("text-anchor", "middle").style("font-size", "12px").style("fill", ink2).text("Middle 68% of trials");
-  // the injected shortfall: purple outline bars, with those as high as the real plates shaded
-  const injG = s.append("g").attr("fill", pur).attr("fill-opacity", 0.14).attr("stroke", pur).attr("stroke-opacity", 0.6);
+  // the trials as low as the real plates: the same bars, shaded up to the real result's line
   const cid = `${id}-clip`, clip = s.append("defs").append("clipPath").attr("id", cid).append("rect").attr("y", 0).attr("height", H).attr("x", x(r)).attr("width", 0);
-  const injHi = s.append("g").attr("fill", pur).attr("fill-opacity", 0.75).attr("clip-path", `url(#${cid})`);
-  // ends just short of the real result's line, so the two never collide
-  const injLab = s.append("text").attr("x", x(Math.min(r, I.r_true + 0.3)) - 10).attr("text-anchor", "end").style("font-size", "12px").style("fill", pur);
+  const lowG = s.append("g").attr("fill", blue).attr("fill-opacity", 0.55).attr("clip-path", `url(#${cid})`);
+  const lowLab = s.append("text").attr("x", x(r) - 10).attr("text-anchor", "end").style("font-size", "12px").style("fill", blue).text(`${pLow}% as low or lower`);
   // the real plates
   const obs = s.append("g");
   obs.append("line").attr("x1", x(r)).attr("x2", x(r)).attr("y1", m.t - 26).attr("y2", H - m.b).attr("stroke", blue).attr("stroke-width", 2.4);
   obs.append("text").attr("x", x(r)).attr("y", m.t - 30).attr("text-anchor", "middle").style("font-size", "12px").style("font-weight", 600).style("fill", blue).text(`Real plates: ${r.toFixed(2)}`);
-  const parts = { band: [band], obs: [obs], inj: [injG, injHi, injLab] };
+  const parts = { band: [band], obs: [obs], low: [lowG, lowLab] };
   Object.values(parts).flat().forEach(e => e.style("opacity", 0));
-  const full0 = B0.map(d => d.c), full1 = B1.map(d => d.c), zero = B0.map(() => 0);
-  const cl = Math.round(100 * (1 - I.p_as_high)), pv = Math.round(100 * I.p_as_high);
+  const full0 = B0.map(d => d.c), zero = B0.map(() => 0);
+  const lowTop = d3.max(B0.filter(d => d.x0 < r), d => d.c) || 0;
   const slides = [
-    { band: 0, obs: 0, inj: 0, build: true, text: [["We repeat the fit many times, each time laying the real shadow outlines on plates the shadow never crossed.", ink, 400],
-      [`On average it finds no effect (a ratio of ${R.null.median.toFixed(2)}); the spread is from chance, due to fitting only ${Z.plates.length} plates.`, ink, 400]] },
-    { band: 0, obs: 1, inj: 0, text: [[`The real plates give ${r.toFixed(2)}: no sign of fewer transients in shadow.`, blue, 600]] },
-    { band: 0, obs: 1, inj: 1, shade: true, text: [[`Had transients been as rare in shadow as VASCO’s count implies (r = ${I.r_true.toFixed(2)}), a fit this high would occur ${pv}% of the time.`, pur, 400],
-      [`A shortfall of that size is disfavoured at ${cl}% confidence (one-sided).`, pur, 600]] },
-    { band: 0, obs: 1, inj: 1, shade: true, text: [[[[`Fit result on real plates (${r.toFixed(2)})`, blue], [" falls within random trials with no shadow effect.", ink]], ink, 400],
-      [`A shortfall as large as VASCO’s (purple) is disfavoured at ${cl}% confidence (one-sided).`, pur, 600]] }
+    { band: 0, obs: 0, low: 0, build: true, text: [["Each trial lays the real shadows on plates that no shadow reaches, and repeats the fit.", ink, 400],
+      [`With no shadow effect, the typical ratio is ${R.null.median.toFixed(2)}; its spread is chance, from fitting only ${nP} plates.`, ink, 400]] },
+    { band: 0, obs: 1, low: 0, text: [[r >= 1 ? `The real plates give ${r.toFixed(2)}: no fewer transients in shadow than in sunlight.`
+      : `The real plates give ${r.toFixed(2)}: fewer transients in shadow than in sunlight.`, blue, 600]] },
+    { band: 0, obs: 1, low: 1, shade: true, text: [[`${pLow}% of the trials with no effect give ${r.toFixed(2)} or lower (shaded).`, blue, 400],
+      [pLow >= 5 ? "A shortfall this large is well within chance." : "A shortfall this large is rare by chance alone.", ink, 600]] },
+    { band: 0, obs: 1, low: 1, shade: true, text: [[[[`The real plates (${r.toFixed(2)})`, blue], [pLow >= 5 ? " sit well within the trials with no shadow effect." : " sit in the tail of the trials with no shadow effect.", ink]], ink, 400],
+      [`${pLow}% of those trials give a ratio as low or lower (shaded).`, blue, 600]] }
   ];
-  const last = slides.length - 1, op = { band: 0, obs: 0, inj: 0 };
+  const last = slides.length - 1, op = { band: 0, obs: 0, low: 0 };
   let cur = -1, timers = [];
   const at = (ms, f) => timers.push(setTimeout(f, ms));
   const show = (k, dur) => {
@@ -438,16 +521,21 @@ function drawRatioNull(D, id) {
     const sl = slides[k], out = dur ? 250 : 0;
     for (const [key, els] of Object.entries(parts)) if (op[key] && !sl[key]) { els.forEach(e => e.transition().duration(out).style("opacity", 0)); op[key] = 0; }
     t1.style("opacity", 0); t2.style("opacity", 0);
-    if (!sl.shade) clip.attr("width", 0);
+    if (!sl.shade) clip.attr("x", x(r)).attr("width", 0);
     if (sl.build && dur) bars(nullG, B0, zero);
     at(out, () => {
-      bars(injG, B1, full1); bars(injHi, B1, full1); injLab.attr("y", y(d3.max(full1)) - 8).text(`VASCO-sized shortfall (r = ${I.r_true.toFixed(2)})`);
+      bars(lowG, B0, full0); lowLab.attr("y", y(lowTop) - 8);
       [t1, t2].forEach((el, i) => { const tx = sl.text[i];                      // a line is a string, or [text, colour] pieces
         el.text("").style("fill", tx ? tx[1] : ink).style("font-weight", tx ? tx[2] : 400);
         if (tx && Array.isArray(tx[0])) tx[0].forEach(([str, col]) => el.append("tspan").style("fill", col).text(str)); else el.text(tx ? tx[0] : "");
         el.transition().duration(dur ? 400 : 0).style("opacity", 1); });
       for (const [key, els] of Object.entries(parts)) if (sl[key] && !op[key]) { els.forEach(e => e.style("opacity", 0).transition().duration(dur ? 450 : 0).style("opacity", 1)); op[key] = 1; }
-      if (sl.shade) clip.attr("width", dur && cur !== last ? 0 : W - x(r)).transition().delay(dur ? 450 : 0).duration(dur ? 1000 : 0).attr("width", W - x(r));
+      // the shading grows leftwards from the real result's line
+      if (sl.shade) {
+        const start = dur && cur !== last;
+        clip.attr("x", start ? x(r) : m.l).attr("width", start ? 0 : x(r) - m.l)
+          .transition().delay(dur ? 450 : 0).duration(dur ? 1000 : 0).attr("x", m.l).attr("width", x(r) - m.l);
+      }
       if (!(sl.build && dur)) return bars(nullG, B0, full0);
       const cum = d3.cumsum(full0), tot = cum[cum.length - 1]; let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
       const h = zero.slice(); let done = 0; const N = Math.round(n0);
@@ -457,7 +545,7 @@ function drawRatioNull(D, id) {
     });
     cur = k;
   };
-  const ctl = d3.select("#ratio-steps"), back = ctl.select(".back"), next = ctl.select(".next"), pos = ctl.select(".pos");
+  const ctl = d3.select("#" + steps), back = ctl.select(".back"), next = ctl.select(".next"), pos = ctl.select(".pos");
   const go = (k, instant) => {
     show(k, instant || matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 1);
     back.property("disabled", k === 0);

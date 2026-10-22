@@ -95,6 +95,7 @@ mm = h.mm.reindex(pl.index).fillna(pd.Series(pl.ut.dt.minute, pl.index))
 exp = h.exp.reindex(pl.index).fillna(h.exp.median())
 start = pl.ut.dt.normalize() + pd.to_timedelta(hh + mm / 100, unit="h")
 pl["ut"] = start + pd.to_timedelta(exp / 2, unit="min") + pd.to_timedelta(pl.offset_days.fillna(0), unit="D")
+pl["exp"] = exp                                     # exposure, min (header; Palomar's log agrees on 98.5% of plates)
 pl.to_parquet(ROOT / "data/plates_corrected.parquet")
 cat = pd.read_parquet(ROOT / "data/transients_with_plates.parquet")
 used = pl[pl.index.isin(cat.plate.unique())]

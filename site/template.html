@@ -18,6 +18,7 @@
   --paper: #f3f5f6; --surface: #ffffff; --ink: #13171b; --ink-2: #4f5962; --ink-3: #868f97; --rule: #dbe0e4;
   --naive: #7d5ba6; --theirs: #b8501a; --theirs-soft: #fbe3d4; --ours: #2462a8; --ours-soft: #d7e5f5; --teal: #10806b;
   --night: #1b2740; --emulsion: #a8261d; --lightbox: #f8f9f9;
+  --plate-day: #f7f1df; --plate-night: #1f2836; --plate-edge: #e0432a;
   --display: "Newsreader", "Iowan Old Style", Georgia, serif;
   --sans: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
@@ -28,12 +29,14 @@
     --paper: #0d1013; --surface: #151a1e; --ink: #e6eaed; --ink-2: #a8b2ba; --ink-3: #6f7a84; --rule: #262e35;
     --naive: #b49ad8; --theirs: #f29a62; --theirs-soft: #3d2416; --ours: #6ea9ee; --ours-soft: #17283d; --teal: #42c1a3;
     --night: #a9bbe0; --emulsion: #e66a5e; --lightbox: #eef0f1; color-scheme: dark;
+    --plate-day: #5b6874; --plate-night: #06080a; --plate-edge: #ffa58f;
   }
 }
 :root[data-theme="dark"] {
   --paper: #0d1013; --surface: #151a1e; --ink: #e6eaed; --ink-2: #a8b2ba; --ink-3: #6f7a84; --rule: #262e35;
   --naive: #b49ad8; --theirs: #f29a62; --theirs-soft: #3d2416; --ours: #6ea9ee; --ours-soft: #17283d; --teal: #42c1a3;
   --night: #a9bbe0; --emulsion: #e66a5e; --lightbox: #eef0f1; color-scheme: dark;
+  --plate-day: #5b6874; --plate-night: #06080a; --plate-edge: #ffa58f;
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans); font-size: 1.02rem; line-height: 1.65; -webkit-font-smoothing: antialiased; }
@@ -68,6 +71,7 @@ header { padding-block: clamp(2.5rem, 6vw, 4.5rem) 2rem; }
 .sc .who { font-size: 0.84rem; font-weight: 600; display: block; margin-bottom: 0.15rem; }
 .sc .t .who { color: var(--theirs); } .sc .o .who { color: var(--ours); }
 .sc .t, .sc .o { font-size: 0.93rem; line-height: 1.5; }
+.sc .o p { margin: 0 0 0.6em; } .sc .o p:last-child { margin-bottom: 0; }
 .verdict-chip { margin-top: auto; align-self: flex-start; font-size: 0.8rem; font-weight: 600; padding: 0.25rem 0.55rem; border-radius: 3px; background: var(--ours-soft); color: var(--ours); }
 .sc a { font-size: 0.88rem; }
 
@@ -127,6 +131,8 @@ section { padding-block: clamp(2.8rem, 6vw, 5rem) 1.5rem; border-bottom: 1px sol
 .tail-lab { font-size: 0.78rem; color: var(--ink-2); margin-bottom: 0.25rem; }
 .blink-btns { display: flex; gap: 0.3rem; margin-top: 0.4rem; }
 .blink-btns button { font: inherit; font-size: 0.78rem; padding: 0.15rem 0.6rem; border: 1px solid var(--rule); border-radius: 4px; background: var(--surface); color: var(--ink-2); cursor: pointer; }
+.blink-btns button { white-space: nowrap; }
+.blink-btns .note { font-size: 0.8rem; line-height: 1.35; color: var(--ink-2); }
 .blink-btns button.on { background: var(--ink); color: var(--surface); border-color: var(--ink); }
 .blink-btns button:focus-visible { outline: 2px solid var(--ours); outline-offset: 1px; }
 .blink-btns.steps { align-items: center; gap: 0.6rem; }
@@ -355,8 +361,8 @@ footer li { margin-bottom: 0.45rem; }
     <div class="step-copy"><div class="step-h"><span class="step-n">1</span><h3>{{shadow-step1-title|inline}}</h3></div><div class="step-text">{{shadow-step1-text}}</div></div>
     <div class="chart disc">
       <div class="blink-btns"><button id="shadow-play">Play the shadow plates in date order</button></div>
-      <div class="legend"><span><i class="sw" style="border:2px solid #111418;box-shadow:0 0 0 2px #fff;background:#21918c"></i>Plate crossed by Earth’s shadow</span><span><i class="sw" style="border:2px solid #ff4a2e;background:transparent;border-radius:50%"></i>Earth’s shadow on the night that plate was taken</span><span><i class="sw line" style="background:repeating-linear-gradient(90deg,#ff4a2e 0 2px,transparent 2px 6px);width:1.4rem;opacity:0.7"></i>Ecliptic, along which the shadow moves</span></div>
-      <svg id="c-sky" viewBox="0 0 760 760" role="img" aria-label="The sky map again, with the {n:sh.plates} plates crossed by Earth’s shadow picked out"></svg>
+      <div class="legend"><span><i class="sw" style="border:2px solid #111418;box-shadow:0 0 0 2px #fff;background:#21918c"></i>Plate crossed by Earth’s shadow</span><span><i class="sw" style="border:2px solid #ff4a2e;background:transparent;border-radius:50%"></i>Earth’s shadow, seen from Palomar, at the middle of that plate’s exposure</span><span><i class="sw line" style="background:repeating-linear-gradient(90deg,#ff4a2e 0 2px,transparent 2px 6px);width:1.4rem;opacity:0.7"></i>Ecliptic, along which the shadow moves</span></div>
+      <svg id="c-sky" viewBox="0 0 760 760" role="img" aria-label="The sky map again, with the {n:sh.plates} plates Earth’s shadow reaches picked out"></svg>
       <div class="cap">{{shadow-step1-caption}}</div>
     </div>
   </div>
@@ -371,10 +377,7 @@ footer li { margin-bottom: 0.45rem; }
   <div class="step">
     <div class="step-copy"><div class="step-h"><span class="step-n">3</span><h3>{{shadow-plates-title|inline}}</h3></div><div class="step-text">{{shadow-plates-text}}</div></div>
     <div class="chart plates">
-      <div class="legend"><span><i class="sw" style="background:var(--ours);border-radius:50%;width:0.45rem;height:0.45rem"></i>Transient in sunlight</span>
-        <span><i class="sw" style="background:#ff4a2e;border-radius:50%;width:0.45rem;height:0.45rem"></i>Transient in Earth’s shadow</span>
-        <span><i class="sw" style="border:2px solid #ff4a2e;background:rgba(255,74,46,0.12)"></i>Part of the plate in shadow</span></div>
-      <svg id="c-plates" viewBox="0 0 760 440" role="img" aria-label="The {n:sh.partial} plates partly crossed by Earth's shadow, each showing its transients as dots coloured by whether they lie in shadow or sunlight, with the edge of the shadow and the plate's numbers"></svg>
+      <svg id="c-plates" viewBox="0 0 760 520" role="img" aria-label="The {n:sh.partial} plates Earth's shadow partly covers, each showing its transients as dots coloured by the share of the exposure they spent in shadow, with the shadow's edge at the start and end of the exposure and the plate's numbers"></svg>
       <div class="cap">{{shadow-plates-caption}}</div>
     </div>
   </div>
@@ -399,8 +402,9 @@ footer li { margin-bottom: 0.45rem; }
     <div class="step-copy"><div class="step-h"><span class="step-n">6</span><h3>{{shadow-bands-title|inline}}</h3></div><div class="step-text">{{shadow-bands-text}}</div></div>
     <div class="chart">
       <div class="legend"><span><i class="sw" style="background:var(--ink-2);border-radius:50%"></i>Ratio in each band of the ratings, with 68% and 90% intervals</span>
-        <span><i class="sw" style="background:var(--naive);border-radius:50%"></i>The top band</span>
-        <span><i class="sw" style="background:var(--ours);border-radius:50%"></i>Every transient, counted by its rating</span></div>
+        <span><i class="sw" style="background:var(--ours);border-radius:50%"></i>Every transient, counted by its rating</span>
+</div>
+      <div class="blink-btns"><button id="bands-trend" aria-pressed="false">Show the trend with rating</button><span class="note" id="bands-trend-note" aria-live="polite"></span></div>
       <svg id="c-bands" viewBox="0 0 760 420" role="img" aria-label="The ratio of transient density in shadow to sunlight in each band of VASCO's machine-learning ratings, with intervals from trials on other plates"></svg>
       <div class="cap">{{shadow-bands-caption}}</div>
     </div>
@@ -506,13 +510,13 @@ footer li { margin-bottom: 0.45rem; }
   </div>
   <div class="score" aria-label="Summary">
     <div class="sc"><div class="q">{{card-4-question|inline}}</div>
-      <div class="o">{{card-4-ours|inline}}</div></div>
+      <div class="o">{{card-4-ours}}</div></div>
     <div class="sc"><div class="q">{{card-1-question|inline}}</div>
-      <div class="o">{{card-1-ours|inline}}</div></div>
+      <div class="o">{{card-1-ours}}</div></div>
     <div class="sc"><div class="q">{{card-2-question|inline}}</div>
-      <div class="o">{{card-2-ours|inline}}</div></div>
+      <div class="o">{{card-2-ours}}</div></div>
     <div class="sc"><div class="q">{{card-3-question|inline}}</div>
-      <div class="o">{{card-3-ours|inline}}</div></div>
+      <div class="o">{{card-3-ours}}</div></div>
   </div>
   <div class="prose wide" style="margin-top:2rem">{{end-text}}</div>
 </div></section>

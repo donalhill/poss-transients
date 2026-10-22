@@ -111,7 +111,7 @@ $(AFIT): $(A)/alignment_fit.py $(A)/alignments.py $(ALIGN) | $(NULLCHK)
 $(NULLCHK):
 	$(PY) $(A)/alignment_null_checks.py
 
-$(MLCHK): $(A)/ml_checks.py $(A)/shadow_fit.py $(SAMPLE) $(PROPS) $(LABELS) $(POOLED) $(D)/us_shot_times.csv $(TESTSV)
+$(MLCHK): $(A)/ml_checks.py $(A)/shadow_fit.py $(A)/shadow.py $(SAMPLE) $(PROPS) $(LABELS) $(POOLED) $(D)/us_shot_times.csv $(TESTSV)
 	$(PY) $<
 
 # slow, and needs VASCO-ML's own versions; its output is kept in the repository, so `make` uses it as it is (built only

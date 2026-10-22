@@ -175,110 +175,126 @@ Do transients avoid Earth’s shadow?
 ### shadow-intro
 An object in orbit is visible only via the sunlight it reflects. When orbiting objects pass into Earth’s shadow, they should therefore go dark.
 
-VASCO considered objects in geostationary orbit (36,000 kilometres up), where a single orbit takes one day and a satellite stays above a point on the equator. At this height, Earth’s shadow covers a disc of sky {n:sh.diam} degrees across, centred on a point directly opposite the Sun. If some transients are due to glints from objects in orbit, the shadow disc should show fewer transients than the same area of sky elsewhere.
+VASCO considered objects in geostationary orbit (36,000 kilometres up), where a single orbit takes one day and a satellite stays above a point on the equator. At this height, Earth’s shadow covers a disc of sky {n:sh.diam} degrees across, centred on the point opposite the Sun. If some transients are glints from objects in orbit, the part of a plate inside the shadow should show fewer transients than the same area of sky elsewhere.
 
-Flaws in the photographic emulsion, dust on the glass, and marks from copying have no connection with where Earth’s shadow fell. If fewer transients fall inside the shadow than the differences between plates can explain, that would point to something in orbit. Overall, we find the same shortfall of transients in Earth's shadow as VASCO. We differ on our interpretation of how significant this deficit is.
+VASCO place the shadow as seen from the centre of the Earth. The telescope, however, sat on the Earth’s surface, 6,400 kilometres from its centre, and from there an object 36,000 kilometres up appears in a different direction. On the plates the shadow reaches, it falls {n:sh.shift_lo} to {n:sh.shift_hi} degrees from where the Earth-centred picture puts it. We therefore place the shadow as seen from Palomar.
+
+Seen from Palomar, the shadow also moves during an exposure: as the Earth turns, the observatory travels more than 1,000 kilometres in 50 minutes, and the shadow’s edge slides {n:sh.sweep_lo} to {n:sh.sweep_hi} degrees across the plate. A glint lasts a fraction of a second, at an unknown moment during the exposure, so we count each transient by the share of the exposure that its place on the plate spent in shadow. The shadow’s edge is not sharp either: between {n:sh.umbra} and {n:sh.penumbra} degrees from its centre, the Earth hides only part of the Sun, and a glint there would be dimmer. Following the shadow through each exposure requires accurate plate times. On {n:dates.ast_mid_plates} plates, asteroid trails fix the middle of the exposure independently, and they typically agree with our times to within a minute, in which the shadow moves by less than a tenth of a degree.
+
+Flaws in the photographic emulsion, dust on the glass, and marks from copying have no connection with where Earth’s shadow fell. If fewer transients fall inside the shadow than the differences between plates can explain, that would point to something in orbit.
+
+Compared with VASCO’s test, our approach:
+
+- Places the shadow where it fell on each plate, as seen from Palomar, and follows it through each exposure.
+- Uses each plate’s corrected date and time.
+- Measures chance by laying the real shadows on plates no shadow reaches, allowing for where each plate points, rather than by treating every transient as independent.
+- Adds a test that compares shadow with sunlight on the same plates, which does not depend on how many transients a plate holds in total.
+- Repeats both tests in each band of VASCO’s ratings.
 
 ### shadow-step1-title
 Plates intersecting Earth's shadow
 
 ### shadow-step1-text
-Earth’s shadow crosses {n:sh.plates_n} of the {n:cat.plates} plates in the catalogue. {n:sh.vasco_plates_cap} of these are among the plates in VASCO's tests, as Brian Doherty, a co-author of the 2026 VASCO paper, also found. The remaining plate, XE472, was taken on 18–19 November 1949, two nights before VASCO's list of nights begins.
+As seen from Palomar, Earth’s shadow reaches {n:sh.plates} of the {n:cat.plates} plates in the catalogue during their exposures. Throughout this section, we use the central 6 by 6 degrees of each plate, matching the plate size VASCO use in their own analysis. VASCO’s random positions cover this square evenly on every plate, as shown above.
 
-Throughout this section, we use the central 6 by 6 degrees of each plate, matching the plate size VASCO use in their own analysis. VASCO’s random positions cover this square evenly on every plate, as shown above. The shadow's radius is {n:sh.deg} degrees, as in VASCO's 2025 paper.
+We first reproduce VASCO’s own count, which uses their archive dates, counts each transient once, and places a shadow with a sharp edge, seen from the centre of the Earth, at a single moment for each plate. It holds {n:sh.vasco_obs_geo} transients against {n:sh.vasco_exp_geo} expected, which VASCO’s binomial model, described in {2_circle_symbol}, puts at {n:sh.vasco_z_geo} standard deviations (close to their published 7.6). Seen from Palomar instead, with nothing else changed, the shadow reaches {n:sh.vasco_plates} of the plates in their tests and holds {n:sh.vasco_obs} transients against {n:sh.vasco_exp} expected, about a fifth fewer: {n:sh.vasco_z} standard deviations.
 
-Using our corrected dates, the areas of those plates falling in Earth's shadow hold {n:sh.transients} transients. Together they cover {n:sh.worth} plates’ worth of sky: all of plate XE422, 70% of two others, half of XE472, and smaller slices of the remaining six. An average plate holds {n:sh.count_avg} transients in its central 6 by 6 degrees, so if transients were spread evenly across the survey, the shadowed parts should hold about {n:sh.count_exp}.
+VASCO’s count also misreads the plate times. Each plate’s header gives the start of the exposure in hours and hundredths of an hour, but the count reads it as hours and minutes, so 06:82 becomes 07:22 rather than 06:49, and many exposures are placed tens of minutes from their true time. From the centre of the Earth this barely matters, but as seen from Palomar it moves the shadow by up to about a degree.
 
-VASCO’s archive dates place the shadow slightly differently. A date one day out moves the shadow by about a degree: this is small compared to the width of the shadow, but still changes which parts of which plates fall inside it. On the {n:sh.vasco_plates} plates in VASCO’s tests, the shadow covers {n:sh.vasco_worth} plates’ worth of sky, on plates averaging {n:sh.vasco_avg} transients. Counting each transient once, as their 2025 paper does, the shadow holds {n:sh.vasco_obs} transients against {n:sh.vasco_exp} expected, nearly a third fewer. VASCO’s binomial model, described in {2_circle_symbol}, puts this at {n:sh.vasco_z} standard deviations, close to their published 7.6.
+Using our corrected dates and times, the parts of these plates that spent time in shadow hold {n:sh.transients} transients, each counted by its share of the exposure in shadow. Together they cover {n:sh.worth} plates’ worth of sky: all of plate XE422, most of XE472, about half of XE415, XE369, and XE532, and slivers of four others. An average plate holds {n:sh.count_avg} transients in its central 6 by 6 degrees, so if transients were spread evenly across the survey, the shadowed parts should hold about {n:sh.count_exp}.
 
-Counted by rating, the {n:sh.transients} transients in shadow on our corrected dates give a rated count of {n:sh.observed}, against {n:sh.expected} for the same area of an average plate. From here on, counts in this section are rated counts unless specified otherwise.
+Counted by rating, the transients in shadow on our corrected dates give a rated count of {n:sh.observed}, against {n:sh.expected} for the same area of an average plate. From here on, counts in this section are rated counts, with each transient also counted by its share of the exposure in shadow.
 
 ### shadow-step1-caption
-Of the {n:cat.plates} plates in the catalogue, {n:sh.plates_n} intersect with Earth's shadow. This includes one plate (XE422) which falls fully within Earth's shadow.
+Of the {n:cat.plates} plates in the catalogue, as seen from Palomar, Earth's shadow reaches {n:sh.plates} during their exposures. One plate, XE422, lies inside the shadow throughout. Each circle marks the shadow’s edge at the middle of a plate’s exposure.
 
 ### shadow-step2-title
 Measuring the probability of this deficit
 
 ### shadow-step2-text
-VASCO score the shortfall with a binomial test, which treats every transient as an independent event. Their headline figure, 22 standard deviations, compared the count in shadow with the shadow’s share of the northern sky. Their figure of 7.6 standard deviations used the area of each plate the shadow actually covers, as we do here. Applied to our corrected dates and rated counts, the binomial model expects {n:sh.expected} transients in shadow, give or take about {n:sh.binom_sd}. The spread of {n:sh.binom_sd} is one standard deviation, and the observed count of {n:sh.observed} lies {n:sh.binom_z} standard deviations below {n:sh.expected}.
+VASCO score their shortfall with a binomial test, which treats every transient as an independent event. Their headline figure, 22 standard deviations, compared the count in shadow with the shadow’s share of the northern sky; their figure of 7.6 standard deviations used the area of each plate the shadow actually covers, as we do here. Applied to our rated counts, the binomial model expects {n:sh.expected} transients in shadow, give or take {n:sh.binom_sd}, so the observed count of {n:sh.observed} lies {n:sh.binom_z} standard deviations below.
 
-Transients are not independent, however: as shown above, transient counts on plates differ considerably more than counting noise permits. The count inside a given shadow therefore depends on whether the plate it falls on happens to be rich or poor in transients. To measure how much the count varies by chance, we laid each of the {n:sh.plates} shadow patches, with its real shape and position, onto a plate chosen at random. We call each such set of placements a trial.
+Transients are not independent, however: as shown above, counts on plates differ far more than counting noise permits, so the count inside a shadow depends on whether the plates it falls on happen to be rich or poor. To measure chance directly, we laid the {n:sh.plates} real shadows, with their shapes, positions, and movement during the exposure, onto plates chosen at random from those no shadow reaches. Each count is scaled to what the pointing model, fitted to rated counts on those plates, predicts at the shadow plate’s pointing. As VASCO recommend, the test works with total counts: no plate’s own count of transients sets what it is expected to hold.
 
-A randomly chosen plate has no connection to Earth's shadow, so any shortfall in a trial comes from chance alone. Plates also differ in where they point, so we scale each trial count to what the pointing model expects at the shadow plate’s pointing. Here the pointing model is fitted to rated counts, leaving out the shadow plates. Across {n:sh.trials} trials, a count of {n:sh.observed} or fewer turned up {n:sh.p_point}% of the time, a statistical significance of {n:sh.sig_point} standard deviations. Without the pointing model, such counts turn up {n:sh.p_random}% of the time. With the {n:sh.ml_deg}-degree shadow radius used in the code for VASCO's 2026 paper, they turn up {n:sh.ml_p}% of the time.
+Across {n:sh.trials} such trials, a count of {n:sh.observed} or fewer turned up {n:sh.p_point1}% of the time, a significance of {n:sh.sig_point} standard deviations; without the pointing model, {n:sh.p_random}%. Our trials measure chance correctly: on plates no shadow reaches, treated as if it had fallen there, a result below 5% came up {n:sh.cal_5}% of the time. This comparison also has limited power: had transients been as scarce in shadow as VASCO’s own count implies, it would have reached 95% significance only {n:sh.power}% of the time.
 
-The shadow plates hold few transients throughout, in sunlight as well as in shadow. On the {n:sh.partial} plates the shadow partly covers, the shadowed areas hold {n:sh.own_obs}. At each plate’s own average density, they would be expected to hold about {n:sh.own_exp}. Almost the whole shortfall therefore comes from the plates themselves. A shadow can hide glints only within its outline, yet these plates are just as sparse in their sunlit parts. The shadow is centred on the ecliptic, and during the survey it fell mostly on sparse parts of the catalogue: of the {n:sh.plates} shadow plates, {n:sh.taurus_lc} lie towards Taurus and Perseus, where the catalogue holds unusually few transients, and {n:sh.eq_plates} are on the equatorial row.
+Most of the observed shortfall comes from two plates, XE472 and XE532, both of which exhibit transient levels well below expected given their pointing: each holds about {n:pl.XE472_qsu} of what its pointing predicts in sunlight, and {n:pl.XE472_qsh} in shadow. A shadow can hide glints only inside its outline, so the shadow did not empty these plates. They lie in a sparse patch of the catalogue towards Taurus and Perseus, where plates the shadow never reaches also hold far less than their pointing predicts, and which our pointing model does not model.
 
-The pointing model allows for the equatorial row and for dust across each plate. Even so, {n:sh.empty_n} of the shadow plates, {n:sh.empty_plates}, hold under a tenth of what their pointing predicts, and none of our modelled factors explain why. Watters et al. (2026) also noted these sparse plates. With their own random-shadow test, on a larger published list of transients that overlaps VASCO’s, they found that a shortfall as large as the one in their list arises by chance about 30% of the time.
+If each shadow is laid only on plates within 12 or 20 degrees of its own, the shortfall is found at random {n:sh.local_12}% or {n:sh.local_20}% of the time. Watters et al. (2026) also noted these sparse plates, and with their own random-shadow test, conducted on a larger published list of transients, found that a shortfall like the one in their list arises by chance about 30% of the time.
 
-Every shadow plate was taken with its centre {n:sh.shadow_lo} to {n:sh.shadow_hi} degrees from the point opposite the Sun. We therefore repeated the trials drawing only from the {n:sh.near_hosts} plates within {n:sh.near_max} degrees of that point, scaling for pointing as before. Random plates then match the shortfall {n:sh.p_near}% of the time ({n:sh.sig_near} standard deviations).
+Other choices matter little. How the shadow’s edge is drawn, moving every plate’s time by up to five minutes, and sampling the exposure more finely keep the result between {n:sh.sys_p_lo}% and {n:sh.sys_p_hi}%. The {n:sh.ml_deg}-degree shadow radius in the code for VASCO’s 2026 paper gives {n:sh.ml_p1}%, and drawing random plates only from near the point opposite the Sun, where every shadow plate lies, gives {n:sh.p_near1}%.
 
-VASCO also repeated their test using only transients within 2 degrees of each plate’s centre, away from the dense edges. In that region the shadow holds {n:sh.centre_obs} against {n:sh.centre_exp} expected, a shortfall random plates match {n:sh.p_centre}% of the time.
+Within 2 degrees of each plate’s centre, away from the dense edges, as VASCO also tested, the shadow holds {n:sh.centre_obs} against {n:sh.centre_exp} expected, which random plates match {n:sh.p_centre}% of the time.
 
-Seen from Palomar rather than from the centre of the Earth, the shadow at geostationary height shifts by several degrees and crosses {n:sh.topo_plates} plates instead of {n:sh.plates}. In this version, the shadow holds {n:sh.topo_obs} against {n:sh.topo_exp} expected, a shortfall random plates match {n:sh.p_topo}% of the time ({n:sh.sig_topo} standard deviations).
+The pooled count is therefore sensitive to which plates the shadow happened to fall on, and to how well the pointing model describes them. From {3_circle_symbol} onwards, we compare shadow with sunlight on the same plates, which removes both of these factors.
 
 ### shadow-step2-caption
-Comparing the transients in Earth's shadow, each counted by its rating, to two measurements of chance. Use the arrows to step through how each result is built.
+Comparing the transients in Earth’s shadow, each counted by its rating and its share of the exposure in shadow, to two measurements of chance. Use the arrows to step through how each result is built.
 
 Purple: VASCO’s model, in which every transient is independent.
 
-Blue: the real Earth shadows laid on random plates across {n:sh.trials} trials, each scaled to the shadow plate's pointing.
+Blue: the real Earth shadows laid on random plates across {n:sh.trials} trials, each scaled to the shadow plate’s pointing.
 
 ### shadow-plates-title
 Taking a closer look at the plates in shadow
 
 ### shadow-plates-text
-Earth’s shadow crosses {n:sh.plates} of the catalogue’s plates. One of them, XE422, lies fully inside Earth's shadow, so it has no sunlit area to compare with. The other {n:sh.partial} plates are shown below, with the position of every transient from VASCO’s catalogue indicated.
+Earth’s shadow reaches {n:sh.plates} of the catalogue’s plates. One of them, XE422, lies inside the shadow throughout the exposure, so it has no sunlit area to compare with. Of the other {n:sh.partial}, seven are shown below, with the position of every transient from VASCO’s catalogue. The eighth, XE355, is left out: the shadow touches only a corner of it that holds no transients.
 
-The plates hold very different numbers of transients. XE415 holds {n:pl.XE415_n} transients, while XE355 only holds {n:pl.XE355_n}. Within a plate, transients bunch into clumps and gather along some edges, while some plates are almost empty in places. For example, XE640’s transients crowd along its northern edge and are missing from two large rounded regions. The sky has no reason to be empty in two round patches of a single plate, so these gaps most likely come from the plate itself, or from how it was scanned and searched.
+The plates hold very different numbers of transients. XE415 holds {n:pl.XE415_n} transients, while XE355 holds only {n:pl.XE355_n}. Within a plate, transients bunch into clumps and gather along some edges, while some plates are almost empty in places.
 
-Earth’s shadow splits each plate into two sections. On XE617, the shadow covers {n:pl.XE617_area}% of the plate and holds {n:pl.XE617_O} of its {n:pl.XE617_n} transients. Its rated count in shadow is {n:pl.XE617_Ow} against {n:pl.XE617_E} expected, so this plate holds more in shadow than expected. On XE640, the shadow clips {n:pl.XE640_area}% of the plate, in a corner that holds none of its {n:pl.XE640_n} transients.
+During each exposure, the shadow’s edge would have slid across the plate; in the diagrams below, the shadow’s edge at the start of each exposure is shown by a dashed line, and at the end by a solid line.
+
+Between these two lines, the chance that a transient appeared while its location was in shadow rises smoothly from 0 to 1. On XE415, the shadow covers {n:pl.XE415_area}% of the plate over the exposure, and the rated count in shadow is {n:pl.XE415_Ow} against {n:pl.XE415_E} expected. On XE356, the shadow reaches only a sliver along one edge, late in the exposure, which holds {n:pl.XE356_Ow} transients against {n:pl.XE356_E} expected.
 
 ### shadow-plates-caption
-The {n:sh.partial} plates that Earth’s shadow partly covers, showing the central 6 by 6 degrees of each. Each dot is a transient in VASCO’s catalogue, shaded by its rating: fainter dots are rated less likely to be genuine. Transients in Earth's shadow are shown in red, and those in sunlight blue. The red line marks the edge of Earth's shadow, {n:sh.deg} degrees from the point opposite the Sun when the plate was taken.
+Plates where Earth's shadow crossed during the exposure, as seen from Palomar.
 
-Under each plate are two numbers: the rated count in shadow, and the count expected if rated transients there were as dense as in the sunlit region. The expected count allows for the higher density towards plate edges, measured on plates the shadow never crosses.
+Light areas were in sunlight for the whole exposure, and dark areas in shadow throughout. The band between them is where the shadow passed during the exposure: the darker the shading, the longer that area was in shadow. The dashed red line is the shadow’s edge at the start of the exposure, and the solid line is its edge at the end.
 
-The ratio is the observed count in shadow divided by the expected count. A ratio of 1 means no difference in density between the shadow and sunlit regions.
+Each white dot is a transient. Below each plate, the rated count of transients within the shadow is given, along with the expected count if the shadow had no effect on transient levels. Transients falling in the band count in proportion to how long their position was in shadow.
 
 ### shadow-fit-title
 Fitting the shadow transient density
 
 ### shadow-fit-text
-VASCO report that transients are rarer in Earth’s shadow. We express this as a ratio, <em>r</em>: the density of transients in the shadowed part of a plate divided by the density in its sunlit part. With no shadow effect, <em>r</em> should be 1. If some transients genuinely vanish in the shadow, <em>r</em> should be below 1. VASCO’s analyses pool transients across plates rather than comparing shadow with sunlight on each plate, so they do not measure <em>r</em>. Because <em>r</em> compares each plate with itself, it does not depend on which plates the shadow fell on.
+VASCO report that transients are rarer in Earth’s shadow. We express this as a ratio, <em>r</em>: the density of transients where a plate is in shadow, divided by the density where it is in sunlight. With no shadow effect, <em>r</em> should be 1. If some transients genuinely vanish in the shadow, <em>r</em> should be below 1. VASCO’s analyses pool transients across plates rather than comparing shadow with sunlight on each plate, so they do not measure <em>r</em>. Because <em>r</em> compares each plate with itself, it does not depend on which plates Earth's shadow fell upon.
 
-On each plate, <em>r</em> compares the share of its rated transients that fall in the shadowed part with the share that part would hold if the shadow made no difference. That expected share is not simply the shadowed fraction of the area, because transients are denser towards the edges and corners of every plate (see the plate maps above), and the ratings themselves vary across a plate. We therefore weight each part of the plate by the typical density of rated transients there, measured on the {n:sh.never} plates the shadow never crosses, so that a real shortfall in shadow cannot affect the weights.
+On each plate, <em>r</em> compares the share of its rated transients that fall in the shadowed part with the share that part would hold if the shadow made no difference. A transient in the band where the shadow passed during the exposure is split between the two: if its spot was in shadow for a third of the exposure, it counts one third towards shadow and two thirds towards sunlight.
 
-Take {n:fit.ex_plate}, where Earth's shadow covers {n:fit.ex_area}% of the plate. With no shadow effect, the shadowed part would hold {n:fit.ex_weighted}% of the plate’s rated count. It actually holds {n:fit.ex_share}%, a rated count of {n:fit.ex_O} out of {n:fit.ex_n}. If transients vanished in shadow, this share would fall below {n:fit.ex_weighted}%, and <em>r</em> measures by how much.
+Even with no shadow effect, the shadowed part of a plate will not hold a number of transients in proportion to its share of the plate's area. Transients are denser towards the edges and corners of every plate (see the plate maps above), and their ratings also vary across a plate. We therefore weight each part of the plate by the typical density of rated transients there, measured on the {n:sh.never} plates no shadow ever reaches, so that a real shortfall in shadow cannot affect the weights.
 
-Because each plate is compared only with itself, <em>r</em> is unaffected by how many transients a plate holds or how highly transients are rated overall.
+Take {n:fit.ex_plate} for example, where Earth’s shadow covers {n:fit.ex_area}% of the plate over the exposure. With no shadow effect, the shadowed part would hold {n:fit.ex_weighted}% of the plate’s rated count of transients. It actually holds {n:fit.ex_share}%, a rated count of {n:fit.ex_O} out of {n:fit.ex_n}. For this plate, that gives <em>r</em> = {n:pl.XE369_r}: transients are {n:pl.XE369_r} times as dense in shadow as in sunlight.
 
-The single value of <em>r</em> that best fits all {n:sh.partial} plates together is {n:fit.r}: transients are as dense in shadow as in sunlight. If every transient were an independent event, counting statistics would give a 68% range for <em>r</em> of {n:fit.count_lo} to {n:fit.count_hi}. This range allows for the ratings: a plate of many low-rated transients carries less weight than its raw count suggests.
+Because each plate is compared only with itself, <em>r</em> is unaffected by how many transients a plate holds, how highly they are rated overall, or what the pointing model predicts for it. XE472 and XE532, which drive the shortfall in {2_circle_symbol}, hold only {n:pl.XE472_n} and {n:pl.XE532_n} transients, so they carry little weight here. And since each plate is compared only with itself, whatever caused these two plates to be nearly empty (both in shadow and sunlight) does not enter the comparison.
 
-The plates themselves show that this uncertainty is too small: single-plate ratios run from 0 on XE640 to {n:fit.max_r} on {n:fit.max_plate}, a much wider spread than counting allows. In {5_circle_symbol} we measure the true uncertainty, using trials built from the catalogue’s other plates.
+The single value of <em>r</em> that best fits all {n:sh.partial} plates together is {n:fit.r}: transients are somewhat less dense in shadow than in sunlight. If every transient were an independent event, counting statistics would give a 68% range for <em>r</em> of {n:fit.count_lo} to {n:fit.count_hi}. This range takes into account the VASCO transient ratings: a plate of many low-rated transients carries less weight than its raw transient count suggests.
+
+The plates themselves show that the uncertainty from counting statistics is too small, because single plates disagree far more than counting allows. XE415 gives a ratio of {n:pl.XE415_r}, with a counting range of {n:pl.XE415_lo} to {n:pl.XE415_hi}; XE356, where the shadow reaches only a sliver late in the exposure, gives {n:pl.XE356_r}, with a range of {n:pl.XE356_lo} to {n:pl.XE356_hi}. In {5_circle_symbol} we measure the true uncertainty, using trials built from the catalogue’s other plates.
 
 ### shadow-fit-caption
-Grey points: the density of rated transients in shadow divided by the density in sunlight, for each plate the shadow partly covers. Error bars are taken from counting statistics. Plates with nothing in shadow have only upper limits.
+Grey points: the density of rated transients in shadow divided by the density in sunlight, for each plate the shadow partly covers. XE355, where Earth's shadow touches only an empty corner, is not considered. Error bars are taken from counting statistics.
 
-Blue: the best-fit ratio across all {n:sh.partial} plates, with a one-standard-deviation range taken from counting statistics.
+Blue: the best-fit ratio across all {n:sh.partial} plates, with a one-standard-deviation range taken from naive counting statistics.
 
 ### shadow-toys-title
 Finding the true uncertainty
 
 ### shadow-toys-text
-Counting statistics treat every transient as independent. To measure the true uncertainty, we ran the same fit on plates where no shadow effect is possible. Each trial lays the {n:sh.partial} real shadow outlines onto {n:sh.partial} other plates that Earth’s shadow never crossed, and counts the rated transients inside and outside the shadow. Each random plate has a rated count similar to that of the shadow plate it replaces.
+Counting statistics treat every transient as independent. To measure the true uncertainty, we ran the same fit on plates where no shadow effect is possible. Each trial lays the {n:sh.partial} real shadows, with their movement during the exposure, onto {n:sh.partial} other plates that no shadow ever reached, and fits the transients there exactly as on the real plates. Each random plate has a rated count similar to that of the shadow plate it replaces. On simulated plates with a known ratio, the fit recovers the simulated ratio without bias, and its 68% counting range contains the simulated value {n:fit.closure_cov}% of the time, as expected.
 
-Over {n:fit.trials} trials, the fit gives a typical <em>r</em> of {n:fit.null_median}, with the middle 68% of results between {n:fit.null_lo} and {n:fit.null_hi}. The fit to the {n:sh.partial} real shadow plates, <em>r</em> = {n:fit.r}, lies well within this range, so it shows no shortfall in shadow beyond chance. The same trials give the range of true ratios consistent with the data: {n:fit.ci68_lo} to {n:fit.ci68_hi} at 68% confidence, and {n:fit.ci90_lo} to {n:fit.ci90_hi} at 90%.
+Over {n:fit.trials} trials, the fit gives a typical <em>r</em> of {n:fit.null_median}, with the middle 68% of results between {n:fit.null_lo} and {n:fit.null_hi}. Compared to the fit to real data, which finds <em>r</em> = {n:fit.r}, trials find deficit values at least this extreme {n:fit.p_low}% of the time ({n:fit.sig_low} standard deviations). The same trials give the range of true ratios consistent with the data: {n:fit.ci68_lo} to {n:fit.ci68_hi} at 68% confidence, and {n:fit.ci90_lo} to {n:fit.ci90_hi} at 90%.
 
-The same trials show that our fit can detect a genuine shortfall. In a second set of trials, we removed transients inside the shadow outlines until they were only {n:fit.inj_r} times as dense there, a shortfall as large as VASCO’s. The fit then returns {n:fit.r} or higher only {n:fit.inj_pct}% of the time. VASCO did not measure the ratio plate by plate, but a shortfall of the size their count implies is disfavoured at {n:fit.inj_cl}% confidence. The test is one-sided: it asks only whether <em>r</em> could be as low as {n:fit.inj_r}.
+We find that the result rests predominantly on a single plate: without {n:fit.single_plate}, the fit measures <em>r</em> = {n:fit.drop_r}. On its own, {n:fit.single_plate} gives a ratio of {n:fit.single_r}. To see whether that is unusual, we moved its shadow to other positions on the same plate, leaving its transients where they are: {n:fit.single_p_moved}% of positions give a ratio at least this low. Laying the same shadow on other plates with a similar number of transients gives a ratio this low {n:fit.single_p_similar}% of the time. A ratio this low can arise by chance, based on the uneven distribution of transients across a plate.
 
-These results hold when the random plates are selected differently, when each shadow is instead moved around on its own plate, or when any one plate is left out.
+However, our results hold when the random plates are selected differently, when each shadow is instead moved around on its own plate, and under multiple choices of shadow edge, plate times, and sampling of the exposure. All of these variations of the analysis return r</em> values between {n:fit.sys_r_lo} and {n:fit.sys_r_hi}.
 
 ### shadow-toys-caption
-Blue: fit result to the real plates.
+Blue line: fit result to the real plates.
 
 Grey: {n:fit.trials} trials using the real shadows applied to random plates.
 
-Purple: trials with a shortfall of transients in Earth's shadow added to the data.
+Shaded: trials with ratio values at least as low as the observed value in real data.
 
 Use the arrows to step through how this comparison is built.
 
@@ -286,38 +302,38 @@ Use the arrows to step through how this comparison is built.
 Transients rated most likely to be genuine
 
 ### shadow-bands-text
-VASCO’s 2026 work splits the transients into ten bands by rating, each holding a tenth of the transients, and finds the largest shortfall in shadow in the top band. Their test counts each band against an expected share of the sky, so it has the same problem as the count in {2_circle_symbol}: the shadow plates hold fewer transients. Under VASCO’s binomial model, every band falls short, by {n:sh.band_z_lo} to {n:sh.band_z_hi} standard deviations, as a shortage across whole plates would predict.
+VASCO’s 2026 work splits the transients into ten bands by rating, each holding a tenth of the transients, and finds the largest Earth's shadow shortfall in the top band. Their test counts each band against an expected share of the sky, so it has the same problem as the count in {2_circle_symbol}: the shadow plates tend to hold fewer transients. Under VASCO’s binomial model, every band falls short, by {n:sh.band_z_lo} to {n:sh.band_z_hi} standard deviations, as a general shortage across entire plates would predict.
 
 The shortfall is largest in the top band because the rating model tends to give high ratings on plates that hold many transients, and the shadow plates hold few. Of the {n:sh.partial} shadow plates, {n:fit.top_none} hold no top-band transients at all, in sunlight or in shadow. Of those, {n:fit.top_none_sunlit} lie more than 90% in sunlight, so the shadow cannot explain why they lack top-band transients.
 
-Each band holds an unknown mix of glints (which would vanish in shadow) and other transients such as flaws (which would not vanish). Inside the shadow, only the non-glint transients remain, so a band’s ratio equals one minus its share of glints. We fit all ten bands at once, each with its own share of glints as a free parameter. Allowing every band some share of glints improves the fit no more than chance does: in {n:fit.joint_p}% of trials with no glints, the fit improves at least as much (twice the log-likelihood, a standard measure of fit quality, rises by {n:fit.joint_q} against a typical {n:fit.joint_med}).
+Each band holds an unknown mix of glints (which would vanish in shadow) and other transients such as flaws (which would not vanish). Inside the shadow, only the non-glint transients remain, so a band’s ratio equals one minus its share of glints. We fit all ten bands at once, each with its own share of glints as a free parameter. Allowing every band some share of glints improves the fit no more than chance does: in {n:fit.joint_p}% of trials with no glints, the fit improves at least as much.
 
-If glints were among the transients the rating model rates as genuine, their share should rise with rating. The fitted share of glints rises no more than chance allows. It scatters from band to band, with a slight upward drift that trials with no glints match or exceed {n:fit.trend_p}% of the time. The two lowest bands, which the rating model judges mostly flaws, show as large a fitted share of glints as most of the bands above them.
+If the rating model picked out glints, the clearest sign would be a steady trend: the ratio falling further below 1 as the rating rises. The trend fitted through the ten bands (shown with the button above the chart) does fall, from {n:fit.trend_lo} in the lowest band to {n:fit.trend_hi} in the top band, but trials with no glints give a trend at least this steep {n:fit.trend_p}% of the time. The bands also scatter more than a steady trend would allow: the lowest band, which the rating model judges to contain mostly flaws, has one of the lowest ratios.
 
-The top band, where VASCO find their largest shortfall, also gives our lowest ratio, {n:fit.top_r}. We tested this three ways, and none gives a significant shortfall:
+The top band, where VASCO find their largest shortfall, gives a standalone ratio of {n:fit.top_r}; the lowest ratio, {n:fit.band_lo}, comes from the {n:fit.band_low_ord} band. We tested the top band three ways, none of which indicate a statistically significant shortfall:
 
-- Plate by plate, the ratio rests on {n:fit.top_O} transients in shadow, out of {n:fit.top_n}. Trials with no effect give a ratio this low {n:fit.top_p}% of the time.
-- Over all {n:sh.plates} shadow plates, as in {2_circle_symbol}, the top band holds {n:sh.top_obs} transients in shadow against {n:sh.top_exp} expected. Tested on its own, that shortfall would arise by chance {n:sh.top_p}% of the time. But the band was picked out as the most extreme of ten, and the most extreme of ten bands looks this extreme {n:sh.top_any}% of the time (look-elsewhere effect).
+- Plate by plate, the ratio rests on {n:fit.top_O} transients in shadow out of {n:fit.top_n}. Trials with no effect give a ratio this low {n:fit.top_p}% of the time.
+- Over all {n:sh.plates} shadow plates, as in {2_circle_symbol}, the top band holds {n:sh.top_obs} transients in shadow against {n:sh.top_exp} expected. Tested on its own, that shortfall would arise by chance {n:sh.top_p}% of the time. But the top band is one of ten, and here the {n:sh.top_lowest_ord} band’s shortfall is more significant. By chance alone, at least one of ten bands looks this extreme {n:sh.top_any}% of the time (the look-elsewhere effect).
 - We also fitted a signal spread across the bands, like the transients VASCO labelled as genuine. That fit finds a shortfall this large in {n:fit.labels_p}% of trials with no signal.
 
 All three tests are limited by the small number of top-band transients on the shadow plates. As such, the top band can neither confirm nor rule out a signal.
 
 ### shadow-bands-caption
-Grey points: for each band of VASCO’s ratings, the density of transients in shadow divided by the density in sunlight, fitted across the {n:sh.partial} plates the shadow partly covers. Each transient counts once. Thick and thin bars show the 68% and 90% ranges from trials on plates the shadow never crossed.
+The ratio as measured in each band of VASCO's transient ratings. Thick and thin bars mark the 68% and 90% ranges, found from trials on plates the shadow never reaches.
 
-Purple: the top band, where VASCO find their largest shortfall.
+The blue point shows the ratio measured across all transients, each weighted by its rating, as in {4_circle_symbol} and {5_circle_symbol}.
 
-Blue: the same fit to all transients together, each counted by its rating, as in {4_circle_symbol} and {5_circle_symbol}.
+Use the button to view the trend in the fitted ratio with rating score. The shaded bands show the 68% and 90% intervals.
 
 ### shadow-verdict-title
-No significant shadow shortfall
+When measured at plate level, no significant shortfall in Earth's shadow
 
 ### shadow-verdict
-VASCO’s binomial model puts the shortfall of transients in Earth’s shadow at {n:sh.binom_z} standard deviations. Measured against how transient counts vary between plates, the shortfall amounts to {n:sh.sig_point} standard deviations. This shortfall reflects the plates the shadow happened to fall on, which tend to hold fewer transients in sunlight as well as in shadow.
+VASCO’s binomial model puts the shortfall of transients in Earth’s shadow at {n:sh.binom_z} standard deviations. Measured against how transient counts vary between plates, we find the an effect amounting to {n:sh.sig_point} standard deviations. Most of the shortfall is driven by two plates, XE472 and XE532, which are low in transients both in sunlight and shadow. These plates fall in a sparse patch of the catalogue, which our pointing model applies no correction for.
 
-Comparing shadow with sunlight on the same plates removes the influence of which plates the shadow crossed. In this test, rated transients are as dense in shadow as in sunlight: the best-fit ratio is {n:fit.r}, with a 90% confidence range of {n:fit.ci90_lo} to {n:fit.ci90_hi}. No band of VASCO’s ratings, including the top band, shows a shortfall beyond chance.
+We perform a direct measurement of the Earth's shadow effect, by measuring transients in shadow and sunlight at a per-plate level. We find that rated transients are somewhat less dense in shadow, with a best-fit ratio of {n:fit.r} ({n:fit.sig_low} standard deviations). The ratio predominantly rests on one plate, {n:fit.single_plate}, which exhibits an uneven spread of candidates capable of creating an effect by chance. Without it, the ratio measured is {n:fit.drop_r}. No single band of VASCO’s ratings shows a shortfall beyond chance.
 
-Earth’s shadow also crosses {n:sh.south} plates south of the celestial equator, beyond the edge of VASCO’s catalogue. Adding these plates would allow the same test to be performed on around {n:sh.south_ratio} times as much shadowed sky as now.
+Earth’s shadow also reaches {n:sh.south} plates south of the celestial equator, beyond the edge of VASCO’s catalogue. Adding these plates would allow the same tests to be performed on around {n:sh.south_ratio} times as much shadowed sky.
 
 ### nuclear-h2
 Do transients cluster around nuclear tests?
@@ -527,13 +543,15 @@ Around {n:dates.early_pct}% of plates have an archive date that is one day early
 Do transients avoid Earth’s shadow?
 
 ### card-1-ours
-Counting each transient by VASCO’s rating and allowing for where each plate points, chance gives a shortfall in shadow as large as the one seen {n:sh.p_point}% of the time. The shortfall comes almost entirely from the plates the shadow fell on. Plate by plate, transients are as dense in shadow as in sunlight, and no band of the ratings shows a shortfall beyond chance. A shortfall as large as VASCO’s count implies is disfavoured at {n:fit.inj_cl}% confidence (one-sided).
+We place Earth’s shadow where it fell, as seen from Palomar, and count each transient by VASCO’s rating. Allowing for where each plate points, the shadow holds fewer transients than expected ({n:sh.sig_point} standard deviations). Most of this shortfall comes from two plates that hold few transients, including in their sunlit areas.
+
+When comparing transients in sunlight and shadow at the per-plate level, a shortfall is also measured albeit less significant ({n:fit.sig_low} standard deviations). This result is largely driven by a single plate.
 
 ### card-2-question
 Do transients cluster around nuclear tests?
 
 ### card-2-ours
-Nights near tests had more photographs, and pointed at parts of the sky where more transients survive the catalogue’s selection. Counted per photograph and allowing for pointing, with each transient counted by VASCO’s rating and the full list of US tests, plates near tests hold {n:nc2.point_r} times their expected number. Shifted test calendars match or exceed this {n:nc2.point_pc}% of the time. Retraining the ratings on different sets of VASCO’s labels moves the result only between {n:ml.point_lo} and {n:ml.point_hi}. The top band of ratings moves more, from {n:ml.top_now} to {n:ml.top_r}, but no choice of labels makes either result significant.
+Nights near tests had more photographs, and pointed at parts of the sky where more transients survive the catalogue’s selection. Counted per photograph and allowing for pointing, with each transient counted by VASCO’s rating and the full list of US tests, plates near tests hold {n:nc2.point_r} times their expected number. Shifted test calendars match or exceed this {n:nc2.point_pc}% of the time ({n:nc2.sig} standard deviations).
 
 ### card-3-question
 Do transients form straight lines?

@@ -17,7 +17,6 @@ the results in the page's environment.
 PYML=<python with requirements-vasco-ml.txt> make ml-retrain
     -> data/external/vasco_ml/ratings/<labels>_<night>_<seed>.npy (not kept: large and remade on demand)"""
 import hashlib
-import os
 import sys
 from pathlib import Path
 

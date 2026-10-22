@@ -1,57 +1,59 @@
 {
- "observed": 124.0,
- "page": {
-  "null_mean": 245.7,
-  "p": 0.074
- },
- "calibration": {
-  "runs": 500,
-  "share_below": {
-   "0.05": 0.04,
-   "0.11": 0.112,
-   "0.25": 0.236,
-   "0.5": 0.49
-  }
- },
- "hosts_crossed": 0,
- "injected": {
-  "0.2": {
-   "observed": 99.2,
-   "p": 0.024
+ "topo": {
+  "observed": 116.2,
+  "page": {
+   "null_mean": 321.2,
+   "p": 0.022
   },
-  "0.4": {
-   "observed": 74.4,
-   "p": 0.004
+  "calibration": {
+   "runs": 500,
+   "share_below": {
+    "0.05": 0.04,
+    "0.11": 0.118,
+    "0.25": 0.262,
+    "0.5": 0.554
+   }
   },
-  "0.6": {
-   "observed": 49.6,
-   "p": 0.0
-  }
- },
- "terms": {
-  "milky_way": {
-   "expected": 254.1,
-   "p": 0.108
+  "hosts_crossed": 0,
+  "injected": {
+   "0.2": {
+    "observed": 93.0,
+    "p": 0.007
+   },
+   "0.4": {
+    "observed": 69.7,
+    "p": 0.002
+   },
+   "0.6": {
+    "observed": 46.5,
+    "p": 0.0
+   }
   },
-  "milky_way_dust": {
-   "expected": 284.9,
-   "p": 0.059
-  },
-  "milky_way_dust_ecliptic": {
-   "expected": 294.0,
-   "p": 0.049
-  },
-  "ecliptic": {
-   "expected": 279.0,
-   "p": 0.092
-  },
-  "centre_dust_with_equatorial_row": {
-   "expected": 267.5,
-   "p": 0.068
-  },
-  "page_curve": {
-   "expected": 261.0,
-   "p": 0.074
+  "terms": {
+   "milky_way": {
+    "expected": 221.2,
+    "p": 0.166
+   },
+   "milky_way_dust": {
+    "expected": 281.7,
+    "p": 0.072
+   },
+   "milky_way_dust_ecliptic": {
+    "expected": 288.9,
+    "p": 0.068
+   },
+   "ecliptic": {
+    "expected": 267.8,
+    "p": 0.118
+   },
+   "centre_dust_with_equatorial_row": {
+    "expected": 349.6,
+    "p": 0.022
+   },
+   "page_curve": {
+    "expected": 345.8,
+    "p": 0.024
+   }
   }
  }
 }

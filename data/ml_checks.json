@@ -53,8 +53,10 @@
    }
   },
   "on_shadow_plates": {
-   "real": 2,
-   "flaw": 8
+   "topo": {
+    "real": 0,
+    "flaw": 0
+   }
   },
   "share_of_window_transients_labelled": 0.004,
   "share_of_all_transients_labelled": 0.003,
@@ -105,38 +107,42 @@
   }
  },
  "shadow": {
-  "without_labelled": {
-   "pooled": 123.995,
-   "plate_by_plate_r": 0.961,
-   "removed": 10
-  },
-  "pooled": {
-   "real": 123.995,
-   "shuffled_median": 126.393,
-   "shuffled_90": [
-    122.937,
-    130.181
-   ],
-   "p_as_low": 0.158
-  },
-  "plate_by_plate_r": {
-   "real": 0.961,
-   "shuffled_median": 1.0,
-   "shuffled_90": [
-    0.937,
-    1.062
-   ],
-   "p_as_low": 0.166
-  },
-  "shuffles": 500
+  "topo": {
+   "without_labelled": {
+    "pooled": 116.159,
+    "plate_by_plate_r": 0.737,
+    "removed": 0
+   },
+   "pooled": {
+    "real": 116.159,
+    "shuffled_median": 116.355,
+    "shuffled_90": [
+     113.063,
+     119.768
+    ],
+    "p_as_low": 0.463
+   },
+   "plate_by_plate_r": {
+    "real": 0.737,
+    "shuffled_median": 0.756,
+    "shuffled_90": [
+     0.684,
+     0.836
+    ],
+    "p_as_low": 0.323
+   },
+   "shuffles": 500
+  }
  },
  "sculpting": {
-  "inside_over_outside_mean_rating": 0.98,
-  "shuffled_median": 0.999,
-  "shuffled_90": [
-   0.995,
-   1.002
-  ],
-  "p_two_sided": 0.0
+  "topo": {
+   "inside_over_outside_mean_rating": 0.984,
+   "shuffled_median": 0.993,
+   "shuffled_90": [
+    0.989,
+    0.997
+   ],
+   "p_two_sided": 0.0
+  }
  }
 }
