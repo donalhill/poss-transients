@@ -371,7 +371,7 @@ numbers.update({
     "dates.ast_late_plates": num((DC.best_day_offset == 1).sum()), "dates.ast_ok_trails": num(DC[DC.best_day_offset == 0].n_at_best.sum()),
     "dates.ast_ok_plates": num((DC.best_day_offset == 0).sum()), "dates.log_agree": num(DS["log_agree"]), "dates.log_checked": num(DS["log_checked"]),
     "dates.dated": num(len(t)), "dates.by_log": num(src["Palomar log"]), "dates.by_asteroids": num(src["asteroids"]),
-    "dates.by_label": num(src["label"]), "dates.by_runs": num(src["block rule"] + src.get("serial neighbours", 0)), "dates.unresolved": word(src.get("unresolved", 0)),
+    "dates.by_label": num(src["label"]), "dates.by_runs": num(src["block rule"] + src.get("serial neighbours", 0)), "dates.runs_cat": (lambda k_: "none of them in the catalogue, so every catalogue plate is dated directly" if k_ == 0 else f"{word(k_)} of them in the catalogue")(int(t[t.source.isin(["block rule", "serial neighbours"]) & t.index.isin(pl.index)].shape[0])), "dates.unresolved": word(src.get("unresolved", 0)),
     "dates.exceptions": word(len(DS["exceptions"])).capitalize(), "dates.gross": word(sum(abs(e_["days"]) > 1 for e_ in DS["exceptions"])).capitalize(),
     "dates.vasco_nights": num(len(sample.vasco_nights())), "dates.dropped": num((left_ & (off_ == 0)).sum()),
     "dates.shifted": num((~left_ & (off_ == 0)).sum())})

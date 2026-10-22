@@ -75,7 +75,7 @@ Palomar numbered the red plates in the order they were taken. The one-day dating
 
 Where the log covers the same plates as the asteroids or the handwritten labels, they agree on {n:dates.log_agree} of {n:dates.log_checked} cases. The two exceptions are typing errors in the log, where we take the date on the label. For every other plate in a run with a one-day error, we add one day to the archive date.
 
-Across the {n:dates.dated} plates we dated (which include all {n:cat.plates} in the catalogue), Palomar’s logs date {n:dates.by_log}, asteroid trails {n:dates.by_asteroids}, and the handwritten labels another {n:dates.by_label}. Runs of plate numbers settle a further {n:dates.by_runs}. That leaves {n:dates.unresolved} plates, XE723 and XE884, with no evidence for their date; neither is in the catalogue, so they play no part in our subsequent analysis.
+Across the {n:dates.dated} plates we dated (which include all {n:cat.plates} in the catalogue), Palomar’s logs date {n:dates.by_log}, asteroid trails {n:dates.by_asteroids}, and the handwritten labels another {n:dates.by_label}. Runs of plate numbers settle a further {n:dates.by_runs}, {n:dates.runs_cat}. That leaves {n:dates.unresolved} plates, XE723 and XE884, with no evidence for their date; neither is in the catalogue, so they play no part in our subsequent analysis.
 
 {n:dates.exceptions} plates don't follow this pattern, and are listed in the second table below. {n:dates.gross} of these plates are wrong by months or years. Most are corrected from their labels or from Palomar’s log. The remaining two carry the same error as the plates numbered next to them, so they take those plates’ corrected dates. All of the date corrections can be found in our code repository.
 

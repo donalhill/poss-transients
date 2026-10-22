@@ -39,6 +39,8 @@ t["asteroid_offset"] = ast.best_day_offset.reindex(t.index)
 # Palomar's plate log: matched on serial number and on position (the log repeats some serial numbers, once for a
 # northern field and once for a southern one). The log gives the double date's first (evening) date; UT is the second.
 cen = {r.plate: (r.ra, r.dec) for r in pd.read_csv(ROOT / "data/xe_plate_centres.csv").itertuples()}   # from the scan headers (PLTRA*, PLTDEC*)
+# plates with no scan header: their centre from VASCO's random positions on the plate (plates.py)
+cen.update({q: (r.ra_c, r.dec_c) for q, r in pd.read_parquet(ROOT / "data/plates.parquet").iterrows() if q not in cen})
 log = pd.read_csv(ROOT / "data/palomar_log_vi25.csv", dtype={"plate_number": str})
 log["num"] = pd.to_numeric(log.plate_number, errors="coerce")
 log["pos"] = list(SkyCoord(log.ra_j2000.values, log.dec_j2000.values, unit=(u.hourangle, u.deg)))
