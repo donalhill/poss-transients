@@ -4,7 +4,7 @@ title: "POSS Transients Re-examined: a re-analysis of the VASCO POSS-I transient
 authors:
   - family-names: Hill
     given-names: Donal
-version: 1.0.0
+version: 1.1.0
 doi: 10.5281/zenodo.23549537
 date-released: 2026-10-22
 url: "https://donalhill.github.io/poss-transients/"
