@@ -113,3 +113,12 @@ Kept in the repository, because they were made by hand or take hours of calls to
   against what each plate's pointing predicts. The test calendar is shifted by 1 to 5 years and up to two months,
   keeping each test's time of year and the gaps between tests; plates from the two weeks around real tests are left out
   of every shifted calendar, and only calendars holding within 30% as many plates as the real one are kept.
+
+## License
+
+Code: MIT License (`LICENSE`). Write-up, figures, and data tables produced here, including the corrected plate dates:
+CC BY 4.0 (`LICENSE-CONTENT.md`). Inputs from others keep their own terms.
+
+## Citing
+
+See `CITATION.cff`. Each GitHub release is archived on Zenodo with a DOI.
