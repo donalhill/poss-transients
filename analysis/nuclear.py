@@ -3,8 +3,10 @@
 1. VASCO's test as they ran it (Bruehl & Villarroel 2025; Bruehl et al. 2026), reproduced on their construction and on
    the full catalogue.
 
-Unit: an observing night; its value is the number of transients on its plates (each transient counted once; the public
-machine-learning scores are not usable). Nights near tests: VASCO's window, within one day of a US test by local evening
+Unit: an observing night; its value is the summed machine-learning ratings of the transients on its plates (VASCO-ML's
+rating of how likely each is to be real, sample.py), as Bruehl et al. (2026) count theirs; how far the result depends on
+the labels that trained the ratings is in ml_retrain_eval.py, and the same test with each transient counted once in
+section 6. Nights near tests: VASCO's window, within one day of a US test by local evening
 date (in UT, the test day to two days after; VWIN). VASCO's test: the ratio of
 transients per night near tests to other nights, against the same number of nights picked at random. Also how many
 photographs the nights near tests hold, against other nights.
@@ -21,6 +23,9 @@ from Palomar's log (sample.py).
 3. Everything else measurable about a plate, other definitions of a transient, and each test series left out.
 4. Every window that includes the test day, up to a week either side; the rich plates that move the result between
    windows, and the windows without them.
+5. A 95% upper limit on an excess near tests, with the limit expected with none; and the ratings in bands (VASCO-ML's
+   decile edges): the excess in each band, every band at once, its trend with rating.
+6. The same tests with each transient counted once: VASCO's construction, and ours at each step.
 
 python analysis/nuclear.py -> data/nuclear.json"""
 import json
@@ -78,7 +83,7 @@ out = {}
 # VASCO's construction: archive dates, their list of nights
 vcat, _ = sample.vasco()
 vn = sample.vasco_nights()
-vv = vcat.groupby("date").size().reindex(vn, fill_value=0).values.astype(float)
+vv = vcat.groupby("date").w.sum().reindex(vn, fill_value=0).values.astype(float)
 out["vasco"] = random_nights(vv, near(((vn - DAY0).days).values, (-1, 0, 1), tests=TESTS_V), np.random.default_rng(42))   # local evening dates
 out["vasco"].pop("hist")
 
@@ -86,7 +91,7 @@ out["vasco"].pop("hist")
 cat, plates = sample.ours()
 nights = sample.nights()
 days = ((nights - DAY0).days).values
-values = cat.groupby("date").size().reindex(nights, fill_value=0).values.astype(float)
+values = cat.groupby("date").w.sum().reindex(nights, fill_value=0).values.astype(float)
 w = near(days)
 out["perm"] = {"raw": random_nights(values, w, np.random.default_rng(42))}
 
@@ -105,11 +110,11 @@ out["steps"] = {"nights": len(nights), "nights_with_plates": int((npl > 0).sum()
 # calendars leave out plates taken within two weeks of a real test.
 P = PP.properties(cat, plates)                                                # every plate and its properties
 day = ((P.date - DAY0).dt.days).values
-y_raw = P.n.values.astype(float)
+y_raw = P.nw.values.astype(float)                                            # each plate's summed ratings
 
 SHIFTS = [365 * k + d for k in (-5, -4, -3, -2, -1, 1, 2, 3, 4, 5) for d in range(-60, 61)]
 
-E, X, a = PP.pointing(P)                                                      # the pointing curve (plate_properties.py)
+E, X, a = PP.pointing(P, y="nw")                                              # the pointing curve (plate_properties.py), on the ratings
 m0 = near(day)
 per_night = lambda lab: values[lab].mean() / values[~lab].mean()
 ratio = lambda m, e: (y_raw[m].sum() / e[m].sum()) / (y_raw[~m].sum() / e[~m].sum())
@@ -165,7 +170,7 @@ assert gap > CLEAR
 # and it does not absorb one put in: transients on the plates near tests scaled up, the curve refitted, measured as above
 inj = []
 for f in (1.5, 2.0):
-    y_ = np.where(m0, np.round(y_raw * f), y_raw); E_ = curve(y_, np.ones(len(y_), bool))
+    y_ = np.where(m0, y_raw * f, y_raw); E_ = curve(y_, np.ones(len(y_), bool))
     rat = lambda m: (y_[m].sum() / E_[m].sum()) / (y_[~m].sum() / E_[~m].sum())
     r_ = rat(m0); C_ = np.array([rat(slid_plates[i]) for i in keep])
     inj.append({"factor": f, "measured": r3(r_), "measured_over_real": r3(r_ / r_c), "null_median": r3(np.median(C_)),
@@ -195,13 +200,13 @@ def check(group, label, y=y_raw, e=None, tests=TESTS):
 pcat = cat
 y_cells = cat.assign(i=np.floor(cat.xi * 30).astype(int), j=np.floor(cat.eta * 30).astype(int)).groupby("plate") \
              .apply(lambda g: len(set(zip(g.i, g.j)))).reindex(P.index).fillna(0).values.astype(float)
-y_inner = cat[(cat.xi.abs() < 2.5) & (cat.eta.abs() < 2.5)].groupby("plate").size().reindex(P.index).fillna(0).values.astype(float)
+y_inner = cat[(cat.xi.abs() < 2.5) & (cat.eta.abs() < 2.5)].groupby("plate").w.sum().reindex(P.index).fillna(0).values.astype(float)
 iso = np.zeros(len(pcat), bool)
 for _, idx in pcat.groupby("plate").indices.items():
     xy = np.c_[pcat.xi.values[idx], pcat.eta.values[idx]] * 60
     iso[idx] = cKDTree(xy).query(xy, k=2)[0][:, 1] >= 5 if len(xy) > 1 else True
 central = (np.maximum(pcat.xi.abs(), pcat.eta.abs()) < 2.5).values
-count = lambda k: pcat[k].groupby("plate").size().reindex(P.index).fillna(0).values.astype(float)
+count = lambda k: pcat[k].groupby("plate").w.sum().reindex(P.index).fillna(0).values.astype(float)
 props = {"depth": "How deep the plate goes", "fwhm": "How sharp its stars are", "exp": "Exposure time", "airmass": "Height above the horizon",
          "moon_up": "Moon above the horizon", "moon_sep": "Distance from the Moon", "quality_bad": "VASCO’s plate-quality flag"}
 out["checks"] = [check("Plate properties", lab, e=expected(y_raw, (t,))) for t, lab in props.items()]
@@ -260,7 +265,7 @@ def rich(offsets_, k):
     out_ = []
     for j in np.argsort(ex)[::-1][:k]:
         off = day[j] - TESTS - UT; off = off[np.abs(off) <= R]                     # local days from the test
-        out_.append({"plate": P.index[j], "date": str(P.date.iloc[j].date()), "n": int(y_raw[j]), "expected": int(round(lvl * E[j])),
+        out_.append({"plate": P.index[j], "date": str(P.date.iloc[j].date()), "n": round(float(y_raw[j]), 1), "expected": int(round(lvl * E[j])),
                      "days_from_test": int(off[np.argmin(np.abs(off))])})
     return out_
 
@@ -282,10 +287,53 @@ fam["without"] = {"plates": list(P.index[drop3]), "median": r3(np.median([c_["r_
                   "vasco": r3(ratio_without(-1, 1))}
 out["windows"] = fam
 
+# the ratings in bands (VASCO-ML's decile edges), each transient counted once within its band, as their decile analysis
+# counts them: in each band the excess near tests against that band's own pointing curve, scored against the shifted
+# calendars; every band at once (Fisher's combination of the bands' chances, against the same for each calendar with
+# every band shifted together, each calendar's chances ranked among the others); the trend of the excess with each
+# band's mean rating; and the most extreme band, allowing for its being one of ten
+band = sample.decile(cat.w)
+YB = np.stack([cat[band == k].groupby("plate").size().reindex(P.index).fillna(0).values.astype(float) for k in range(10)])
+EB = np.stack([PP.pointing(P.assign(n=YB[k]))[0] for k in range(10)])
+rat = lambda y, e, m: (y[m].sum() / e[m].sum()) / (y[~m].sum() / e[~m].sum())
+bands = lambda m: np.array([rat(YB[k], EB[k], m) for k in range(10)])
+R0 = bands(m0); RC = np.array([bands(slid_plates[i]) for i in keep])                       # calendars x bands
+p0 = (np.sum(RC >= R0, 0) + 1) / (len(RC) + 1)
+pC = np.array([(np.sum(np.delete(RC, i, 0) >= RC[i], 0) + 1) / len(RC) for i in range(len(RC))])
+F0, FC = -2 * np.log(p0).sum(), -2 * np.log(pC).sum(1)
+mr = np.array([cat.w[band == k].mean() for k in range(10)])
+slope = lambda r_: np.polyfit(mr, np.log(r_), 1)[0]
+s0, sC = slope(R0), np.array([slope(r_) for r_ in RC])
+out["bands"] = {"r": [r3(v) for v in R0], "p": [r3(v) for v in p0], "mean_rating": [r3(v) for v in mr],
+                "joint_p": r3((np.sum(FC >= F0) + 1) / (len(FC) + 1)),
+                "trend": {"slope": r3(s0), "p": r3((np.sum(sC >= s0) + 1) / (len(sC) + 1))},
+                "lowest_p": r3(p0.min()), "lowest_band": int(p0.argmin()), "lowest_p_any": r3(np.mean(pC.min(1) <= p0.min()))}
+# a 95% upper limit on an excess near tests (every plate near a test scaled by f, which the measure follows, as the
+# injection check shows): f such that the shifted calendars, scaled by f, fall at or below the real ratio 5% of the time;
+# and the limit expected with no excess, from each calendar in turn as the real one
+q05 = np.quantile(C, 0.05)
+out["limit"] = {"f95": r3(r_c / q05), "expected": [r3(np.quantile(C / q05, q)) for q in (0.025, 0.16, 0.5, 0.84, 0.975)]}
+
 b_ = np.abs(P.b.values)
 out["pointing"] = {"median_low": float(np.median(y_raw[b_ < 10])), "median_high": float(np.median(y_raw[b_ > 40])),
                    "expected_near_over_other": r3(E[m0].mean() / E[~m0].mean()), "slides": len(keep),
                    "near_spring": r3(np.isin(P.date[m0].dt.month, [2, 3, 4, 5, 6]).mean())}
+
+# 6. the same with each transient counted once: VASCO's construction, and ours per night, per photograph, and against a
+# pointing curve fitted to the counts, each against the shifted calendars. The ratings rise with distance from the Milky
+# Way, so the curve fitted to counts expects fewer near tests than the one fitted to ratings
+vc = vcat.groupby("date").size().reindex(vn, fill_value=0).values.astype(float)
+values_c = cat.groupby("date").size().reindex(nights, fill_value=0).values.astype(float)
+yc = P.n.values.astype(float); Ec = PP.pointing(P)[0]
+ratio_c = lambda m, e: (yc[m].sum() / e[m].sum()) / (yc[~m].sum() / e[~m].sum())
+cal_p = lambda r, f: r3((np.sum(np.array([f(slid_plates[i]) for i in keep]) >= r) + 1) / (len(keep) + 1))
+nohist = lambda d: {k: v for k, v in d.items() if k != "hist"}
+r_ph, r_pt = ratio_c(m0, np.ones(len(yc))), ratio_c(m0, Ec)
+out["counted"] = {"vasco": nohist(random_nights(vc, near(((vn - DAY0).days).values, (-1, 0, 1), tests=TESTS_V), np.random.default_rng(42))),
+                  "per_night": nohist(random_nights(values_c, w, np.random.default_rng(42))),
+                  "per_photograph": {"r": r3(r_ph), "p": cal_p(r_ph, lambda m: ratio_c(m, np.ones(len(yc))))},
+                  "pointing": {"r": r3(r_pt), "p": cal_p(r_pt, lambda m: ratio_c(m, Ec))},
+                  "expected_near_over_other": r3(Ec[m0].mean() / Ec[~m0].mean())}
 
 (ROOT / "data/nuclear.json").write_text(json.dumps(out, indent=1))
 print(json.dumps({k: ({kk: vv for kk, vv in v.items() if kk != "hist"} if k == "perm" else v) for k, v in out.items()}, default=str, indent=1))

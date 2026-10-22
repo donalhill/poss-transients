@@ -1,7 +1,7 @@
 """Which POSS-I red plates, from Palomar's own log, were crossed by Earth's shadow at geostationary height?
 
 For every plate in the log (VizieR VI/25, data/palomar_log_vi25.csv): mid-exposure time in UT (local start time is
-Pacific Standard Time, exposure from the log), the fraction of the plate's 6 x 6 deg area within 8.5 deg of the
+Pacific Standard Time, exposure from the log), the fraction of the plate's 6 x 6 deg area within 8.69 deg of the
 geocentric anti-sun point, and whether the plate is in VASCO's catalogue of 107,875 transients. Plates crossed by the
 shadow but missing from the catalogue are the ones that would enlarge the shadow test.
 

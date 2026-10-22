@@ -18,7 +18,11 @@ warnings.simplefilter("ignore", AstropyWarning)
 ROOT = Path(__file__).resolve().parents[1]
 PALOMAR = EarthLocation.from_geodetic(lon=-116.8650 * u.deg, lat=33.3563 * u.deg, height=1706 * u.m)
 R_GEO = 42164.0
-SHADOW_DEG = 8.50  # geocentric half-angle used by VASCO / Doherty
+# geocentric half-angle of Earth's shadow at geostationary radius, asin(6371 / 42164): the 8.69 deg of Villarroel et al.
+# (2025, PASP, Table 4), whose shadow result the page tests. VASCO-ML's code for Bruehl et al. (2026) uses 8.50, between
+# this and the umbra (8.42); shadow_pooled.py checks the page's test at that radius too
+SHADOW_DEG = 8.69
+SHADOW_DEG_ML = 8.50
 
 
 def distinct(t):
@@ -71,11 +75,11 @@ GX, GY = [a.ravel() for a in np.meshgrid(g, g)]
 SUB = np.array([(i, j) for i in (-1, 0, 1) for j in (-1, 0, 1)]) * CELL / 3
 
 
-def cell_counts(xi, eta):
-    """Transients per grid cell from plate-frame offsets (deg)."""
+def cell_counts(xi, eta, w=None):
+    """Transients per grid cell from plate-frame offsets (deg); with w, their summed weights."""
     ix = np.floor((np.asarray(xi) + HALF) / CELL).astype(int); iy = np.floor((np.asarray(eta) + HALF) / CELL).astype(int)
     ok = (ix >= 0) & (ix < len(g)) & (iy >= 0) & (iy < len(g))
-    return np.bincount(iy[ok] * len(g) + ix[ok], minlength=GX.size)
+    return np.bincount(iy[ok] * len(g) + ix[ok], weights=None if w is None else np.asarray(w)[ok], minlength=GX.size)
 
 
 def shadow_share(sub_xyz, ut):

@@ -4,6 +4,8 @@
   - nuclear_tests_1949_1957.csv: the US nuclear tests used in VASCO's analysis (it lacks the eleven shots of Operation
     Upshot-Knothole, 1953; used only to reproduce their result, the full list being data/us_shot_times.csv)
   - XE_final_random_sources.csv: random positions on each plate (the control sample)
+  - scored_catalog.zip: the same transients, in the same order, with VASCO-ML's machine-learning rating (prob) of how
+    likely each is to be real, used by Bruehl et al. (2026) to weight their counts
 Each is fetched from a fixed commit and checked against the file analysed.
 python analysis/fetch_external.py"""
 import hashlib
@@ -23,6 +25,10 @@ FILES = {   # name: (url at a fixed commit, SHA-256 of the file analysed)
                                     "bfdce719631682c86a6a2456a689b7ad32c56333a52560ceebf2842b748c8694"),
     "XE_final_random_sources.csv": (f"{GH}/VASCO-challenge/{CH}/data/XE_final_random_sources.csv",
                                     "73d5a633bbe9e15dffde60bb3b0b177ccd1fd36d808c95b55dc1b727eaa52bcc"),
+    "scored_catalog.zip": (f"{GH}/VASCO-ML/{ML}/data/scored_catalog.zip",
+                           "47ed006dcb5c337659507e5ebed3295d3bd047d66a112ddf5d035ad1003a14df"),
+    "combined_training_labels.csv": (f"{GH}/VASCO-ML/{ML}/data/combined_training_labels.csv",
+                                     "acd98d5c629767f844ce91c186b59d75388ba3e3ca4024c302e6fd837fe1ddc1"),
 }
 
 if __name__ == "__main__":

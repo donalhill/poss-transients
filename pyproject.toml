@@ -1,6 +1,6 @@
 [project]
 name = "poss-transients"
-version = "1.0.0"
+version = "1.2.0"
 description = "A re-examination of VASCO's claims about transients on the 1950s Palomar Sky Survey plates"
 requires-python = ">=3.12"
 # the versions the published page was built with

@@ -56,13 +56,16 @@ Two samples, defined once in `analysis/sample.py`:
 - **ours**, for every result on the page: all 635 plates in the catalogue and all 107,875 transients, each plate on its
   corrected date and at its mid-exposure time: the header's time is the exposure's start in hours and hundredths of an
   hour (06:82 is 06:49), which VASCO's `UTobservation` reads as hours and minutes. Observing nights are Palomar's log
-  nights (VizieR VI/25), dated by UT (evening date + 1).
+  nights (VizieR VI/25), dated by UT (evening date + 1). In the shadow test each transient counts by its
+  machine-learning rating from VASCO-ML (`scored_catalog.zip`, the same transients in the same order), as Bruehl et al.
+  (2026) count theirs; the nuclear test counts each transient once (see Ratings below).
 - **vasco**: VASCO's own construction, used only to reproduce their numbers: the 561 plates whose archive date is on
   their list of 370 nights, on archive dates.
 
 ## Inputs
 
-Downloaded when missing, and not kept here: VASCO's catalogue, random positions, night list, and test list
+Downloaded when missing, and not kept here: VASCO's catalogue and its machine-learning ratings, random positions, night
+list, and test list
 (`fetch_external.py`), and DSS scans and cutouts, which STScI does not allow to be redistributed.
 
 Kept in the repository, because they were made by hand or take hours of calls to public services:
@@ -79,11 +82,21 @@ Kept in the repository, because they were made by hand or take hours of calls to
 | `data/shadow_null_checks.json` | the pooled shadow null checked: calibration on plates the shadow never crossed, no leak, injected shortfalls recovered, and the pointing curve term by term | `shadow_null_checks.py` (`make shadow-checks`) |
 | `data/alignment_null_checks.json` | the alignment null made other ways, as a check on it | `alignment_null_checks.py` (`make null-checks`), which repeats the slow search |
 | `data/vasco_2025_candidates.csv` | VASCO's five shortlisted alignments | from the tables in their 2025 paper |
+| `data/ml_checks.json` | VASCO-ML's ratings checked: what drives them, the labels, the nuclear test's plate-level weighting, shuffles within plates, position on the plate | `ml_checks.py` (`make ml-checks`) |
+| `data/ml_retrain.json` | VASCO-ML's model retrained with its own code on four sets of its labels, with and without its per-night inputs, and each set of ratings put through the tests | `ml_retrain.py` and `ml_retrain_eval.py` (`make ml-retrain`, slow; needs `analysis/requirements-vasco-ml.txt`) |
 
 ## Choices worth knowing
 
 - **Plate area for Earth's shadow.** Each plate is its central 6 × 6 degrees, the plate size VASCO use, which their
-  random positions cover evenly. The pooled count and the plate-by-plate fit use the same square.
+  random positions cover evenly. The pooled count and the plate-by-plate fit use the same square. The shadow's radius is
+  8.69°, as in Villarroel et al. (2025); VASCO-ML's code uses 8.50°, and `shadow_pooled.py` repeats the test there.
+- **Ratings.** VASCO-ML publishes a rating of how likely each transient is to be real; the catalogue's own rating
+  column holds one default value. The shadow test counts each transient by its rating, with the pointing curve fitted to
+  the summed ratings, and is also run in each tenth of the ratings (VASCO-ML's decile edges, `sample.decile`), all ten
+  at once with a free share of glints in each. The nuclear test counts each transient once: VASCO-ML's labelling chose
+  transients by test date, and retraining with VASCO's code shows those labels, through inputs pooled over a night, make
+  most of the rated excess near tests (`ml_retrain.py`); the rated result is reported alongside. The alignment search
+  counts each transient once. The plan and the reasoning behind each choice: `analysis/ML_PLAN.md`.
 - **Density across a plate.** Transients are two to three times denser at plate edges and corners. In the
   plate-by-plate fit, each part of a plate is weighted by the average density of transients there, measured on plates
   the shadow never crossed, so the weights cannot absorb a real shortfall in the shadow. Injected shortfalls are

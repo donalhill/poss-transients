@@ -395,6 +395,16 @@ footer li { margin-bottom: 0.45rem; }
       <div class="cap">{{shadow-toys-caption}}</div>
     </div>
   </div>
+  <div class="step">
+    <div class="step-copy"><div class="step-h"><span class="step-n">6</span><h3>{{shadow-bands-title|inline}}</h3></div><div class="step-text">{{shadow-bands-text}}</div></div>
+    <div class="chart">
+      <div class="legend"><span><i class="sw" style="background:var(--ink-2);border-radius:50%"></i>Ratio in each band of the ratings, with 68% and 90% intervals</span>
+        <span><i class="sw" style="background:var(--naive);border-radius:50%"></i>The top band</span>
+        <span><i class="sw" style="background:var(--ours);border-radius:50%"></i>Every transient, counted by its rating</span></div>
+      <svg id="c-bands" viewBox="0 0 760 420" role="img" aria-label="The ratio of transient density in shadow to sunlight in each band of VASCO's machine-learning ratings, with intervals from trials on other plates"></svg>
+      <div class="cap">{{shadow-bands-caption}}</div>
+    </div>
+  </div>
   <div class="verdict"><div class="vlab">{{shadow-verdict-title|inline}}</div><div class="vtext">{{shadow-verdict}}</div></div>
 </div></section>
 

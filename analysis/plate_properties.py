@@ -19,9 +19,10 @@ TERMS = ["lebv", "lebv_plate", "exp", "airmass", "moon_up", "moon_sep", "quality
 
 
 def properties(cat, plates):
-    """plates with n (its transients) and every property; a copy."""
+    """plates with n (its transients), nw (their summed machine-learning ratings) and every property; a copy."""
     p = plates.copy()
     p["n"] = cat.groupby("plate").size().reindex(p.index).fillna(0)
+    p["nw"] = cat.groupby("plate").w.sum().reindex(p.index).fillna(0)
     sky = SkyCoord(p.ra_c.values * u.deg, p.dec_c.values * u.deg)
     t = Time(p.ut.values)
     pal = EarthLocation.from_geodetic(-116.865 * u.deg, 33.3563 * u.deg, 1706 * u.m)
@@ -55,15 +56,15 @@ def standardised(p):
 POINTING = "bs(b, df=4) + lebv_plate + ecl_lat + eq_row"
 
 
-def pointing(p, use=None, formula=POINTING):
+def pointing(p, use=None, formula=POINTING, y="n"):
     """The pointing curve: the transients each plate's pointing predicts, from a negative binomial fit of distance from the
     Milky Way (a smooth curve), dust averaged over the plate, distance from the ecliptic, and whether the plate is in the
     equatorial row. Fitted
-    to the plates in use (every plate by default) and predicting every plate. Returns the expected counts, the design,
-    and the dispersion."""
+    to the plates in use (every plate by default) and predicting every plate; y="nw" fits the summed ratings instead of
+    the counts. Returns the expected counts, the design, and the dispersion."""
     import patsy
     import statsmodels.api as sm
-    y = p.n.values.astype(float); u = np.ones(len(y), bool) if use is None else np.asarray(use)
+    y = p[y].values.astype(float); u = np.ones(len(y), bool) if use is None else np.asarray(use)
     X = np.asarray(patsy.dmatrix(formula, standardised(p))); a = 0.5
     for _ in range(4):
         E = sm.GLM(y[u], X[u], family=sm.families.NegativeBinomial(alpha=a)).fit().predict(X)

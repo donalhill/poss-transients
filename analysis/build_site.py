@@ -39,7 +39,7 @@ pl["N"] = cat.groupby("plate").size().reindex(pl.index).fillna(0).astype(int)
 vasco_plates = set(sample.vasco()[1].index)
 SP = json.loads((ROOT / "data/shadow_pooled.json").read_text())
 pt = pd.read_parquet(ROOT / "data/shadow_plates.parquet")
-avg = SP["ours_geo"]["avg_per_plate"]
+avg = pt.N.mean()                                                            # transients on an average plate's central 6 x 6 deg
 edge = np.linspace(-SH.HALF, SH.HALF, 5)
 sq = np.r_[np.c_[edge, np.full(5, -SH.HALF)], np.c_[np.full(5, SH.HALF), edge][1:], np.c_[edge[::-1], np.full(5, SH.HALF)][1:],
            np.c_[np.full(5, -SH.HALF), edge[::-1]][1:-1]]
@@ -51,7 +51,7 @@ for name, p in pl.iterrows():
     if pt.loc[name, "f_area"] > 0:
         s = get_sun(Time(p.ut))
         ara, adec = (s.ra.deg + 180) % 360, -s.dec.deg
-        # small circle of radius 8.5 deg about the anti-sun
+        # small circle of radius SHADOW_DEG about the anti-sun
         circ = SkyCoord(ara * u.deg, adec * u.deg).directional_offset_by(np.radians(np.arange(0, 361, 6)) * u.rad, SH.SHADOW_DEG * u.deg)
         rec.update({"frac": r3(pt.loc[name, "f_area"]), "obs": int(pt.loc[name, "n_in"]), "exp": r1(pt.loc[name, "f_area"] * avg),
                     "circle": [[r1(a), r1(b)] for a, b in zip(circ.ra.deg, circ.dec.deg)]})
@@ -67,18 +67,23 @@ site["shadow"] = {k: F_[k] for k in ("fit", "closure", "whole")}
 site["shadow"]["toys"] = {k: F_["toys"][k] for k in ("null", "p_as_high", "hist_null", "interval68", "interval90")}
 site["shadow"]["injected"] = F_["injected"]                              # a shortfall as large as VASCO's, put into the same trials
 site["shadow"]["checks"] = F_["checks"]
+# the fit in each tenth of VASCO-ML's ratings, and on every transient weighted by its rating, with intervals from trials
+site["shadow"]["bands"] = [{"lo": b_["lo"], "hi": b_["hi"], "r": b_["fit"]["r"], "n": b_["fit"]["transients"], "O": int(b_["fit"]["O"]),
+                            "plates": len(b_["plates"]), "i68": b_["toys"]["interval68"], "i90": b_["toys"]["interval90"], "p_low": b_["toys"]["p_as_low"]}
+                           for b_ in F_["bands"]]
+site["shadow"]["all"] = {"r": F_["fit"]["r"], "i68": F_["toys"]["interval68"], "i90": F_["toys"]["interval90"]}
 plc = {p_["plate"]: p_ for p_ in F_["plates"]}
 up_close = []
 for q in sorted(plc, key=lambda q: -plc[q]["shadow"]):
     p_ = pl.loc[q]; t_ = Time(pd.Timestamp(p_.ut).to_datetime64())
     c_ = cat[(cat.plate == q) & (cat.xi.abs() < SH.HALF) & (cat.eta.abs() < SH.HALF)]
-    # the shadow's edge: the 8.5 deg circle about the anti-sun point at mid-exposure, on the plate's tangent plane
+    # the shadow's edge: the SHADOW_DEG circle about the anti-sun point at mid-exposure, on the plate's tangent plane
     ax = np.asarray(SH.antisun_axis(t_)).reshape(3)
     c0 = SkyCoord(np.degrees(np.arctan2(ax[1], ax[0])) * u.deg, np.degrees(np.arcsin(ax[2])) * u.deg)
     ring_ = c0.directional_offset_by(np.radians(np.arange(0, 360.5, 1.5)) * u.rad, SH.SHADOW_DEG * u.deg)
     ex, ey = tangent(ring_.ra.deg, ring_.dec.deg, p_.ra_c, p_.dec_c)
     dark = SH.antisun_geocentric(c_.ra.values, c_.dec.values, Time(np.full(len(c_), pd.Timestamp(p_.ut).to_datetime64()))) < SH.SHADOW_DEG
-    up_close.append({**plc[q], "sunlit": plc[q]["n"] - plc[q]["O"], "xi": [round(float(v_), 3) for v_ in c_.xi],
+    up_close.append({**plc[q], "sunlit": plc[q]["n"] - plc[q]["O"], "xi": [round(float(v_), 3) for v_ in c_.xi], "w": [round(float(v_), 2) for v_ in c_.w],
                      "eta": [round(float(v_), 3) for v_ in c_.eta], "dark": "".join("1" if d_ else "0" for d_ in dark),
                      "edge": [[round(float(x_), 3), round(float(y_), 3)] for x_, y_ in zip(ex, ey)]})
 site["shadow"]["plates"] = up_close
@@ -86,8 +91,9 @@ site["shadow"]["half"] = SH.HALF
 
 # ------------------------------------------------------------------ two ideas of chance (shadow_pooled.py)
 sums = np.load(ROOT / "data/shadow_paste_scaled.npy")                       # scaled to each shadow plate's pointing
-bins = np.arange(0, 2001, 25)
+bins = np.arange(0, 2001, 10)
 site["paste"] = {"bins": bins.tolist(), "counts": np.histogram(sums, bins)[0].tolist(), "n": int(len(sums)),
+                 "wide": int(np.ceil(np.quantile(sums, 0.995) / 100) * 100),
                  "observed": SP["ours_geo"]["observed"], "area_expected": SP["ours_geo"]["expected"],
                  "p": SP["ours_geo"]["pointing"]["p"], "binom_sd": SP["ours_geo"]["binom_sd"], "binom_z": abs(SP["ours_geo"]["binom_z"]),
                  "sig": round(float(norm.isf(SP["ours_geo"]["pointing"]["p"])), 1)}
@@ -190,14 +196,16 @@ site["recovery"] = {"angles": angles, "false_alarms": 3,
 t = pd.read_csv(ROOT / "data/plate_date_corrections.csv", index_col=0, parse_dates=["header_date", "corrected_date"])
 used = t.index.isin(pl.index) | t.index.isin(pd.read_parquet(ROOT / "data/plates.parquet").index)
 an = t[t.index.isin(pd.read_parquet(ROOT / "data/plates.parquet").index)]
+# the catalogue's plates (the page counts only these; date_corrections.py dates every plate it has evidence for)
+tc = t[t.index.isin(pl.index)]
 # the plates whose date breaks the rule of their run of serial numbers
 exc = [{"plate": p, "e": int(r.label), "header": r.header_date.strftime("%Y-%m-%d"), "correct": r.corrected_date.strftime("%Y-%m-%d"),
-        "days": int(r.offset_days)} for p, r in t[t.offset_days.notna() & t.rule_offset.notna() & (t.offset_days != t.rule_offset)].sort_values("label").iterrows()]
+        "days": int(r.offset_days), "source": r.source} for p, r in tc[tc.offset_days.notna() & tc.rule_offset.notna() & (tc.offset_days != tc.rule_offset)].sort_values("label").iterrows()]
 # Palomar's plate log against the evidence that does not depend on it: asteroid trails and labels read off the scans
-direct = t.label_offset.fillna(t.asteroid_offset)
-chk = t.log_offset.notna() & direct.notna()
-site["date_summary"] = {"log_matched": int(t.log_offset.notna().sum()), "log_checked": int(chk.sum()),
-                        "log_agree": int((t.log_offset[chk] == direct[chk]).sum()),
+direct = tc.label_offset.fillna(tc.asteroid_offset)
+chk = tc.log_offset.notna() & direct.notna()
+site["date_summary"] = {"log_matched": int(tc.log_offset.notna().sum()), "log_checked": int(chk.sum()),
+                        "log_agree": int((tc.log_offset[chk] == direct[chk]).sum()),
                         "analysis_plates": int(len(an)), "early": int((an.offset_days == 1).sum()), "correct": int((an.offset_days == 0).sum()),
                         "gross": int((an.offset_days.abs() > 1).sum()), "exceptions": exc}
 
@@ -321,7 +329,6 @@ numbers = {
     "cat.left_out": num(len(pl) - len(vasco_plates)), "cat.min": num(N_.min()), "cat.max": num(N_.max()),
     "cat.avg": num(avg_all), "cat.noise": num(sd_all), "cat.band_lo": num(lo_b), "cat.band_hi": num(hi_b),
     "cat.in_band": num(((N_ >= lo_b) & (N_ <= hi_b)).sum()),
-    "cat.ml_default": num(100 * pd.read_csv(ROOT / "data/external/SUPERVIKTIG_HELAVASCO_validated_v4.csv", usecols=["ml_probability"]).ml_probability.value_counts(normalize=True).iloc[0], 1),
     "nc2.photo_pc": num(100 * NU["corrections"][1]["calendar_null"]["p"]),
     "cat.over1000": word((N_ > 1000).sum()), "cat.edge_share": num(100 * share_edge),
     "crowd.inner": num(pa[pa.absb < 5].N.median()), "crowd.outer": num(round(pa[pa.absb > 40].N.median(), -1)),
@@ -331,15 +338,27 @@ numbers = {
     # Earth's shadow, pooled (shadow_pooled.py)
     "sh.plates": word(G["plates"]), "sh.plates_n": num(G["plates"]), "sh.partial": word(len(F_["plates"])),
     "sh.never": num(G["hosts"]["plates"]), "sh.observed": num(G["observed"]), "sh.worth": num(G["plates_worth"], 2),
+    "sh.transients": num(G["transients"]), "sh.count_avg": num(avg), "sh.count_exp": num(G["plates_worth"] * avg),
+    "sh.point_exp": num(G["pointing"]["expected"]),
+    # on the plates partly in shadow: what the shadowed areas would hold at their own plates' average density (each plate's
+    # rated total times its shadowed share), and what they hold
+    "sh.own_exp": num((pt.f_area * pt.W)[(pt.f_area > 0) & (pt.f_area < 1)].sum()),
+    "sh.own_obs": num(pt.w_in[(pt.f_area > 0) & (pt.f_area < 1)].sum()),
+    "sh.top_cut": num(G["top_tenth"]["cut"], 2), "sh.top_n": num(G["top_tenth"]["transients"]), "sh.top_obs": num(G["top_tenth"]["observed"]),
+    "sh.top_exp": num(G["top_tenth"]["pointing_expected"]), "sh.top_p": num(100 * G["top_tenth"]["p_pointing"], 1), "sh.top_sig": sig(G["top_tenth"]["p_pointing"]),
+    "sh.top_any": num(100 * G["top_tenth"]["p_any_band"]), "sh.top_any_sig": sig(G["top_tenth"]["p_any_band"]),
+    "sh.band_z_lo": num(min(abs(b_["binom_z"]) for b_ in G["bands"]), 1), "sh.band_z_hi": num(max(abs(b_["binom_z"]) for b_ in G["bands"]), 1),
+    "sh.ml_p": num(100 * G["radius_ml"]["p_pointing"]), "sh.ml_deg": num(G["radius_ml"]["deg"], 1), "sh.deg": num(SH.SHADOW_DEG, 2),
+    "sh.diam": num(2 * SH.SHADOW_DEG, 1),
     "sh.avg": num(G["avg_per_plate"], 1), "sh.expected": num(G["expected"]), "sh.binom_sd": num(G["binom_sd"]),
     "sh.binom_z": num(abs(G["binom_z"]), 1), "sh.p_random": num(100 * G["p_random"]),
     "sh.p_point": num(100 * G["pointing"]["p"]), "sh.trials": num(len(sums)), "sh.sig_point": sig(G["pointing"]["p"]),
-    "sh.odds_point": odds(G["pointing"]["p"]), "sh.odds_near": odds(G["p_near"]), "sh.sig_near": sig(G["p_near"]), "sh.near_max": num(G["near"]["max_deg"]), "sh.near_hosts": num(G["near"]["hosts"]),
+    "sh.odds_point": odds(G["pointing"]["p"]), "sh.odds_near": odds(G["p_near"]), "sh.p_near": num(100 * G["p_near"]), "sh.sig_near": sig(G["p_near"]), "sh.near_max": num(G["near"]["max_deg"]), "sh.near_hosts": num(G["near"]["hosts"]),
     "sh.shadow_lo": num(G["near"]["shadow_deg"][0]), "sh.shadow_hi": num(round(G["near"]["shadow_deg"][1])),
-    "sh.centre_obs": num(G["centre"]["observed"]), "sh.centre_exp": num(G["centre"]["expected"]), "sh.odds_centre": odds(G["centre"]["p_random"]),
+    "sh.centre_obs": num(G["centre"]["observed"]), "sh.centre_exp": num(G["centre"]["expected"]), "sh.odds_centre": odds(G["centre"]["p_random"]), "sh.p_centre": num(100 * G["centre"]["p_random"]),
     "sh.topo_plates": word(T_["plates"]), "sh.topo_obs": num(T_["observed"]), "sh.topo_exp": num(T_["expected"]),
-    "sh.odds_topo": odds(T_["p_random"]), "sh.sig_topo": sig(T_["p_random"]),
-    "sh.vasco_obs": num(V_["observed"]), "sh.vasco_exp": num(V_["expected"]), "sh.vasco_plates": word(V_["plates"]), "sh.vasco_plates_cap": word(V_["plates"]).capitalize(),
+    "sh.odds_topo": odds(T_["p_random"]), "sh.p_topo": num(100 * T_["p_random"]), "sh.sig_topo": sig(T_["p_random"]),
+    "sh.vasco_obs": num(V_["observed"]), "sh.vasco_worth": num(V_["plates_worth"], 1), "sh.vasco_avg": num(V_["avg_per_plate"]), "sh.vasco_z": num(abs(V_["binom_z"]), 1), "sh.vasco_exp": num(V_["expected"]), "sh.vasco_plates": word(V_["plates"]), "sh.vasco_plates_cap": word(V_["plates"]).capitalize(),
     # Earth's shadow, plate by plate (shadow_fit.py)
     "fit.r": num(F_["fit"]["r"], 2), "fit.count_lo": num(F_["fit"]["count_lo"], 2), "fit.count_hi": num(F_["fit"]["count_hi"], 2),
     "fit.null_median": num(F_["toys"]["null"]["median"], 2), "fit.null_lo": num(F_["toys"]["null"]["q16"], 2),
@@ -348,14 +367,48 @@ numbers = {
     "fit.inj_pct": num(100 * F_["injected"]["p_as_high"]), "fit.inj_cl": num(100 * (1 - F_["injected"]["p_as_high"])),
     "fit.max_plate": max(Fp, key=lambda q: Fp[q]["r"] or 0), "fit.max_r": num(max(p_["r"] or 0 for p_ in F_["plates"]), 1), "fit.trials": num(F_["toys"]["trials"]),
     "fit.ex_plate": "XE358", "fit.ex_area": num(100 * Fp["XE358"]["shadow"], 1), "fit.ex_weighted": num(100 * Fp["XE358"]["weighted"], 1),
-    "fit.ex_share": num(100 * Fp["XE358"]["O"] / Fp["XE358"]["n"]), "fit.ex_O": num(Fp["XE358"]["O"]), "fit.ex_n": num(Fp["XE358"]["n"]),
+    "fit.ex_share": num(100 * Fp["XE358"]["Ow"] / Fp["XE358"]["nw"]), "fit.ex_O": num(Fp["XE358"]["Ow"], 1), "fit.ex_n": num(Fp["XE358"]["nw"], 1),
+    "fit.ex_count": num(Fp["XE358"]["n"]),
+    "fit.top_r": num(F_["bands"][9]["fit"]["r"], 2), "fit.top_n": num(F_["bands"][9]["fit"]["transients"]), "fit.top_O": num(F_["bands"][9]["fit"]["O"]),
+    "fit.top_plates": word(len(F_["bands"][9]["plates"])), "fit.top_none": word(len(F_["plates"]) - len(F_["bands"][9]["plates"])),
+    # of the partly shadowed plates with no top-band transients at all, those almost wholly in sunlight
+    "fit.top_none_sunlit": word(sum(1 for p_ in F_["plates"] if p_["plate"] not in {b_["plate"] for b_ in F_["bands"][9]["plates"]} and p_["shadow"] < 0.1)),
+    "fit.top_p": num(100 * F_["bands"][9]["toys"]["p_as_low"]), "fit.top_ci90_lo": num(F_["bands"][9]["toys"]["interval90"][0], 2),
+    "fit.top_ci90_hi": num(F_["bands"][9]["toys"]["interval90"][1], 2),
+    "fit.band_lo": num(min(b_["fit"]["r"] for b_ in F_["bands"]), 2), "fit.band_hi": num(max(b_["fit"]["r"] for b_ in F_["bands"]), 2),
+    "fit.band_low_n": word(sum(b_["toys"]["p_as_low"] <= F_["bands"][9]["toys"]["p_as_low"] for b_ in F_["bands"])),
+    "fit.top_s_hi": num(100 * (1 - F_["bands"][9]["toys"]["interval90"][0])),
+    "fit.joint_q": num(F_["bands_joint"]["q"], 1), "fit.joint_p": num(100 * F_["bands_joint"]["p"]), "fit.joint_med": num(F_["bands_joint"]["null_q"]["median"], 1),
+    "fit.joint_top_q": num(F_["bands_joint"]["q_by_band"][-1], 1), "fit.reach_all": num(100 * F_["bands_joint"]["reach"]["every_band"]["found"]),
+    "fit.reach_all_pi": num(F_["bands_joint"]["reach"]["every_band"]["purity"][0], 2), "fit.reach_top": num(100 * F_["bands_joint"]["reach"]["top_band"]["found"]),
+    "fit.reach_top_pi": num(F_["bands_joint"]["reach"]["top_band"]["purity"][-1], 2), "fit.found": num(100 * F_["injected"]["found"]),
+    "fit.lim": num(100 * F_["toys"]["limit"]["share95"]), "fit.lim_exp": num(100 * F_["toys"]["limit"]["expected"][2]),
+    "fit.labels_p": num(100 * F_["bands_joint"]["labels_template"]["p"]), "fit.trend_p": num(100 * F_["bands_joint"]["trend"]["p"]),
+    "fit.ci68_lo": num(F_["toys"]["interval68"][0], 2), "fit.ci68_hi": num(F_["toys"]["interval68"][1], 2),
     "pl.XE415_n": num(Fp["XE415"]["n"]), "pl.XE355_n": num(Fp["XE355"]["n"]), "pl.XE617_area": num(100 * Fp["XE617"]["shadow"]),
-    "pl.XE617_O": num(Fp["XE617"]["O"]), "pl.XE617_n": num(Fp["XE617"]["n"]), "pl.XE640_area": num(100 * Fp["XE640"]["shadow"]),
+    "pl.XE617_O": num(Fp["XE617"]["O"]), "pl.XE617_n": num(Fp["XE617"]["n"]), "pl.XE617_Ow": num(Fp["XE617"]["Ow"], 1), "pl.XE617_E": num(Fp["XE617"]["E"], 1), "pl.XE640_area": num(100 * Fp["XE640"]["shadow"]),
     "pl.XE640_n": num(Fp["XE640"]["n"]),
     # nuclear tests (nuclear.py)
     "nuc.vasco_nights": num(NU["vasco"]["nights"]), "nuc.vasco_ratio": num(NU["vasco"]["real"], 2),
     "nuc.vasco_odds": odds(NU["vasco"]["p"]), "nuc.vasco_sig": num(NU["vasco"]["sigma"], 1),
 }
+MLC = json.loads((ROOT / "data/ml_checks.json").read_text())
+MLR = json.loads((ROOT / "data/ml_retrain.json").read_text())["sets"]
+with_ = [v for v in MLR.values() if v["night_inputs"] == "with"]; flat_ = [v for v in MLR.values() if v["night_inputs"] == "without"]
+NC = NU["counted"]
+numbers.update({
+    "ml.driver_pct": num(100 * MLC["drivers"]["plate_or_night_share"]),
+    "ml.window_labels": num(sum(MLC["labels"]["near_tests_vasco"].values())),
+    "ml.top_now": num(MLR["no_window|with"]["top_nuclear"]["median"], 2), "ml.label_sets": word(len(with_)),
+    "ml.top_flat_lo": num(min(v["top_nuclear"]["median"] for v in flat_), 2), "ml.top_flat_hi": num(max(v["top_nuclear"]["median"] for v in flat_), 2),
+    "ml.vasco_odds_hi": odds(max(v["vasco_p"]["median"] for v in with_)), "ml.vasco_odds_lo": odds(min(v["vasco_p"]["median"] for v in with_)),
+    "nc.vasco_odds": odds(NC["vasco"]["p"]), "nc.point_r": num(NC["pointing"]["r"], 2), "nc.point_p": num(100 * NC["pointing"]["p"]),
+    "nc.exp_pct": num(round(100 * (NC["expected_near_over_other"] - 1))),
+    "ml.top_r": num(NU["bands"]["r"][9], 2), "ml.top_any_odds": odds(NU["bands"]["lowest_p_any"]),
+    "ml.point_lo": num(min(v["pointing"]["median"] for v in with_), 2), "ml.point_hi": num(max(v["pointing"]["median"] for v in with_), 2),
+    "ml.point_plo": num(100 * min(v["pointing_p"]["median"] for v in with_)), "ml.point_phi": num(100 * max(v["pointing_p"]["median"] for v in with_)),
+    "nc2.lim": num(100 * (NU["limit"]["f95"] - 1)), "nc2.lim_exp": num(100 * (NU["limit"]["expected"][2] - 1)),
+})
 south = pd.read_csv(ROOT / "data/shadow_plates_log.csv")
 # shadow plates holding under a tenth of what their pointing predicts (pointing curve fitted to every plate)
 empty_sh = [q for q in pt.index[pt.f_area > 0] if P_pc.n[q] / E_pc[q] < 0.1]
@@ -364,15 +417,15 @@ numbers.update({"sh.empty_plates": " and ".join(empty_sh), "sh.empty_n": word(le
                 })
 # the dates (date_corrections.py and its evidence)
 DS, DC = site["date_summary"], pd.read_csv(ROOT / "data/date_check_summary.csv")
-src = t.source.value_counts()
+src = tc.source.value_counts()
 off_ = t.offset_days.reindex(pl.index); left_ = ~pl.index.isin(vasco_plates)
 numbers.update({
     "dates.early_pct": num(5 * round(20 * (off_ == 1).mean())), "dates.ast_late_trails": num(DC[DC.best_day_offset == 1].n_at_best.sum()),
     "dates.ast_late_plates": num((DC.best_day_offset == 1).sum()), "dates.ast_ok_trails": num(DC[DC.best_day_offset == 0].n_at_best.sum()),
     "dates.ast_ok_plates": num((DC.best_day_offset == 0).sum()), "dates.log_agree": num(DS["log_agree"]), "dates.log_checked": num(DS["log_checked"]),
-    "dates.dated": num(len(t)), "dates.by_log": num(src["Palomar log"]), "dates.by_asteroids": num(src["asteroids"]),
-    "dates.by_label": num(src["label"]), "dates.by_runs": num(src["block rule"] + src.get("serial neighbours", 0)), "dates.runs_cat": (lambda k_: "none of them in the catalogue, so every catalogue plate is dated directly" if k_ == 0 else f"{word(k_)} of them in the catalogue")(int(t[t.source.isin(["block rule", "serial neighbours"]) & t.index.isin(pl.index)].shape[0])), "dates.unresolved": word(src.get("unresolved", 0)),
-    "dates.exceptions": word(len(DS["exceptions"])).capitalize(), "dates.gross": word(sum(abs(e_["days"]) > 1 for e_ in DS["exceptions"])).capitalize(),
+    "dates.by_log": num(src["Palomar log"]), "dates.by_asteroids": num(src["asteroids"]), "dates.by_label": num(src["label"]),
+    "dates.exceptions": word(len(DS["exceptions"])).capitalize(), "dates.gross": word(sum(abs(e_["days"]) > 1 for e_ in DS["exceptions"])),
+    "dates.one_day": word(sum(abs(e_["days"]) <= 1 for e_ in DS["exceptions"])),
     "dates.vasco_nights": num(len(sample.vasco_nights())), "dates.dropped": num((left_ & (off_ == 0)).sum()),
     "dates.shifted": num((~left_ & (off_ == 0)).sum())})
 # the alignments (alignments.py, alignment_fit.py, vasco_candidates.py)

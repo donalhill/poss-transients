@@ -66,8 +66,8 @@ def headline(s):
     return f'<div class="big">{big}</div>' + (f'<div class="gloss">{gloss}</div>' if gloss else "")
 
 
-EQS = {"track-score": '<i>μ</i> = <span class="frac"><span>π <i>N</i> <i>n</i> (2<i>n</i><i>w</i>)<sup><i>r</i>−2</sup> <i>L</i><sup><i>r</i></sup></span>'
-                        '<span><i>r</i> (<i>r</i> − 2)!</span></span>'}
+EQS = {"track-score": '<i>μ</i> = <span class="frac"><span>π <i>N</i> <i>n</i> (2<i>n</i><i>w</i>)<sup><i>k</i>−2</sup> <i>L</i><sup><i>k</i></sup></span>'
+                        '<span><i>k</i> (<i>k</i> − 2)!</span></span>'}
 
 
 def numbers():

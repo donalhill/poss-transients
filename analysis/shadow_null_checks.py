@@ -1,12 +1,12 @@
 """Checks on the pooled shadow test's null (shadow_pooled.py): random placements of the real shadow outlines on plates the
 shadow never crossed, each count scaled to the shadow plate's pointing (plate_properties.pointing, fitted without the
-plates either shadow crosses).
+plates either shadow crosses). Every transient counts by its rating, as on the page (shadow_pooled.pooled).
 
 1. Calibration: ten plates the shadow never crossed act as pretend shadow plates, with the real outlines on them, and are
    tested against the other uncrossed plates in the same way, the pointing curve refitted without them. With no signal,
    the share of tests below a level should be that level.
 2. Leak: no host plate is crossed by either shadow.
-3. Injection: a share of the transients inside the real shadow removed, and the test run as on the page.
+3. Injection: a share of the summed ratings inside the real shadow removed, and the test run as on the page.
 4. The pointing curve built term by term: how much each part moves the test.
 
 python analysis/shadow_null_checks.py -> data/shadow_null_checks.json (not part of the default build: make shadow-checks)"""
@@ -32,7 +32,7 @@ qi = pd.Series(np.arange(len(plates)), plates.index)
 H = qi[[q for q in plates.index if q not in crossed]].values                   # host plates, as positions
 K = list(masks); C = counts(c, plates, masks)                                   # outline x orientation x plate
 P = PP.properties(cat, plates); S = PP.standardised(P); use = ~P.index.isin(crossed)
-E = pd.Series(PP.pointing(P, use=use)[0], P.index).reindex(plates.index).values
+E = pd.Series(PP.pointing(P, use=use, y="nw")[0], P.index).reindex(plates.index).values
 rng = np.random.default_rng(3)
 
 
@@ -51,7 +51,7 @@ for _ in range(NCAL):
     fake = rng.choice(H, len(K), replace=False)
     o = C[np.arange(len(K)), 0, fake].sum()
     # the pointing curve refitted without the pretend shadow plates, as the page's is without the real ones
-    E_f = pd.Series(PP.pointing(P, use=use & ~P.index.isin(plates.index[fake]))[0], P.index).reindex(plates.index).values
+    E_f = pd.Series(PP.pointing(P, use=use & ~P.index.isin(plates.index[fake]), y="nw")[0], P.index).reindex(plates.index).values
     ps.append(np.mean(null(E_f[fake], np.setdiff1d(H, fake), NTRIAL, E_f) <= o))
 out["calibration"] = {"runs": NCAL, "share_below": {str(v): round(float(np.mean(np.array(ps) <= v)), 3) for v in LEVELS}}
 # 2. leak
@@ -59,10 +59,10 @@ out["hosts_crossed"] = len(set(plates.index[H]) & crossed)
 # 3. injection
 out["injected"] = {}
 for f in (0.2, 0.4, 0.6):
-    o = int(rng.binomial(res["observed"], 1 - f))
+    o = round(res["observed"] * (1 - f), 1)
     out["injected"][str(f)] = {"observed": o, "p": round(float(np.mean(s <= o)), 3)}
 # 4. the pointing curve built term by term
-y = P.n.values.astype(float); out["terms"] = {}
+y = P.nw.values.astype(float); out["terms"] = {}
 for name, f in [("milky_way", "bs(b, df=4)"), ("milky_way_dust", "bs(b, df=4) + lebv"),
                 ("milky_way_dust_ecliptic", "bs(b, df=4) + lebv + ecl_lat"), ("ecliptic", "ecl_lat"),
                 ("centre_dust_with_equatorial_row", "bs(b, df=4) + lebv + ecl_lat + eq_row"), ("page_curve", PP.POINTING)]:
