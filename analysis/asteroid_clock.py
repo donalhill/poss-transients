@@ -33,7 +33,7 @@ ROOT = Path(__file__).resolve().parents[1]
 HDR = ROOT / "data/dss_headers"
 CUT = ROOT / "data/cutouts"
 CUT.mkdir(parents=True, exist_ok=True); HDR.mkdir(parents=True, exist_ok=True)
-DSS = "https://archive.stsci.edu/missions/dss/FitsArchive/XEsurvey/"
+DSS = "https://archive.stsci.edu/missions/dss/FitsArchive/Palomar_Observatory/XEsurvey/"
 PALOMAR = EarthLocation.from_geodetic(lon=-116.863 * u.deg, lat=33.356 * u.deg, height=1706 * u.m)
 CUT_ARCMIN = 12
 

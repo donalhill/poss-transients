@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 HDR = ROOT / "data/dss_headers"
 OUT = ROOT / "data/labels"
 OUT.mkdir(parents=True, exist_ok=True)
-DSS = "https://archive.stsci.edu/missions/dss/FitsArchive/XEsurvey/"
+DSS = "https://archive.stsci.edu/missions/dss/FitsArchive/Palomar_Observatory/XEsurvey/"
 ROWS, COLS = 600, 2000
 
 

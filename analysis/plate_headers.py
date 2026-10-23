@@ -12,7 +12,7 @@ from astropy.io import fits
 
 ROOT = Path(__file__).resolve().parents[1]
 HDR = ROOT / "data/dss_headers"
-DSS = "https://archive.stsci.edu/missions/dss/FitsArchive/XEsurvey/"
+DSS = "https://archive.stsci.edu/missions/dss/FitsArchive/Palomar_Observatory/XEsurvey/"
 
 
 def header(fn):
