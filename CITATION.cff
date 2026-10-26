@@ -4,9 +4,9 @@ title: "POSS Transients Re-examined: a re-analysis of the VASCO POSS-I transient
 authors:
   - family-names: Hill
     given-names: Donal
-version: 1.3.0
+version: 1.4.0
 doi: 10.5281/zenodo.23549537
-date-released: 2026-10-22
+date-released: 2026-10-26
 url: "https://donalhill.github.io/poss-transients/"
 repository-code: "https://github.com/donalhill/poss-transients"
 license:
@@ -16,8 +16,8 @@ abstract: >-
   An independent re-analysis of three claims made by the VASCO project about transients on the red plates of the
   first Palomar Sky Survey (1949-1957): a shortfall of transients in Earth's shadow, an excess near US nuclear tests,
   and transients lying in straight lines. With corrected plate dates and allowing for where each plate pointed, none
-  of the three is found to be significant. Includes corrected archive dates and mid-exposure times for every POSS-I
-  red plate.
+  of the three is found to be significant. Includes corrected archive dates for every POSS-I
+  red plate, and mid-exposure times calibrated against asteroid trails for the plates of VASCO's catalogue.
 keywords:
   - POSS-I
   - Palomar Observatory Sky Survey

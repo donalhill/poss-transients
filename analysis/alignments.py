@@ -1,10 +1,11 @@
 """Alignments in VASCO's catalogue: the straight-line track fit and VASCO's own score, in one pass over the same track
-candidates, the same copies of the catalogue and the same injected tracks.
+candidates, the same copies of the catalogue and the same injected tracks. Each catalogue's strongest track candidates
+also give their angles from the scan's axes.
 
 Hits: the transients on a plate (positions in arcsec on the plate's tangent plane). Track candidates: for every pair of
 hits up to 15' apart (the end points), the r - 2 hits lying between them that sit closest to the line joining them, for
 r = 3..6, kept if every hit lies within 15" of that line and no two hits are closer than 8" along it (two-hit
-resolution: the pipeline does not separate closer sources, so the copies would otherwise gain pairs the real one lacks).
+resolution: the catalogue's source detection does not separate closer sources, so the copies would otherwise gain pairs the real one lacks).
 For VASCO's score the hits are the r - 2 closest to the line, as in their search. For ours they are occupied boxes
 (Lezama et al. 2015): picked closest to the line first, skipping any hit within 20" along the track of the end points or
 of one already picked, so a close group of transients counts once and cannot make a line look stronger.
@@ -47,13 +48,14 @@ artificial glint tracks (4-6 hits at least 8" apart, 2-10' long, with 1", 0.5" o
 plate) added to the real catalogue.
 
 python analysis/alignments.py [ncopies]
-    -> data/alignments.npz    histograms per catalogue and size, after arbitration: log10(chi2/ndof) (track fit) and
+    -> $POSS_SAMPLE/alignments.npz    histograms per catalogue and size, after arbitration: log10(chi2/ndof) (track fit) and
                               log10(mu) (VASCO's score), for the real catalogue, the catalogue with tracks added, and
                               the copies; and log10(mu) against log10(chi2/ndof) before arbitration
-       data/alignments.json   VASCO's score: track candidates (all; arbitrated; arbitrated and straight, chi2/ndof <= 2)
+       $POSS_SAMPLE/alignments.json   VASCO's score: track candidates (all; arbitrated; arbitrated and straight, chi2/ndof <= 2)
                               scoring 1e-4 and 1e-3 or better, real catalogue against the copies; the real catalogue's
                               arbitrated candidates scoring 1e-3 or better"""
 import json
+import os
 import sys
 from math import factorial
 from multiprocessing import Pool
@@ -88,7 +90,8 @@ SIGNALS = ([f"signal:1.0:{7 + k}:any" for k in range(10)] + ["signal:0.5:7:any",
 NSIG = len(SIGNALS)
 NSHUF = int(sys.argv[1]) if len(sys.argv) > 1 and sys.argv[1].isdigit() else 1000
 
-cat = pd.read_parquet(ROOT / "data/transients_with_plates.parquet")
+OUT = Path(os.environ["POSS_SAMPLE"])                                       # the sample (build_sample.py)
+cat = pd.read_parquet(OUT / "transients.parquet")
 cat = cat[cat.plate != ""][["plate", "xi", "eta"]].assign(x=lambda d: d.xi * 3600, y=lambda d: d.eta * 3600)
 
 
@@ -97,7 +100,8 @@ def emit(P, xs_order, xs, i, j, L, ux, uy, hk, kk, tk, nk, minsep, hmax_v, riso,
     """The candidates of sizes 3-6 with end points i, j and hits kk (offsets hk, ascending; positions along the track
     tk), written from row nout: out_i (size, within VASCO's strip, passes VASCO's selection, isolation: other transients
     within riso of the segment between the end points), out_f (log10 chi2/ndof, log10 mu or +inf, strip p in arcsec,
-    length in arcsec, log10 of the track score), out_mem (members, -1 padded). NC caches what depends on the end points
+    length in arcsec, log10 of the track score, and the same before the straightness test, for the sideband of bent
+    candidates), out_mem (members, -1 padded). NC caches what depends on the end points
     only (transients in VASCO's box, their density, transients within riso). Returns the next free row."""
     for r in range(3, 7):
         m = r - 2
@@ -169,6 +173,7 @@ def emit(P, xs_order, xs, i, j, L, ux, uy, hk, kk, tk, nk, minsep, hmax_v, riso,
             w = max(w, abs((P[b, 0] - cx) * nx_ + (P[b, 1] - cy) * ny_))
         lam_ = np.pi * N * n * (2.0 * n * max(w, 1.0) / 60.0) ** m * (L / 60.0) ** r / (r * FACT[r])
         llam = np.log10(lam_) if lam_ > 0 else -99.0
+        out_f[nout, 5] = llam
         if lam > chi2max[m]:                                             # not straight to the plates' precision: no track
             llam = np.inf
         out_i[nout, 0] = r; out_i[nout, 1] = strip; out_i[nout, 3] = int(NC[1]) - r
@@ -293,7 +298,7 @@ def score(df, detail=False):
         # any line inside it would appear in every copy
         lab = np.r_[clump_labels(len(P), tree.query_pairs(LINK, output_type="ndarray").astype(np.int64))[0], -1]
 
-        buf = [a_ for _ in range(2) for a_ in (np.zeros((n, 4), np.int64), np.zeros((n, 5)), np.zeros((n, 6), np.int64))]
+        buf = [a_ for _ in range(2) for a_ in (np.zeros((n, 4), np.int64), np.zeros((n, 6)), np.zeros((n, 6), np.int64))]
         ka, kb = plate_kernel(P, order, P[order, 0].copy(), pairs.astype(np.int64), ptr, idx, MINSEP, BOX, HMAX, HMAX_V, RISO, CHI2MAX, *buf)
 
         def candidates(out_i, out_f, out_mem, k):
@@ -454,6 +459,14 @@ def with_tracks(n=100, seed=7, scatter=1.0, angle=None, hits=(4, 6)):
     return pd.concat([cat[["plate", "x", "y"]]] + rows)
 
 
+def axis_angles(keep_t, lvl=1e-3):
+    """Track-score candidates arbitrated across sizes at lvl or better: each one's angle from the nearer scan axis (deg,
+    0-45, from its end members), in 5 deg bins; a scanning artefact would crowd the first bin."""
+    a = [np.degrees(np.arctan2(c["y"][-1] - c["y"][0], c["x"][-1] - c["x"][0])) % 90 for c in arbitrated(keep_t, lvl)]
+    a = np.minimum(np.array(a), 90 - np.array(a)) if a else np.zeros(0)
+    return np.histogram(a, np.arange(0, 45.01, 5))[0]
+
+
 def run(job):
     kind, seed = job
     if kind == "real":
@@ -465,7 +478,7 @@ def run(job):
         df = clump_copy(cat, seed)
     Ht, Hv, H2, Hi, Hl, keep, keep_t, *det = score(df, detail=kind == "real")
     return (Ht, Hv, H2, tally(keep), (keep if kind == "real" else None), Hi, Hl, (det[0] if det else None),
-            tally_t(keep_t), (keep_t if kind == "real" else None))
+            tally_t(keep_t), (keep_t if kind == "real" else None), axis_angles(keep_t))
 
 
 if __name__ == "__main__":
@@ -476,8 +489,10 @@ if __name__ == "__main__":
     Ht = np.array([r_[0] for r_ in R]); Hv = np.array([r_[1] for r_ in R]); T = np.array([r_[3] for r_ in R[NSIG + 1:]])
     Hi = np.array([r_[5] for r_ in R]); Hl = np.array([r_[6] for r_ in R]); c0 = NSIG + 1
     Tt = np.array([r_[8] for r_ in R[c0:]]); tt_real, keep_t = R[0][8], R[0][9]
-    out = ROOT / "data/alignments.npz"
+    out = OUT / "alignments.npz"
+    A_ = np.array([r_[10] for r_ in R])
     np.savez(out, edges=EDGES, bins=BINS, iso=ISO, signals=np.array(SIGNALS),
+             real_axis=A_[0], null_axis=A_[c0:],
              real_t=Ht[0], signal_t=Ht[1:c0], null_t=Ht[c0:], real_v=Hv[0], signal_v=Hv[1:c0], null_v=Hv[c0:],
              real_l=Hl[0], signal_l=Hl[1:c0], null_l=Hl[c0:], real_i=Hi[0], signal_i=Hi[1:c0], null_i=Hi[c0:],
              real_h2=R[0][2], null_h2_mean=np.mean([r_[2] for r_ in R[c0:]], 0), **compare(R[0][7]))
@@ -499,5 +514,5 @@ if __name__ == "__main__":
     rows = [{"plate": a["plate"], "r": a["r"], "mu": a["mu"], "p_arcsec": round(a["p_arcsec"], 1), "d_arcmin": round(a["d_arcmin"], 2),
              "chi2ndof": round(a["chi2ndof"], 2), "xi": round(float(np.mean(a["x"]) / 3600), 4), "eta": round(float(np.mean(a["y"]) / 3600), 4),
              "x": [round(v, 2) for v in a["x"]], "y": [round(v, 2) for v in a["y"]]} for a in arbitrated(keep, KEEP)]
-    (ROOT / "data/alignments.json").write_text(json.dumps({"counts": counts, "candidates": rows, "track": track, "ncopies": NSHUF,
+    (OUT / "alignments.json").write_text(json.dumps({"counts": counts, "candidates": rows, "track": track, "ncopies": NSHUF,
                                                            "shift_arcsec": SHIFT, "link_arcsec": LINK, "hmax_vasco_arcsec": HMAX_V}))

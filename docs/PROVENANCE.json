@@ -1,0 +1,30 @@
+{
+ "files": {
+  "data/external/SUPERVIKTIG_HELAVASCO_validated_v4.csv": "aff3e3b55cb39b59549ca5cb536fedf3a90f5282d21da8e2f747e4550d6731f4",
+  "data/external/scored_catalog.zip": "47ed006dcb5c337659507e5ebed3295d3bd047d66a112ddf5d035ad1003a14df",
+  "data/external/XE_final_random_sources.csv": "73d5a633bbe9e15dffde60bb3b0b177ccd1fd36d808c95b55dc1b727eaa52bcc",
+  "data/external/poss_i_observing_dates_strict.csv": "da600c77bf84184591ac4ce3abbf61e34dcf8b7434534dd1e68a2dcb58b6e7a7",
+  "data/external/combined_training_labels.csv": "acd98d5c629767f844ce91c186b59d75388ba3e3ca4024c302e6fd837fe1ddc1",
+  "data/transients_with_plates.parquet": "b696ff79187dfd78b9d3616adcc492647bad6aeaf3c15a4f4324d152a1a859de",
+  "data/plates_corrected.parquet": "80e6eefcebe0a14156f076b3919d5b5dbb4cfde6f6c6683c81c88b46e59338e1",
+  "data/plate_times_all.csv": "f19d7e2aff817becebbdab105d5df30f2403ebf5a1aa7ec91911f06449965e15",
+  "data/plate_depth.csv": "3b70d4546aae88f644826cefb0bbba043a9a60f321b9a06f4e1a8d4ac7bd3822",
+  "data/plate_times_nominal.csv": "96d6cfbcedf6b88119538b4b2f7f626d4181afe42137a5b53c822405ccd18831",
+  "data/asteroids_on_plates.parquet": "815fd8818be99faed22b90bb1a370940980b6a6447014755a7785f525bd93adb",
+  "data/asteroid_clock.csv": "b306dc590f4c7b9a58774fb2c2b9d390eece93a1f2d1997a2858801ae0315205",
+  "data/asteroid_clock_matches.csv": "8cf896d9e53bfe0888f9cd2bf8c460ca38bc83fcdf2981a1af5b27027dd1eb64",
+  "data/plate_time_posterior.csv": "d1cb0b615492f4a519028b64187feb96c502b8d8718100e7841d9ad8c9a70bf8",
+  "release/vasco_rated/transients.parquet": "7dd5e7567cadf91780a44d0507501faa2b9b2e773c4b41c38fe8c95eaeecd8a1",
+  "release/vasco_rated/plates.parquet": "83877de8424b33719502b281ee6a5a9ad3f2d73081ae2028e6c9306be726331a",
+  "release/vasco_raw/transients.parquet": "d2567210ffe9e2241623ccf9742ea18270915a748a05afefd739d65bde00384e",
+  "release/vasco_raw/plates.parquet": "b49c6518f6c100eec6ba45c6e7c85b2b68b96b7d2cdd8070dd4c5825e108959a",
+  "report/copy.md": "12be859dd66cc6b0268ba50d1def1b336724e7b6f0e222702e8e8ae42fd663d4",
+  "report/briefs.md": "4d7cc3941971bbe60f247139b8ddf56a4edcc959cf5d335de0418fdbd12503e2",
+  "report/registry.py": "64e5b5e72106138a76b6110c007a6fb9aa5198c049b89ce1de871cf9fa400fc7",
+  "report/figures.py": "8dec1c181293144282d11252eed3f1c8e0c951837a531f1d85c9c63c63500732",
+  "report/numbers.json": "7be9550ccc73b190d2a616bca73d863adffb434ecc4fd4fb7ed722657f78d741",
+  "report/template.html": "177952193afb797bafa31814da234e439d3137b24c9c82068ca1616ad2fda548",
+  "docs/index.html": "8b18fc6b3a784897d01f1ab7e45983b8bcfb667dff2276b52d304d108000b722",
+  "docs/figures.json": "e76ddd71a3b621a7334e1981f819283d8b1b21ac50dcf0744926d661874419cf"
+ }
+}

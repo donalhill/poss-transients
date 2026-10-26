@@ -1,7 +1,11 @@
+"""Earth's shadow at the orbit's radius, seen from Palomar, on each plate's grid: how much of a plate's exposure each
+location spends in shadow, and the shadow's edge on the sky."""
 import warnings
-from pathlib import Path
+from dataclasses import dataclass, replace
+from functools import lru_cache
 
 import numpy as np
+from scipy.ndimage import gaussian_filter
 import astropy.units as u
 from astropy.coordinates import EarthLocation, get_sun
 from erfa import ErfaWarning
@@ -15,14 +19,11 @@ iers.conf.auto_download = False     # the Sun's position needs no fresh Earth-ro
 warnings.simplefilter("ignore", ErfaWarning)
 warnings.simplefilter("ignore", AstropyWarning)
 
-ROOT = Path(__file__).resolve().parents[1]
 PALOMAR = EarthLocation.from_geodetic(lon=-116.8650 * u.deg, lat=33.3563 * u.deg, height=1706 * u.m)
 R_GEO = 42164.0
 # geocentric half-angle of Earth's shadow at geostationary radius, asin(6371 / 42164): the 8.69 deg of Villarroel et al.
-# (2025, PASP, Table 4), whose shadow result the page tests. VASCO-ML's code for Bruehl et al. (2026) uses 8.50, between
-# this and the umbra (8.42); shadow_pooled.py checks the page's test at that radius too
+# (2025, PASP, Table 4)
 SHADOW_DEG = 8.69
-SHADOW_DEG_ML = 8.50
 
 
 def distinct(t):
@@ -41,45 +42,13 @@ def antisun_axis(t):
     return a if inv is None else a[inv]
 
 
-def antisun_geocentric(ra, dec, t):
-    """Angle (deg) between the line of sight and the geocentric anti-sun direction (no parallax)."""
-    cosang = np.sum(unit(ra, dec) * antisun_axis(t), axis=-1)
-    return np.degrees(np.arccos(np.clip(cosang, -1, 1)))
-
-
-def sep_topocentric(ra, dec, t, r_orbit=R_GEO, return_alt=False):
-    """Geocentric angle from the shadow axis of the point where the line of sight from Palomar
-    meets the sphere of radius r_orbit (km). Comparable to SHADOW_DEG."""
-    d = unit(ra, dec)
-    tu, inv = distinct(t)
-    obs = PALOMAR.get_gcrs(tu).cartesian.xyz.to(u.km).value.T  # (N, 3)
-    obs = obs if inv is None else obs[inv]
-    a = np.sum(obs * d, axis=-1)
-    b = np.sum(obs**2, axis=-1) - r_orbit**2
-    rng = -a + np.sqrt(a**2 - b)  # forward root; observer is inside the sphere
-    p = obs + rng[:, None] * d
-    cosang = np.sum(p * antisun_axis(t), axis=-1) / r_orbit
-    sep = np.degrees(np.arccos(np.clip(cosang, -1, 1)))
-    if return_alt:
-        return sep, np.degrees(np.arcsin(a / np.linalg.norm(obs, axis=-1)))
-    return sep
-
-
 # ------------------------------------------------------------------ plate grid for the within-plate tests
-# Each plate is gridded into 0.1 deg cells over the central 6 x 6 deg, the plate size VASCO use (Villarroel et al. 2025);
-# VASCO's random positions cover this square evenly on every plate. The shadow share of a cell is taken from 3 x 3
+# Each plate is gridded into 0.1 deg cells over the central 6 x 6 deg; the shadow share of a cell is taken from 3 x 3
 # points inside it.
 HALF, CELL = 3.0, 0.1
 g = np.arange(-HALF + CELL / 2, HALF, CELL)
 GX, GY = [a.ravel() for a in np.meshgrid(g, g)]
 SUB = np.array([(i, j) for i in (-1, 0, 1) for j in (-1, 0, 1)]) * CELL / 3
-
-
-def cell_index(xi, eta):
-    """The grid cell (index into GX, GY) of each plate-frame offset (deg), clipped to the grid."""
-    ix = np.clip(np.floor((np.asarray(xi) + HALF) / CELL).astype(int), 0, len(g) - 1)
-    iy = np.clip(np.floor((np.asarray(eta) + HALF) / CELL).astype(int), 0, len(g) - 1)
-    return iy * len(g) + ix
 
 
 def cell_counts(xi, eta, w=None):
@@ -89,22 +58,34 @@ def cell_counts(xi, eta, w=None):
     return np.bincount(iy[ok] * len(g) + ix[ok], weights=None if w is None else np.asarray(w)[ok], minlength=GX.size)
 
 
-# ------------------------------------------------------------------ the two frames for Earth's shadow
-# geo: the shadow as VASCO place it, about the anti-solar direction seen from the centre of the Earth. topo: the shadow
-# seen from Palomar, each line of sight followed out to the orbit's radius (the more exact geometry for an object there).
-# Every shadow test runs in both, through these functions alone.
-FRAMES = ("geo", "topo")
+
+SIGMAS = (0.5, 1, 1.5, 2, 3, 4, 6)                                           # Gaussian widths tried, in 0.1 deg cells
 
 
-def shadow_sep(ra, dec, ut, frame, r_orbit=R_GEO):
-    """Angle (deg) from the shadow's axis, comparable to the shadow's radius, of each line of sight (ra, dec) at time
-    ut (one time, or one per line of sight), in the given frame."""
-    from astropy.time import Time
-    ra, dec = np.atleast_1d(ra), np.atleast_1d(dec)
-    t = Time(np.broadcast_to(np.asarray(ut, dtype="datetime64[ns]"), ra.shape))
-    return antisun_geocentric(ra, dec, t) if frame == "geo" else sep_topocentric(ra, dec, t, r_orbit)
+def smooth_map(hosts):
+    """The hosts' average map (hosts: the transients' tables of the plates no shadow reaches), mean 1, smoothed by the
+    width from SIGMAS that best predicts held-out hosts: ten folds by plate number, each fold's transients scored by the
+    mean log density (by weight) of the map from the other nine. Returns the map, the width, and every width's score."""
+    M = np.array([cell_counts(g.xi.values, g.eta.values, g.w.values) / g.w.sum() for g in hosts])
+    n = int(round(M.shape[1] ** 0.5)); fold = np.array([int(g.plate.iloc[0][2:]) % 10 for g in hosts])
+    cells = [np.clip(np.floor((g.eta.values + HALF) / CELL).astype(int), 0, n - 1) * n
+             + np.clip(np.floor((g.xi.values + HALF) / CELL).astype(int), 0, n - 1) for g in hosts]
+    sm = lambda m, s: (lambda x: x / x.mean())(gaussian_filter(m.reshape(n, n), s, mode="nearest").ravel())
+    score = {}
+    for s in SIGMAS:
+        tot = W = 0.0
+        for k in range(10):
+            A = sm(M[fold != k].mean(0), s)
+            for h in np.flatnonzero(fold == k):
+                w = hosts[h].w.values; tot += w @ np.log(A[cells[h]]); W += w.sum()
+        score[s] = tot / W
+    best = max(score, key=score.get)
+    return sm(M.mean(0), best), best, score
 
 
+# ------------------------------------------------------------------ the shadow's edge on the sky
+# topo: the shadow seen from Palomar, each line of sight followed out to the orbit's radius (the geometry the tests use);
+# geo: seen from the centre of the Earth (for the page's comparison of the two).
 def shadow_ring(ut, frame, step=1.5, r_orbit=R_GEO):
     """The shadow's edge on the sky at time ut, as (ra, dec) arrays (deg): the circle SHADOW_DEG from the shadow's axis on
     the sphere of radius r_orbit, seen from the centre of the Earth (geo) or from Palomar (topo)."""
@@ -120,13 +101,6 @@ def shadow_ring(ut, frame, step=1.5, r_orbit=R_GEO):
     return np.degrees(np.arctan2(p[:, 1], p[:, 0])) % 360, np.degrees(np.arcsin(p[:, 2]))
 
 
-def shadow_share(sub_xyz, ut, frame="geo"):
-    """Share of each grid cell inside Earth's shadow at geostationary height, from its 3 x 3 sub-points (unit vectors)."""
-    ra = np.degrees(np.arctan2(sub_xyz[:, 1], sub_xyz[:, 0])) % 360
-    dec = np.degrees(np.arcsin(np.clip(sub_xyz[:, 2], -1, 1)))
-    return (shadow_sep(ra, dec, ut, frame) < SHADOW_DEG).reshape(-1, len(SUB)).mean(1)
-
-
 # ------------------------------------------------------------------ the shadow model
 # A glint is a flash at one unknown instant, equally likely at any moment of the exposure. At that instant it is dark if
 # the point where Palomar's line of sight meets the orbit is in Earth's shadow; a glint's brightness follows how much of
@@ -136,11 +110,9 @@ def shadow_share(sub_xyz, ut, frame="geo"):
 # about 1,100 km in 50 min); from the centre of the Earth it barely moves. Under the hypothesis that r is the rate of
 # transients in shadow over the rate in sunlight, a point in shadow for a share s of the exposure has rate b (1 - (1 - r) s),
 # b the rate with no effect; with s 0 or 1 everywhere this is the plain count in shadow against sunlight.
-# Edge models: "disc" (default: the hidden share of the Sun's disc, from umbra, 8.42 deg, to penumbra, 8.96 deg, at the
-# geostationary radius, half hidden at 8.69); "umbra" (dark only where the whole disc is hidden) and "penumbra" (dark
-# wherever any of it is) bracket how glints' detection follows the light; "sharp" (a cone of the given radius about the
-# shadow's axis, VASCO's construction). earth > 1 enlarges the Earth for its atmosphere (Danjon's 1/85).
-from dataclasses import dataclass, replace                                       # noqa: E402
+# Edge: "disc" (the hidden share of the Sun's disc, from umbra, 8.42 deg, to penumbra, 8.96 deg, at the geostationary
+# radius, half hidden at 8.69); "penumbra" (dark wherever any of it is hidden), with earth > 1 enlarging the Earth for its
+# atmosphere (Danjon's 1/85), gives the shadow at its widest, for deciding which plates it can reach.
 
 R_EARTH, R_SUN = 6371.0, 695700.0
 DANJON = 1 + 1 / 85
@@ -152,10 +124,7 @@ CHUNK = 50000                                                                   
 class Shadow:
     frame: str = "topo"
     edge: str = "disc"
-    radius: float = SHADOW_DEG                                                   # sharp edge only
     earth: float = 1.0
-    instant: bool = False                                                        # one instant (mid-exposure, or as given)
-    shift_min: float = 0.0                                                       # every plate's times moved by this
     r_orbit: float = R_GEO
     nt: int = NT
 
@@ -164,35 +133,19 @@ class Shadow:
 
 
 MAIN = Shadow("topo")
-GEO = Shadow("geo")
 
 
 def wide(frame, r_orbit=R_GEO):
-    """The shadow at its widest (penumbra's outer edge, the Earth enlarged for its atmosphere), over the whole exposure: no
-    variant reaches beyond it, so plates it misses are clear of every one."""
+    """The shadow at its widest (penumbra's outer edge, the Earth enlarged for its atmosphere), over the whole exposure:
+    plates it misses are clear of the shadow."""
     return Shadow(frame, edge="penumbra", earth=DANJON, r_orbit=r_orbit)
 
 
-def variants(S):
-    """The model's systematics: how glints' detection follows the light (umbra only, any dimming), the atmosphere, the
-    plates' times (the asteroid trails put mid-exposure 0.5 min before ours, scatter 0.7 min), the exposure taken as one
-    instant, a sharp edge at VASCO's 8.69 deg over the exposure, and the sampling of the exposure."""
-    return {"umbra": S.but(edge="umbra"), "penumbra": S.but(edge="penumbra"), "atmosphere": S.but(earth=DANJON),
-            "times_minus_1": S.but(shift_min=-1.0), "times_plus_1": S.but(shift_min=1.0),
-            "times_minus_5": S.but(shift_min=-5.0), "times_plus_5": S.but(shift_min=5.0),
-            "mid_exposure": S.but(instant=True), "sharp": S.but(edge="sharp"), "instants_41": S.but(nt=41)}
-
-
 def instants(p, S):
-    """The times (datetime64) at which plate p's exposure is sampled: NT instants spread evenly over it, or one."""
-    mid = np.datetime64(np.asarray(p.ut, dtype="datetime64[ns]")) + np.timedelta64(int(round(S.shift_min * 60e9)), "ns")
-    if S.instant:
-        return np.array([mid])
+    """The times (datetime64) at which plate p's exposure is sampled: S.nt instants spread evenly over it."""
+    mid = np.datetime64(np.asarray(p.ut, dtype="datetime64[ns]"))
     k = (np.arange(S.nt) + 0.5) / S.nt - 0.5
     return mid + (k * float(p.exp) * 60e9).astype("timedelta64[ns]")
-
-
-from functools import lru_cache                                                  # noqa: E402
 
 
 @lru_cache(maxsize=4096)
@@ -231,12 +184,10 @@ def hidden(P, sun, earth=1.0):
 
 def darkness(d, t, S):
     """How dark the orbit is along lines of sight d (unit vectors) at one time t, under shadow model S (0 sunlit, 1 dark)."""
-    _, sun, ax = _at(int(np.datetime64(t, "ns").astype(np.int64)))
+    sun = _at(int(np.datetime64(t, "ns").astype(np.int64)))[1]
     P = orbit_point(d, t, S)
-    if S.edge == "sharp":
-        return (P @ ax / np.linalg.norm(P, axis=1) > np.cos(np.radians(S.radius))).astype(float)
     h = hidden(P, sun, S.earth)
-    return h if S.edge == "disc" else (h >= 1 - 1e-12).astype(float) if S.edge == "umbra" else (h > 0).astype(float)
+    return h if S.edge == "disc" else (h > 0).astype(float)
 
 
 def dark_dirs(d, p, S=MAIN):
@@ -257,15 +208,6 @@ def dark(xi, eta, p, S=MAIN):
     return dark_dirs(d, p, S).reshape(np.shape(xi))
 
 
-def turn(xi, eta, d):
-    """Plate-frame offsets turned by d quarter-turns about the plate centre (d % 4), and mirrored (d >= 4): the eight
-    ways an outline can be laid on another plate."""
-    xi, eta = np.asarray(xi), np.asarray(eta)
-    for _ in range(d % 4):
-        xi, eta = -eta, xi
-    return (eta, xi) if d >= 4 else (xi, eta)
-
-
 _SUB = {}
 _NONE = np.zeros((GX.size, len(SUB)))
 _NONE.flags.writeable = False
@@ -280,11 +222,8 @@ def sub_dark(p, S=MAIN):
     return _NONE if _SUB[key] is None else _SUB[key]
 
 
-def cell_dark(p, S=MAIN, centres=False):
-    """Each grid cell's share in shadow: its 3 x 3 sub-points averaged, or (centres, VASCO's construction) its centre
-    alone."""
-    if centres:
-        return np.zeros(GX.size) if near_miss(p, S) else dark(GX, GY, p, S)
+def cell_dark(p, S=MAIN):
+    """Each grid cell's share in shadow: its 3 x 3 sub-points averaged."""
     return sub_dark(p, S).mean(1)
 
 
@@ -294,8 +233,7 @@ def clearance(p, S):
     if near_miss(p, S):
         return np.inf
     d = unit(*deproject(GX, GY, p.ra_c, p.dec_c)).reshape(-1, 3)
-    outer = max(np.degrees(np.arcsin(min(1.0, DANJON * R_EARTH / S.r_orbit))) + np.degrees(np.arcsin(R_SUN / 1.47e8)),
-                S.radius if S.edge == "sharp" else 0.0)
+    outer = np.degrees(np.arcsin(min(1.0, DANJON * R_EARTH / S.r_orbit))) + np.degrees(np.arcsin(R_SUN / 1.47e8))
     best = np.inf
     for t in instants(p, S):
         P = orbit_point(d, t, S); ax = _at(int(np.datetime64(t, "ns").astype(np.int64)))[2]
@@ -309,19 +247,11 @@ def near_miss(p, S, margin=2.0):
     of where the centre's does, seen from the Earth's centre; the shadow's outer edge (penumbra, with the atmosphere) is
     taken at its widest, and the exposure's start, middle, and end are tested, with a margin for the motion between."""
     c = unit(p.ra_c, p.dec_c).reshape(1, 3)
-    outer = max(np.degrees(np.arcsin(min(1.0, DANJON * R_EARTH / S.r_orbit))) + 0.3, S.radius if S.edge == "sharp" else 0.0)
+    outer = np.degrees(np.arcsin(min(1.0, DANJON * R_EARTH / S.r_orbit))) + 0.3
     spread = (HALF * np.sqrt(2) + 0.1) * (S.r_orbit + R_EARTH) / S.r_orbit
-    for t in instants(p, S if S.instant else S.but(nt=3)):
+    for t in instants(p, S.but(nt=3)):
         P = orbit_point(c, t, S)[0]; ax = _at(int(np.datetime64(t, "ns").astype(np.int64)))[2]
         if np.degrees(np.arccos(np.clip(P @ ax / np.linalg.norm(P), -1, 1))) < outer + spread + margin:
             return False
     return True
 
-
-def vasco_plate(plate, p, cat):
-    """One plate of VASCO's catalogue on the grid: transient counts per cell and the sky position of each sub-point.
-    p: the plate's row of plates_corrected.parquet (centre, corrected mid-exposure time)."""
-    sra, sdec = deproject((GX[:, None] + SUB[:, 0]).ravel(), (GY[:, None] + SUB[:, 1]).ravel(), p.ra_c, p.dec_c)
-    c = cat[cat.plate == plate]
-    return dict(plate=plate, n=cell_counts(c.xi.values, c.eta.values), use=np.ones(GX.size, bool),
-                sub=unit(sra, sdec), ut=p.ut)
