@@ -13,6 +13,7 @@ FILES = {"fit": VS / "shadow_fit.json", "perm": VS / "permutation_null.json",  #
          "rep": VS / "replicas.json",                                           # its null and limit from replicas of the shadows
          "total": VS / "shadow_total.json",                                     # the result with the plate times' systematic
          "geo": VS / "shadow_geometry.json",
+         "nb": VS / "shadow_neighbours.json",                                   # the sky around the near-empty shadow plates
          "alfit": VS / "alignment_fit.json", "align": VS / "alignments.json",
          "alchecks": VS / "alignment_checks.json", "alexample": VS / "alignment_example.json",
          "nuc": VS / "nuclear.json", "nucsym": VS / "nuclear_window-1_0_1.json",
@@ -82,6 +83,10 @@ REG = [
     ("est.e1_power", "rep", "matches/count_dec/power/E1", "pct0", 5),
     ("est.e2_power", "rep", "matches/count_dec/power/E2", "pct0", 5),
     ("est.h_r", "fit", "fit/hybrid", "f2", 5),
+    ("est.nb_radius", "nb", "radius_deg", "intstr", 5),
+    ("est.nb_median", "nb", "neighbour_median", "pct0", 5),
+    ("est.nb_share", "nb", "neighbour_share_low", "pct0", 5),
+    ("est.survey_share", "nb", "survey_share_low", "pct0", 5),
     ("est.h_power", "rep", "matches/count_dec/power/H", "pct0", 5),
     ("sh.fit_p_t", "rep", "matches/count_dec/p/r", "times", 5),
     ("model.art", "site", "model/artefacts", "int", 5),

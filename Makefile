@@ -103,6 +103,8 @@ $(VS)/time_posterior/shadow_fit_only.json: $(VS)/shadow_fit.json $(TIME_DRAWS)
 	POSS_FIT_ONLY=1 POSS_TIME_JITTER_FILE=$(TIME_DRAWS) POSS_TIME_JITTER_N=100 POSS_SAMPLE=$(@D) $(PY) -u analysis/shadow_fit.py > $(@D)/run.log
 $(VS)/shadow_total.json: $(VS)/replicas.json $(VS)/time_posterior/shadow_fit_only.json diagnostics/shadow_total.py
 	$(PY) diagnostics/shadow_total.py $(VS)
+$(VS)/shadow_neighbours.json: $(VS)/shadow_fit.json diagnostics/shadow_neighbours.py $(SHADOW)
+	POSS_SAMPLE=$(VS) $(PY) diagnostics/shadow_neighbours.py > /dev/null
 $(VS)/shadow_geometry.json: $(VS)/shadow_fit.json analysis/shadow_geometry.py
 	POSS_SAMPLE=$(VS) $(PY) analysis/shadow_geometry.py > /dev/null
 $(VS)/site_data.json: $(VS)/shadow_fit.json analysis/site_data.py
@@ -144,7 +146,7 @@ $(VS)/alignment_fit.json: $(VS)/alignments.npz analysis/alignment_fit.py analysi
 $(VS)/alignment_example.json: $(VS)/alignments.npz analysis/alignment_example.py
 	POSS_SAMPLE=$(VS) $(PY) analysis/alignment_example.py > /dev/null
 
-tests: $(addprefix $(VS)/,shadow_fit.json replicas.json permutation_null.json shadow_total.json shadow_geometry.json site_data.json \
+tests: $(addprefix $(VS)/,shadow_fit.json replicas.json permutation_null.json shadow_total.json shadow_geometry.json shadow_neighbours.json site_data.json \
          alignment_fit.json alignment_checks.json alignment_example.json nuclear.json nuclear_window-1_0_1.json nuclear_vascolist.json \
          vasco_repeat.json vasco_ratings.json) \
        $(addprefix $(VR)/,permutation_null.json shadow_fit.json replicas.json) $(addprefix $(VF)/,shadow_fit.json replicas.json) \

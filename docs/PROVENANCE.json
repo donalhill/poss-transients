@@ -18,13 +18,13 @@
   "release/vasco_rated/plates.parquet": "83877de8424b33719502b281ee6a5a9ad3f2d73081ae2028e6c9306be726331a",
   "release/vasco_raw/transients.parquet": "d2567210ffe9e2241623ccf9742ea18270915a748a05afefd739d65bde00384e",
   "release/vasco_raw/plates.parquet": "b49c6518f6c100eec6ba45c6e7c85b2b68b96b7d2cdd8070dd4c5825e108959a",
-  "report/copy.md": "1cc904bf16e236e58d5c50c6d04a5ae82758be8fb7e9d786d9d7ccda9208156f",
-  "report/briefs.md": "4d7cc3941971bbe60f247139b8ddf56a4edcc959cf5d335de0418fdbd12503e2",
-  "report/registry.py": "64e5b5e72106138a76b6110c007a6fb9aa5198c049b89ce1de871cf9fa400fc7",
+  "report/copy.md": "1e026b0ac72f7e2314e2607df31154eae8b5e76484b1f9198042a9e44e42ecc8",
+  "report/briefs.md": "d3082b1c24acdfdd0c37be77439730d58d0c4d94a4afb10cf01dbfab7500092d",
+  "report/registry.py": "3b509b06788b87523600c96857e9294b7fc2a3298d2a825dae772ee205c163f8",
   "report/figures.py": "8dec1c181293144282d11252eed3f1c8e0c951837a531f1d85c9c63c63500732",
-  "report/numbers.json": "7be9550ccc73b190d2a616bca73d863adffb434ecc4fd4fb7ed722657f78d741",
+  "report/numbers.json": "73eb0aee1cea78744bc28f82647bc37ed8ad3a474ca68156fcac01cf66cf363d",
   "report/template.html": "177952193afb797bafa31814da234e439d3137b24c9c82068ca1616ad2fda548",
-  "docs/index.html": "0800c962d91741228453afdf5bfef200a4340dcc4ae781dbdcfec2b6cba7e0f2",
+  "docs/index.html": "276d835bff0e6cf3bd37371c79744aab23660137086baf0f48d5bb429af56224",
   "docs/figures.json": "e76ddd71a3b621a7334e1981f819283d8b1b21ac50dcf0744926d661874419cf"
  }
 }
